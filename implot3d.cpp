@@ -50,6 +50,7 @@
 
 #include "implot3d.h"
 #include "implot3d_internal.h"
+#include <cmath> // for std::cos, std::sin
 
 #ifndef IMGUI_DISABLE
 
