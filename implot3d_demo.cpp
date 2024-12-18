@@ -291,7 +291,7 @@ void DemoSurfacePlots() {
             int idx = i * N + j;
             xs[idx] = range_min + j * step;                                   // X values are constant along rows
             ys[idx] = range_min + i * step;                                   // Y values are constant along columns
-            zs[idx] = sinf(std::sqrt(xs[idx] * xs[idx] + ys[idx] * ys[idx])); // Z = sin(sqrt(X^2 + Y^2))
+            zs[idx] = ImSin(ImSqrt((xs[idx] * xs[idx] + ys[idx] * ys[idx]))); // Z = sin(sqrt(X^2 + Y^2))
         }
     }
 
@@ -419,8 +419,8 @@ void DemoMarkersAndText() {
 
         // Filled markers
         for (int m = 0; m < ImPlot3DMarker_COUNT; ++m) {
-            xs[1] = xs[0] + ImCos(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5;
-            ys[1] = ys[0] + ImSin(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5;
+            xs[1] = xs[0] + ImCos(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5f;
+            ys[1] = ys[0] + ImSin(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5f;
 
             ImGui::PushID(m);
             ImPlot3D::SetNextMarkerStyle(m, mk_size, IMPLOT3D_AUTO_COL, mk_weight);
@@ -437,8 +437,8 @@ void DemoMarkersAndText() {
 
         // Open markers
         for (int m = 0; m < ImPlot3DMarker_COUNT; ++m) {
-            xs[1] = xs[0] + ImCos(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5;
-            ys[1] = ys[0] - ImSin(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5;
+            xs[1] = xs[0] + ImCos(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5f;
+            ys[1] = ys[0] - ImSin(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5f;
 
             ImGui::PushID(m);
             ImPlot3D::SetNextMarkerStyle(m, mk_size, ImVec4(0, 0, 0, 0), mk_weight);
