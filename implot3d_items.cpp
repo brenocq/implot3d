@@ -848,7 +848,7 @@ template <typename _IndexerX, typename _IndexerY, typename _IndexerZ>
 struct GetterXYZ {
     GetterXYZ(_IndexerX x, _IndexerY y, _IndexerZ z, int count) : IndexerX(x), IndexerY(y), IndexerZ(z), Count(count) {}
     template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
-        return ImPlot3DPoint(IndexerX(idx), IndexerY(idx), IndexerZ(idx));
+        return ImPlot3DPoint((float)IndexerX(idx), (float)IndexerY(idx), (float)IndexerZ(idx));
     }
     const _IndexerX IndexerX;
     const _IndexerY IndexerY;

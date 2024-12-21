@@ -523,51 +523,51 @@ struct ImPlot3DPoint {
     }
 
     // Binary operators
-    ImPlot3DPoint operator*(float rhs) const;
-    ImPlot3DPoint operator/(float rhs) const;
-    ImPlot3DPoint operator+(const ImPlot3DPoint& rhs) const;
-    ImPlot3DPoint operator-(const ImPlot3DPoint& rhs) const;
-    ImPlot3DPoint operator*(const ImPlot3DPoint& rhs) const;
-    ImPlot3DPoint operator/(const ImPlot3DPoint& rhs) const;
+    IMPLOT3D_API ImPlot3DPoint operator*(float rhs) const;
+    IMPLOT3D_API ImPlot3DPoint operator/(float rhs) const;
+    IMPLOT3D_API ImPlot3DPoint operator+(const ImPlot3DPoint& rhs) const;
+    IMPLOT3D_API ImPlot3DPoint operator-(const ImPlot3DPoint& rhs) const;
+    IMPLOT3D_API ImPlot3DPoint operator*(const ImPlot3DPoint& rhs) const;
+    IMPLOT3D_API ImPlot3DPoint operator/(const ImPlot3DPoint& rhs) const;
 
     // Unary operator
-    ImPlot3DPoint operator-() const;
+    IMPLOT3D_API ImPlot3DPoint operator-() const;
 
     // Compound assignment operators
-    ImPlot3DPoint& operator*=(float rhs);
-    ImPlot3DPoint& operator/=(float rhs);
-    ImPlot3DPoint& operator+=(const ImPlot3DPoint& rhs);
-    ImPlot3DPoint& operator-=(const ImPlot3DPoint& rhs);
-    ImPlot3DPoint& operator*=(const ImPlot3DPoint& rhs);
-    ImPlot3DPoint& operator/=(const ImPlot3DPoint& rhs);
+    IMPLOT3D_API ImPlot3DPoint& operator*=(float rhs);
+    IMPLOT3D_API ImPlot3DPoint& operator/=(float rhs);
+    IMPLOT3D_API ImPlot3DPoint& operator+=(const ImPlot3DPoint& rhs);
+    IMPLOT3D_API ImPlot3DPoint& operator-=(const ImPlot3DPoint& rhs);
+    IMPLOT3D_API ImPlot3DPoint& operator*=(const ImPlot3DPoint& rhs);
+    IMPLOT3D_API ImPlot3DPoint& operator/=(const ImPlot3DPoint& rhs);
 
     // Comparison operators
-    bool operator==(const ImPlot3DPoint& rhs) const;
-    bool operator!=(const ImPlot3DPoint& rhs) const;
+    IMPLOT3D_API bool operator==(const ImPlot3DPoint& rhs) const;
+    IMPLOT3D_API bool operator!=(const ImPlot3DPoint& rhs) const;
 
     // Dot product
-    float Dot(const ImPlot3DPoint& rhs) const;
+    IMPLOT3D_API float Dot(const ImPlot3DPoint& rhs) const;
 
     // Cross product
-    ImPlot3DPoint Cross(const ImPlot3DPoint& rhs) const;
+    IMPLOT3D_API ImPlot3DPoint Cross(const ImPlot3DPoint& rhs) const;
 
     // Get vector length
-    float Length() const;
+    IMPLOT3D_API float Length() const;
 
     // Get vector squared length
-    float LengthSquared() const;
+    IMPLOT3D_API float LengthSquared() const;
 
     // Normalize to unit length
-    void Normalize();
+    IMPLOT3D_API void Normalize();
 
     // Return vector normalized to unit length
-    ImPlot3DPoint Normalized() const;
+    IMPLOT3D_API ImPlot3DPoint Normalized() const;
 
     // Friend binary operators to allow commutative behavior
-    friend ImPlot3DPoint operator*(float lhs, const ImPlot3DPoint& rhs);
+    IMPLOT3D_API friend ImPlot3DPoint operator*(float lhs, const ImPlot3DPoint& rhs);
 
     // Check if the point is NaN
-    bool IsNaN() const;
+    IMPLOT3D_API bool IsNaN() const;
 
 #ifdef IMPLOT3D_POINT_CLASS_EXTRA
     IMPLOT3D_POINT_CLASS_EXTRA // Define additional constructors and implicit cast operators in imconfig.h to convert back and forth between your math types and ImPlot3DPoint
@@ -607,13 +607,13 @@ struct ImPlot3DBox {
     constexpr ImPlot3DBox(const ImPlot3DPoint& min, const ImPlot3DPoint& max) : Min(min), Max(max) {}
 
     // Method to expand the box to include a point
-    void Expand(const ImPlot3DPoint& point);
+    IMPLOT3D_API void Expand(const ImPlot3DPoint& point);
 
     // Method to check if a point is inside the box
-    bool Contains(const ImPlot3DPoint& point) const;
+    IMPLOT3D_API bool Contains(const ImPlot3DPoint& point) const;
 
     // Method to clip a line segment against the box
-    bool ClipLineSegment(const ImPlot3DPoint& p0, const ImPlot3DPoint& p1, ImPlot3DPoint& p0_clipped, ImPlot3DPoint& p1_clipped) const;
+    IMPLOT3D_API bool ClipLineSegment(const ImPlot3DPoint& p0, const ImPlot3DPoint& p1, ImPlot3DPoint& p0_clipped, ImPlot3DPoint& p1_clipped) const;
 };
 
 //-----------------------------------------------------------------------------
@@ -627,8 +627,8 @@ struct ImPlot3DRange {
     constexpr ImPlot3DRange() : Min(0.0f), Max(0.0f) {}
     constexpr ImPlot3DRange(float min, float max) : Min(min), Max(max) {}
 
-    void Expand(float value);
-    bool Contains(float value) const;
+    IMPLOT3D_API void Expand(float value);
+    IMPLOT3D_API bool Contains(float value) const;
     float Size() const { return Max - Min; }
 };
 
@@ -643,41 +643,41 @@ struct ImPlot3DQuat {
     constexpr ImPlot3DQuat() : x(0.0f), y(0.0f), z(0.0f), w(1.0f) {}
     constexpr ImPlot3DQuat(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z), w(_w) {}
 
-    ImPlot3DQuat(float _angle, const ImPlot3DPoint& _axis);
+    IMPLOT3D_API ImPlot3DQuat(float _angle, const ImPlot3DPoint& _axis);
 
     // Set quaternion from two vectors
-    static ImPlot3DQuat FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3DPoint& v1);
+    IMPLOT3D_API static ImPlot3DQuat FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3DPoint& v1);
 
     // Get quaternion length
-    float Length() const;
+    IMPLOT3D_API float Length() const;
 
     // Get normalized quaternion
-    ImPlot3DQuat Normalized() const;
+    IMPLOT3D_API ImPlot3DQuat Normalized() const;
 
     // Conjugate of the quaternion
-    ImPlot3DQuat Conjugate() const;
+    IMPLOT3D_API ImPlot3DQuat Conjugate() const;
 
     // Inverse of the quaternion
-    ImPlot3DQuat Inverse() const;
+    IMPLOT3D_API ImPlot3DQuat Inverse() const;
 
     // Binary operators
-    ImPlot3DQuat operator*(const ImPlot3DQuat& rhs) const;
+    IMPLOT3D_API ImPlot3DQuat operator*(const ImPlot3DQuat& rhs) const;
 
     // Normalize the quaternion in place
-    ImPlot3DQuat& Normalize();
+    IMPLOT3D_API ImPlot3DQuat& Normalize();
 
     // Rotate a 3D point using the quaternion
-    ImPlot3DPoint operator*(const ImPlot3DPoint& point) const;
+    IMPLOT3D_API ImPlot3DPoint operator*(const ImPlot3DPoint& point) const;
 
     // Comparison operators
-    bool operator==(const ImPlot3DQuat& rhs) const;
-    bool operator!=(const ImPlot3DQuat& rhs) const;
+    IMPLOT3D_API bool operator==(const ImPlot3DQuat& rhs) const;
+    IMPLOT3D_API bool operator!=(const ImPlot3DQuat& rhs) const;
 
     // Interpolate between two quaternions
-    static ImPlot3DQuat Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2, float t);
+    IMPLOT3D_API static ImPlot3DQuat Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2, float t);
 
     // Get quaternion dot product
-    float Dot(const ImPlot3DQuat& rhs) const;
+    IMPLOT3D_API float Dot(const ImPlot3DQuat& rhs) const;
 
 #ifdef IMPLOT3D_QUAT_CLASS_EXTRA
     IMPLOT3D_QUAT_CLASS_EXTRA // Define additional constructors and implicit cast operators in imconfig.h to convert back and forth between your math types and ImPlot3DQuat

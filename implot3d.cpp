@@ -71,7 +71,7 @@ namespace ImPlot3D {
 ImPlot3DContext* GImPlot3D = nullptr;
 #endif
 
-static ImPlot3DQuat init_rotation = ImPlot3DQuat(-0.513269, -0.212596, -0.318184, 0.76819);
+static ImPlot3DQuat init_rotation = ImPlot3DQuat(-0.513269f, -0.212596f, -0.318184f, 0.76819f);
 
 ImPlot3DContext* CreateContext() {
     ImPlot3DContext* ctx = IM_NEW(ImPlot3DContext)();
@@ -506,7 +506,7 @@ int GetMouseOverAxis(const ImPlot3DPlot& plot, const bool* active_faces, const I
 
 void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d) {
     const ImVec4 col_bg = GetStyleColorVec4(ImPlot3DCol_PlotBg);
-    const ImVec4 col_bg_hov = col_bg + ImVec4(0.03, 0.03, 0.03, 0.0);
+    const ImVec4 col_bg_hov = col_bg + ImVec4(0.03f, 0.03f, 0.03f, 0.0f);
 
     int hovered_plane = -1;
     if (!plot.Held) {
@@ -1014,7 +1014,7 @@ void RenderPlotBox(ImDrawList* draw_list, const ImPlot3DPlot& plot) {
             axis_corners[y_axis][1] = y_corner;
         }
     } else {
-        int index = (active_faces[0] << 2) | (active_faces[1] << 1) | (active_faces[2]);
+        int index = ((int)active_faces[0] << 2) | ((int)active_faces[1] << 1) | ((int)active_faces[2]);
         for (int a = 0; a < 3; a++) {
             axis_corners[a][0] = axis_corners_lookup_3d[index][a][0];
             axis_corners[a][1] = axis_corners_lookup_3d[index][a][1];
@@ -1046,7 +1046,7 @@ int Formatter_Default(float value, char* buff, int size, void* data) {
 double NiceNum(double x, bool round) {
     double f;
     double nf;
-    int expv = (int)floor(ImLog10(x));
+    int expv = (int)floor(ImLog10((float)x));
     f = x / ImPow(10.0, (double)expv);
     if (round)
         if (f < 1.5)
@@ -1086,7 +1086,7 @@ void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, ImPlot3
         // is this zero? combat zero formatting issues
         if (major - interval < 0 && major + interval > 0)
             major = 0;
-        if (range.Contains(major)) {
+        if (range.Contains((float)major)) {
             if (!first_major_set) {
                 first_major_idx = ticker.TickCount();
                 first_major_set = true;
@@ -1095,7 +1095,7 @@ void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, ImPlot3
         }
         for (int i = 1; i < nMinor; ++i) {
             double minor = major + i * interval / nMinor;
-            if (range.Contains(minor)) {
+            if (range.Contains((float)minor)) {
                 total_size += ticker.AddTick(minor, false, true, formatter, formatter_data).LabelSize;
             }
         }
@@ -1455,7 +1455,7 @@ ImVec2 PlotToPixels(const ImPlot3DPoint& point) {
 }
 
 ImVec2 PlotToPixels(double x, double y, double z) {
-    return PlotToPixels(ImPlot3DPoint(x, y, z));
+    return PlotToPixels(ImPlot3DPoint((float)x, (float)y, (float)z));
 }
 
 ImPlot3DRay PixelsToPlotRay(const ImVec2& pix) {
@@ -1465,7 +1465,7 @@ ImPlot3DRay PixelsToPlotRay(const ImVec2& pix) {
 }
 
 ImPlot3DRay PixelsToPlotRay(double x, double y) {
-    return PixelsToPlotRay(ImVec2(x, y));
+    return PixelsToPlotRay(ImVec2((float)x, (float)y));
 }
 
 ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
@@ -1519,7 +1519,7 @@ ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
     ComputeActiveFaces(active_faces, plot.Rotation);
 
     // Calculate intersection point with the planes
-    ImPlot3DPoint P = IntersectPlane(active_faces[plane] ? 0.5 : -0.5);
+    ImPlot3DPoint P = IntersectPlane(active_faces[plane] ? 0.5f : -0.5f);
     if (P.IsNaN())
         return P;
 
@@ -1545,7 +1545,7 @@ ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
 }
 
 ImPlot3DPoint PixelsToPlotPlane(double x, double y, ImPlane3D plane, bool mask) {
-    return PixelsToPlotPlane(ImVec2(x, y), plane, mask);
+    return PixelsToPlotPlane(ImVec2((float)x, (float)y), plane, mask);
 }
 
 ImVec2 GetPlotPos() {
@@ -2622,8 +2622,8 @@ bool ImPlot3DBox::ClipLineSegment(const ImPlot3DPoint& p0, const ImPlot3DPoint& 
         return false; // Far
 
     // Compute clipped points
-    p0_clipped = p0 + d * t0;
-    p1_clipped = p0 + d * t1;
+    p0_clipped = p0 + d * (float)t0;
+    p1_clipped = p0 + d * (float)t1;
 
     return true;
 }
@@ -2647,11 +2647,11 @@ bool ImPlot3DRange::Contains(float value) const {
 
 ImPlot3DQuat::ImPlot3DQuat(float _angle, const ImPlot3DPoint& _axis) {
     float half_angle = _angle * 0.5f;
-    float s = std::sin(half_angle);
+    float s = ImSin(half_angle);
     x = s * _axis.x;
     y = s * _axis.y;
     z = s * _axis.z;
-    w = std::cos(half_angle);
+    w = ImCos(half_angle);
 }
 
 ImPlot3DQuat ImPlot3DQuat::FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3DPoint& v1) {
@@ -2667,7 +2667,7 @@ ImPlot3DQuat ImPlot3DQuat::FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3
 
     // Handle edge cases: if vectors are very close or identical
     const float epsilon = 1e-6f;
-    if (std::fabs(normalized_dot - 1.0f) < epsilon) {
+    if (ImFabs(normalized_dot - 1.0f) < epsilon) {
         // v0 and v1 are nearly identical; return an identity quaternion
         q.x = 0.0f;
         q.y = 0.0f;
@@ -2677,9 +2677,9 @@ ImPlot3DQuat ImPlot3DQuat::FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3
     }
 
     // Handle edge case: if vectors are opposite
-    if (std::fabs(normalized_dot + 1.0f) < epsilon) {
+    if (ImFabs(normalized_dot + 1.0f) < epsilon) {
         // v0 and v1 are opposite; choose an arbitrary orthogonal axis
-        ImPlot3DPoint arbitrary_axis = std::fabs(v0.x) > std::fabs(v0.z) ? ImPlot3DPoint(-v0.y, v0.x, 0.0f)
+        ImPlot3DPoint arbitrary_axis = ImFabs(v0.x) > ImFabs(v0.z) ? ImPlot3DPoint(-v0.y, v0.x, 0.0f)
                                                                          : ImPlot3DPoint(0.0f, -v0.z, v0.y);
         arbitrary_axis.Normalize();
         q.x = arbitrary_axis.x;
@@ -2692,19 +2692,19 @@ ImPlot3DQuat ImPlot3DQuat::FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3
     // General case
     ImPlot3DPoint axis = v0.Cross(v1);
     axis.Normalize();
-    float angle = std::acos(normalized_dot);
+    float angle = ImAcos(normalized_dot);
     float half_angle = angle * 0.5f;
-    float s = std::sin(half_angle);
+    float s = ImSin(half_angle);
     q.x = s * axis.x;
     q.y = s * axis.y;
     q.z = s * axis.z;
-    q.w = std::cos(half_angle);
+    q.w = ImCos(half_angle);
 
     return q;
 }
 
 float ImPlot3DQuat::Length() const {
-    return std::sqrt(x * x + y * y + z * z + w * w);
+    return ImSqrt(x * x + y * y + z * z + w * w);
 }
 
 ImPlot3DQuat ImPlot3DQuat::Normalized() const {
@@ -2783,12 +2783,12 @@ ImPlot3DQuat ImPlot3DQuat::Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2,
     }
 
     // Compute the angle and the interpolation factors
-    float theta_0 = std::acos(dot);        // Angle between input quaternions
+    float theta_0 = ImAcos(dot);        // Angle between input quaternions
     float theta = theta_0 * t;             // Interpolated angle
-    float sin_theta = std::sin(theta);     // Sine of interpolated angle
-    float sin_theta_0 = std::sin(theta_0); // Sine of original angle
+    float sin_theta = ImSin(theta);        // Sine of interpolated angle
+    float sin_theta_0 = ImSin(theta_0);    // Sine of original angle
 
-    float s1 = std::cos(theta) - dot * sin_theta / sin_theta_0;
+    float s1 = ImCos(theta) - dot * sin_theta / sin_theta_0;
     float s2 = sin_theta / sin_theta_0;
 
     // Interpolate and return the result

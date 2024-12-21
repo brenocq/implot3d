@@ -361,7 +361,7 @@ struct ImPlot3DTick {
     int Idx;
 
     ImPlot3DTick(double value, bool major, bool show_label) {
-        PlotPos = value;
+        PlotPos = (float)value;
         Major = major;
         ShowLabel = show_label;
         TextOffset = -1;
@@ -461,27 +461,27 @@ struct ImPlot3DAxis {
     }
 
     inline void SetRange(double v1, double v2) {
-        Range.Min = ImMin(v1, v2);
-        Range.Max = ImMax(v1, v2);
+        Range.Min = (float)ImMin(v1, v2);
+        Range.Max = (float)ImMax(v1, v2);
     }
 
     inline bool SetMin(double _min, bool force = false) {
         if (!force && IsLockedMin())
             return false;
-        _min = ImPlot3D::ImConstrainNan(ImPlot3D::ImConstrainInf(_min));
+        _min = ImPlot3D::ImConstrainNan((float)ImPlot3D::ImConstrainInf(_min));
         if (_min >= Range.Max)
             return false;
-        Range.Min = _min;
+        Range.Min = (float)_min;
         return true;
     }
 
     inline bool SetMax(double _max, bool force = false) {
         if (!force && IsLockedMax())
             return false;
-        _max = ImPlot3D::ImConstrainNan(ImPlot3D::ImConstrainInf(_max));
+        _max = ImPlot3D::ImConstrainNan((float)ImPlot3D::ImConstrainInf(_max));
         if (_max <= Range.Min)
             return false;
-        Range.Max = _max;
+        Range.Max = (float)_max;
         return true;
     }
 
