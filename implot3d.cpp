@@ -48,6 +48,7 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
 
+#include <cmath>
 #include "implot3d.h"
 #include "implot3d_internal.h"
 
