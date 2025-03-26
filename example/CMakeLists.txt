@@ -30,7 +30,7 @@ FetchContent_MakeAvailable(glfw)
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY "https://github.com/ocornut/imgui"
-    GIT_TAG "v1.91.5"
+    GIT_TAG "v1.91.9b"
     GIT_PROGRESS TRUE
     GIT_SHALLOW TRUE
 )
@@ -52,9 +52,8 @@ target_link_libraries(imgui PUBLIC glfw glad)
 FetchContent_Declare(
     implot
     GIT_REPOSITORY "https://github.com/epezent/implot"
-    GIT_TAG "v0.16"
+    GIT_TAG "3da8bd34299965d3b0ab124df743fe3e076fa222"
     GIT_PROGRESS TRUE
-    GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(implot)
 set(IMPLOT_SOURCE

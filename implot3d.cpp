@@ -1,5 +1,5 @@
 //--------------------------------------------------
-// ImPlot3D v0.2
+// ImPlot3D v0.3 WIP
 // implot3d.cpp
 // Date: 2024-11-16
 // Author: Breno Cunha Queiroz (brenocq.com)
@@ -62,7 +62,8 @@
 // [SECTION] Macros
 //-----------------------------------------------------------------------------
 
-#define IMPLOT3D_CHECK_CTX() IM_ASSERT_USER_ERROR(GImPlot3D != nullptr, "No current context. Did you call ImPlot3D::CreateContext() or ImPlot3D::SetCurrentContext()?")
+#define IMPLOT3D_CHECK_CTX()                                                                                                                         \
+    IM_ASSERT_USER_ERROR(GImPlot3D != nullptr, "No current context. Did you call ImPlot3D::CreateContext() or ImPlot3D::SetCurrentContext()?")
 #define IMPLOT3D_CHECK_PLOT() IM_ASSERT_USER_ERROR(GImPlot3D->CurrentPlot != nullptr, "No active plot. Did you call ImPlot3D::BeginPlot()?")
 
 //-----------------------------------------------------------------------------
@@ -177,9 +178,7 @@ void AddTextRotated(ImDrawList* draw_list, ImVec2 pos, float angle, ImU32 col, c
         ImVec2 uv1 = ImVec2(glyph->U1, glyph->V1);
 
         // Render the glyph quad
-        draw_list->PrimQuadUV(corners[0], corners[1], corners[2], corners[3],
-                              uv0, ImVec2(glyph->U1, glyph->V0),
-                              uv1, ImVec2(glyph->U0, glyph->V1),
+        draw_list->PrimQuadUV(corners[0], corners[1], corners[2], corners[3], uv0, ImVec2(glyph->U1, glyph->V0), uv1, ImVec2(glyph->U0, glyph->V1),
                               col);
 
         // Advance the pen position
@@ -238,11 +237,13 @@ ImVec2 CalcLegendSize(ImPlot3DItemGroup& items, const ImVec2& pad, const ImVec2&
         sum_label_width += label_width;
     }
     // Compute legend size
-    const ImVec2 legend_size = vertical ? ImVec2(pad.x * 2 + icon_size + max_label_width, pad.y * 2 + nItems * txt_ht + (nItems - 1) * spacing.y) : ImVec2(pad.x * 2 + icon_size * nItems + sum_label_width + (nItems - 1) * spacing.x, pad.y * 2 + txt_ht);
+    const ImVec2 legend_size = vertical ? ImVec2(pad.x * 2 + icon_size + max_label_width, pad.y * 2 + nItems * txt_ht + (nItems - 1) * spacing.y)
+                                        : ImVec2(pad.x * 2 + icon_size * nItems + sum_label_width + (nItems - 1) * spacing.x, pad.y * 2 + txt_ht);
     return legend_size;
 }
 
-void ShowLegendEntries(ImPlot3DItemGroup& items, const ImRect& legend_bb, bool hovered, const ImVec2& pad, const ImVec2& spacing, bool vertical, ImDrawList& draw_list) {
+void ShowLegendEntries(ImPlot3DItemGroup& items, const ImRect& legend_bb, bool hovered, const ImVec2& pad, const ImVec2& spacing, bool vertical,
+                       ImDrawList& draw_list) {
     const float txt_ht = ImGui::GetTextLineHeight();
     const float icon_size = txt_ht;
     const float icon_shrink = 2;
@@ -260,7 +261,8 @@ void ShowLegendEntries(ImPlot3DItemGroup& items, const ImRect& legend_bb, bool h
         ImPlot3DItem* item = items.GetLegendItem(idx);
         const char* label = items.GetLegendLabel(idx);
         const float label_width = ImGui::CalcTextSize(label, nullptr, true).x;
-        const ImVec2 top_left = vertical ? legend_bb.Min + pad + ImVec2(0, i * (txt_ht + spacing.y)) : legend_bb.Min + pad + ImVec2(i * (icon_size + spacing.x) + sum_label_width, 0);
+        const ImVec2 top_left = vertical ? legend_bb.Min + pad + ImVec2(0, i * (txt_ht + spacing.y))
+                                         : legend_bb.Min + pad + ImVec2(i * (icon_size + spacing.x) + sum_label_width, 0);
         sum_label_width += label_width;
         ImRect icon_bb;
         icon_bb.Min = top_left + ImVec2(icon_shrink, icon_shrink);
@@ -322,10 +324,7 @@ void RenderLegend() {
     ImPlot3DLegend& legend = plot.Items.Legend;
     const bool legend_horz = ImPlot3D::ImHasFlag(legend.Flags, ImPlot3DLegendFlags_Horizontal);
     const ImVec2 legend_size = CalcLegendSize(plot.Items, gp.Style.LegendInnerPadding, gp.Style.LegendSpacing, !legend_horz);
-    const ImVec2 legend_pos = GetLocationPos(plot.PlotRect,
-                                             legend_size,
-                                             legend.Location,
-                                             gp.Style.LegendPadding);
+    const ImVec2 legend_pos = GetLocationPos(plot.PlotRect, legend_size, legend.Location, gp.Style.LegendPadding);
     legend.Rect = ImRect(legend_pos, legend_pos + legend_size);
 
     // Test hover
@@ -646,7 +645,8 @@ void RenderGrid(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DP
     }
 }
 
-void RenderTickMarks(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint* corners, const ImVec2* corners_pix, const int axis_corners[3][2], const int plane_2d) {
+void RenderTickMarks(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint* corners, const ImVec2* corners_pix,
+                     const int axis_corners[3][2], const int plane_2d) {
     ImU32 col_tick = GetStyleColorU32(ImPlot3DCol_AxisTick);
 
     auto DeterminePlaneForAxis = [&](int axis_idx) {
@@ -752,7 +752,8 @@ void RenderTickMarks(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPl
     }
 }
 
-void RenderTickLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint* corners, const ImVec2* corners_pix, const int axis_corners[3][2]) {
+void RenderTickLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint* corners, const ImVec2* corners_pix,
+                      const int axis_corners[3][2]) {
     ImU32 col_tick_txt = GetStyleColorU32(ImPlot3DCol_AxisText);
 
     for (int a = 0; a < 3; a++) {
@@ -846,7 +847,8 @@ void RenderTickLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
     }
 }
 
-void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint* corners, const ImVec2* corners_pix, const int axis_corners[3][2]) {
+void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint* corners, const ImVec2* corners_pix,
+                      const int axis_corners[3][2]) {
     for (int a = 0; a < 3; a++) {
         const ImPlot3DAxis& axis = plot.Axes[a];
         if (!axis.HasLabel())
@@ -1181,7 +1183,8 @@ void ShowAxisContextMenu(ImPlot3DAxis& axis) {
     bool grid = axis.HasGridLines();
     bool ticks = axis.HasTickMarks();
     bool labels = axis.HasTickLabels();
-    double drag_speed = (axis.Range.Size() <= FLT_EPSILON) ? FLT_EPSILON * 1.0e+13 : 0.01 * axis.Range.Size(); // recover from almost equal axis limits.
+    double drag_speed =
+        (axis.Range.Size() <= FLT_EPSILON) ? FLT_EPSILON * 1.0e+13 : 0.01 * axis.Range.Size(); // recover from almost equal axis limits.
 
     ImGui::BeginDisabled(always_locked);
     ImGui::CheckboxFlags("##LockMin", (unsigned int*)&axis.Flags, ImPlot3DAxisFlags_LockMin);
@@ -1356,6 +1359,7 @@ bool BeginPlot(const char* title_id, const ImVec2& size, ImPlot3DFlags flags) {
     if (!ImGui::ItemAdd(plot.FrameRect, plot.ID, &plot.FrameRect)) {
         gp.CurrentPlot = nullptr;
         gp.CurrentItems = nullptr;
+        gp.CurrentItem = nullptr;
         ImGui::EndChild();
         return false;
     }
@@ -1452,6 +1456,7 @@ void EndPlot() {
     // Reset current plot
     gp.CurrentPlot = nullptr;
     gp.CurrentItems = nullptr;
+    gp.CurrentItem = nullptr;
 
     // Reset the plot items for the next frame
     for (int i = 0; i < plot.Items.GetItemCount(); i++)
@@ -1517,11 +1522,7 @@ void SetupAxisTicks(ImAxis3D idx, const double* values, int n_ticks, const char*
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     ImPlot3DAxis& axis = plot.Axes[idx];
     axis.ShowDefaultTicks = keep_default;
-    AddTicksCustom(values,
-                   labels,
-                   n_ticks,
-                   axis.Ticker,
-                   axis.Formatter ? axis.Formatter : Formatter_Default,
+    AddTicksCustom(values, labels, n_ticks, axis.Ticker, axis.Formatter ? axis.Formatter : Formatter_Default,
                    (axis.Formatter && axis.FormatterData) ? axis.FormatterData : (void*)IMPLOT3D_LABEL_FORMAT);
 }
 
@@ -1535,7 +1536,8 @@ void SetupAxisTicks(ImAxis3D idx, double v_min, double v_max, int n_ticks, const
     SetupAxisTicks(idx, temp.Data, n_ticks, labels, keep_default);
 }
 
-void SetupAxes(const char* x_label, const char* y_label, const char* z_label, ImPlot3DAxisFlags x_flags, ImPlot3DAxisFlags y_flags, ImPlot3DAxisFlags z_flags) {
+void SetupAxes(const char* x_label, const char* y_label, const char* z_label, ImPlot3DAxisFlags x_flags, ImPlot3DAxisFlags y_flags,
+               ImPlot3DAxisFlags z_flags) {
     SetupAxis(ImAxis3D_X, x_label, x_flags);
     SetupAxis(ImAxis3D_Y, y_label, y_flags);
     SetupAxis(ImAxis3D_Z, z_label, z_flags);
@@ -1607,8 +1609,7 @@ void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags flags) {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
                          "SetupLegend() needs to be called after BeginPlot() and before any setup locking functions (e.g. PlotX)!");
-    IM_ASSERT_USER_ERROR(gp.CurrentItems != nullptr,
-                         "SetupLegend() needs to be called within an itemized context!");
+    IM_ASSERT_USER_ERROR(gp.CurrentItems != nullptr, "SetupLegend() needs to be called within an itemized context!");
     ImPlot3DLegend& legend = gp.CurrentItems->Legend;
     if (legend.PreviousLocation != location)
         legend.Location = location;
@@ -1622,9 +1623,7 @@ void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags flags) {
 // [SECTION] Plot Utils
 //-----------------------------------------------------------------------------
 
-ImPlot3DPlot* GetCurrentPlot() {
-    return GImPlot3D->CurrentPlot;
-}
+ImPlot3DPlot* GetCurrentPlot() { return GImPlot3D->CurrentPlot; }
 
 void BustPlotCache() {
     ImPlot3DContext& gp = *GImPlot3D;
@@ -1637,9 +1636,7 @@ ImVec2 PlotToPixels(const ImPlot3DPoint& point) {
     return NDCToPixels(PlotToNDC(point));
 }
 
-ImVec2 PlotToPixels(double x, double y, double z) {
-    return PlotToPixels(ImPlot3DPoint((float)x, (float)y, (float)z));
-}
+ImVec2 PlotToPixels(double x, double y, double z) { return PlotToPixels(ImPlot3DPoint((float)x, (float)y, (float)z)); }
 
 ImPlot3DRay PixelsToPlotRay(const ImVec2& pix) {
     ImPlot3DContext& gp = *GImPlot3D;
@@ -1647,9 +1644,7 @@ ImPlot3DRay PixelsToPlotRay(const ImVec2& pix) {
     return NDCRayToPlotRay(PixelsToNDCRay(pix));
 }
 
-ImPlot3DRay PixelsToPlotRay(double x, double y) {
-    return PixelsToPlotRay(ImVec2((float)x, (float)y));
-}
+ImPlot3DRay PixelsToPlotRay(double x, double y) { return PixelsToPlotRay(ImVec2((float)x, (float)y)); }
 
 ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
     ImPlot3DContext& gp = *GImPlot3D;
@@ -1701,8 +1696,7 @@ ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
 
     // Helper lambda to check if point P is within the plot box
     auto InRange = [&](const ImPlot3DPoint& P) {
-        return P.x >= -0.5f * plot.BoxScale.x && P.x <= 0.5f * plot.BoxScale.x &&
-               P.y >= -0.5f * plot.BoxScale.y && P.y <= 0.5f * plot.BoxScale.y &&
+        return P.x >= -0.5f * plot.BoxScale.x && P.x <= 0.5f * plot.BoxScale.x && P.y >= -0.5f * plot.BoxScale.y && P.y <= 0.5f * plot.BoxScale.y &&
                P.z >= -0.5f * plot.BoxScale.z && P.z <= 0.5f * plot.BoxScale.z;
     };
 
@@ -1727,9 +1721,7 @@ ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
     return NDCToPlot(P);
 }
 
-ImPlot3DPoint PixelsToPlotPlane(double x, double y, ImPlane3D plane, bool mask) {
-    return PixelsToPlotPlane(ImVec2((float)x, (float)y), plane, mask);
-}
+ImPlot3DPoint PixelsToPlotPlane(double x, double y, ImPlane3D plane, bool mask) { return PixelsToPlotPlane(ImVec2((float)x, (float)y), plane, mask); }
 
 ImVec2 GetPlotPos() {
     ImPlot3DContext& gp = *GImPlot3D;
@@ -2043,7 +2035,8 @@ void HandleInput(ImPlot3DPlot& plot) {
 
             if (hovered_plane != 2) {
                 // Compute rotation to point z-axis up
-                ImPlot3DQuat align_up = ImPlot3DQuat::FromTwoVectors(plot.RotationAnimationEnd * ImPlot3DPoint(0.0f, 0.0f, 1.0f), ImPlot3DPoint(0.0f, 1.0f, 0.0f));
+                ImPlot3DQuat align_up =
+                    ImPlot3DQuat::FromTwoVectors(plot.RotationAnimationEnd * ImPlot3DPoint(0.0f, 0.0f, 1.0f), ImPlot3DPoint(0.0f, 1.0f, 0.0f));
                 plot.RotationAnimationEnd = align_up * plot.RotationAnimationEnd;
             } else {
                 // Find the axis most aligned with the up direction
@@ -2246,9 +2239,7 @@ void SetupLock() {
 // [SECTION] Miscellaneous
 //-----------------------------------------------------------------------------
 
-ImDrawList* GetPlotDrawList() {
-    return ImGui::GetWindowDrawList();
-}
+ImDrawList* GetPlotDrawList() { return ImGui::GetWindowDrawList(); }
 
 //-----------------------------------------------------------------------------
 // [SECTION] Styles
@@ -2261,25 +2252,24 @@ struct ImPlot3DStyleVarInfo {
     void* GetVarPtr(ImPlot3DStyle* style) const { return (void*)((unsigned char*)style + Offset); }
 };
 
-static const ImPlot3DStyleVarInfo GPlot3DStyleVarInfo[] =
-    {
-        // Item style
-        {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, LineWeight)},   // ImPlot3DStyleVar_LineWeight
-        {ImGuiDataType_S32, 1, (ImU32)offsetof(ImPlot3DStyle, Marker)},         // ImPlot3DStyleVar_Marker
-        {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, MarkerSize)},   // ImPlot3DStyleVar_MarkerSize
-        {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, MarkerWeight)}, // ImPlot3DStyleVar_MarkerWeight
-        {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, FillAlpha)},    // ImPlot3DStyleVar_FillAlpha
+static const ImPlot3DStyleVarInfo GPlot3DStyleVarInfo[] = {
+    // Item style
+    {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, LineWeight)},   // ImPlot3DStyleVar_LineWeight
+    {ImGuiDataType_S32, 1, (ImU32)offsetof(ImPlot3DStyle, Marker)},         // ImPlot3DStyleVar_Marker
+    {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, MarkerSize)},   // ImPlot3DStyleVar_MarkerSize
+    {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, MarkerWeight)}, // ImPlot3DStyleVar_MarkerWeight
+    {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, FillAlpha)},    // ImPlot3DStyleVar_FillAlpha
 
-        // Plot style
-        {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotDefaultSize)}, // ImPlot3DStyleVar_Plot3DDefaultSize
-        {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotMinSize)},     // ImPlot3DStyleVar_Plot3DMinSize
-        {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotPadding)},     // ImPlot3DStyleVar_Plot3DPadding
+    // Plot style
+    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotDefaultSize)}, // ImPlot3DStyleVar_Plot3DDefaultSize
+    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotMinSize)},     // ImPlot3DStyleVar_Plot3DMinSize
+    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotPadding)},     // ImPlot3DStyleVar_Plot3DPadding
 
-        // Label style
-        {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LabelPadding)},       // ImPlot3DStyleVar_LabelPaddine
-        {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LegendPadding)},      // ImPlot3DStyleVar_LegendPadding
-        {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LegendInnerPadding)}, // ImPlot3DStyleVar_LegendInnerPadding
-        {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LegendSpacing)},      // ImPlot3DStyleVar_LegendSpacing
+    // Label style
+    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LabelPadding)},       // ImPlot3DStyleVar_LabelPaddine
+    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LegendPadding)},      // ImPlot3DStyleVar_LegendPadding
+    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LegendInnerPadding)}, // ImPlot3DStyleVar_LegendInnerPadding
+    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LegendSpacing)},      // ImPlot3DStyleVar_LegendSpacing
 };
 
 static const ImPlot3DStyleVarInfo* GetPlotStyleVarInfo(ImPlot3DStyleVar idx) {
@@ -2289,6 +2279,7 @@ static const ImPlot3DStyleVarInfo* GetPlotStyleVarInfo(ImPlot3DStyleVar idx) {
 }
 
 ImPlot3DStyle& GetStyle() { return GImPlot3D->Style; }
+void SetStyle(const ImPlot3DStyle& style) { GImPlot3D->Style = style; }
 
 void StyleColorsAuto(ImPlot3DStyle* dst) {
     ImPlot3DStyle* style = dst ? dst : &ImPlot3D::GetStyle();
@@ -2464,13 +2455,9 @@ void PopStyleVar(int count) {
     }
 }
 
-ImVec4 GetStyleColorVec4(ImPlot3DCol idx) {
-    return IsColorAuto(idx) ? GetAutoColor(idx) : GImPlot3D->Style.Colors[idx];
-}
+ImVec4 GetStyleColorVec4(ImPlot3DCol idx) { return IsColorAuto(idx) ? GetAutoColor(idx) : GImPlot3D->Style.Colors[idx]; }
 
-ImU32 GetStyleColorU32(ImPlot3DCol idx) {
-    return ImGui::ColorConvertFloat4ToU32(ImPlot3D::GetStyleColorVec4(idx));
-}
+ImU32 GetStyleColorU32(ImPlot3DCol idx) { return ImGui::ColorConvertFloat4ToU32(ImPlot3D::GetStyleColorVec4(idx)); }
 
 //------------------------------------------------------------------------------
 // [SECTION] Colormaps
@@ -2543,9 +2530,7 @@ ImU32 NextColormapColorU32() {
     return col;
 }
 
-ImVec4 NextColormapColor() {
-    return ImGui::ColorConvertU32ToFloat4(NextColormapColorU32());
-}
+ImVec4 NextColormapColor() { return ImGui::ColorConvertU32ToFloat4(NextColormapColorU32()); }
 
 int GetColormapSize(ImPlot3DColormap cmap) {
     ImPlot3DContext& gp = *GImPlot3D;
@@ -2562,9 +2547,7 @@ ImU32 GetColormapColorU32(int idx, ImPlot3DColormap cmap) {
     return gp.ColormapData.GetKeyColor(cmap, idx);
 }
 
-ImVec4 GetColormapColor(int idx, ImPlot3DColormap cmap) {
-    return ImGui::ColorConvertU32ToFloat4(GetColormapColorU32(idx, cmap));
-}
+ImVec4 GetColormapColor(int idx, ImPlot3DColormap cmap) { return ImGui::ColorConvertU32ToFloat4(GetColormapColorU32(idx, cmap)); }
 
 ImU32 SampleColormapU32(float t, ImPlot3DColormap cmap) {
     ImPlot3DContext& gp = *GImPlot3D;
@@ -2573,9 +2556,7 @@ ImU32 SampleColormapU32(float t, ImPlot3DColormap cmap) {
     return gp.ColormapData.LerpTable(cmap, t);
 }
 
-ImVec4 SampleColormap(float t, ImPlot3DColormap cmap) {
-    return ImGui::ColorConvertU32ToFloat4(SampleColormapU32(t, cmap));
-}
+ImVec4 SampleColormap(float t, ImPlot3DColormap cmap) { return ImGui::ColorConvertU32ToFloat4(SampleColormapU32(t, cmap)); }
 
 //-----------------------------------------------------------------------------
 // [SECTION] Context Utils
@@ -2590,18 +2571,35 @@ void InitializeContext(ImPlot3DContext* ctx) {
     const ImU32 Deep[] = {4289753676, 4283598045, 4285048917, 4283584196, 4289950337, 4284512403, 4291005402, 4287401100, 4285839820, 4291671396};
     const ImU32 Dark[] = {4280031972, 4290281015, 4283084621, 4288892568, 4278222847, 4281597951, 4280833702, 4290740727, 4288256409};
     const ImU32 Pastel[] = {4289639675, 4293119411, 4291161036, 4293184478, 4289124862, 4291624959, 4290631909, 4293712637, 4294111986};
-    const ImU32 Paired[] = {4293119554, 4290017311, 4287291314, 4281114675, 4288256763, 4280031971, 4285513725, 4278222847, 4292260554, 4288298346, 4288282623, 4280834481};
-    const ImU32 Viridis[] = {4283695428, 4285867080, 4287054913, 4287455029, 4287526954, 4287402273, 4286883874, 4285579076, 4283552122, 4280737725, 4280674301};
-    const ImU32 Plasma[] = {4287039501, 4288480321, 4289200234, 4288941455, 4287638193, 4286072780, 4284638433, 4283139314, 4281771772, 4280667900, 4280416752};
-    const ImU32 Hot[] = {4278190144, 4278190208, 4278190271, 4278190335, 4278206719, 4278223103, 4278239231, 4278255615, 4283826175, 4289396735, 4294967295};
-    const ImU32 Cool[] = {4294967040, 4294960666, 4294954035, 4294947661, 4294941030, 4294934656, 4294928025, 4294921651, 4294915020, 4294908646, 4294902015};
-    const ImU32 Pink[] = {4278190154, 4282532475, 4284308894, 4285690554, 4286879686, 4287870160, 4288794330, 4289651940, 4291685869, 4293392118, 4294967295};
-    const ImU32 Jet[] = {4289331200, 4294901760, 4294923520, 4294945280, 4294967040, 4289396565, 4283826090, 4278255615, 4278233855, 4278212095, 4278190335};
-    const ImU32 Twilight[] = {IM_RGB(226, 217, 226), IM_RGB(166, 191, 202), IM_RGB(109, 144, 192), IM_RGB(95, 88, 176), IM_RGB(83, 30, 124), IM_RGB(47, 20, 54), IM_RGB(100, 25, 75), IM_RGB(159, 60, 80), IM_RGB(192, 117, 94), IM_RGB(208, 179, 158), IM_RGB(226, 217, 226)};
-    const ImU32 RdBu[] = {IM_RGB(103, 0, 31), IM_RGB(178, 24, 43), IM_RGB(214, 96, 77), IM_RGB(244, 165, 130), IM_RGB(253, 219, 199), IM_RGB(247, 247, 247), IM_RGB(209, 229, 240), IM_RGB(146, 197, 222), IM_RGB(67, 147, 195), IM_RGB(33, 102, 172), IM_RGB(5, 48, 97)};
-    const ImU32 BrBG[] = {IM_RGB(84, 48, 5), IM_RGB(140, 81, 10), IM_RGB(191, 129, 45), IM_RGB(223, 194, 125), IM_RGB(246, 232, 195), IM_RGB(245, 245, 245), IM_RGB(199, 234, 229), IM_RGB(128, 205, 193), IM_RGB(53, 151, 143), IM_RGB(1, 102, 94), IM_RGB(0, 60, 48)};
-    const ImU32 PiYG[] = {IM_RGB(142, 1, 82), IM_RGB(197, 27, 125), IM_RGB(222, 119, 174), IM_RGB(241, 182, 218), IM_RGB(253, 224, 239), IM_RGB(247, 247, 247), IM_RGB(230, 245, 208), IM_RGB(184, 225, 134), IM_RGB(127, 188, 65), IM_RGB(77, 146, 33), IM_RGB(39, 100, 25)};
-    const ImU32 Spectral[] = {IM_RGB(158, 1, 66), IM_RGB(213, 62, 79), IM_RGB(244, 109, 67), IM_RGB(253, 174, 97), IM_RGB(254, 224, 139), IM_RGB(255, 255, 191), IM_RGB(230, 245, 152), IM_RGB(171, 221, 164), IM_RGB(102, 194, 165), IM_RGB(50, 136, 189), IM_RGB(94, 79, 162)};
+    const ImU32 Paired[] = {4293119554, 4290017311, 4287291314, 4281114675, 4288256763, 4280031971,
+                            4285513725, 4278222847, 4292260554, 4288298346, 4288282623, 4280834481};
+    const ImU32 Viridis[] = {4283695428, 4285867080, 4287054913, 4287455029, 4287526954, 4287402273,
+                             4286883874, 4285579076, 4283552122, 4280737725, 4280674301};
+    const ImU32 Plasma[] = {4287039501, 4288480321, 4289200234, 4288941455, 4287638193, 4286072780,
+                            4284638433, 4283139314, 4281771772, 4280667900, 4280416752};
+    const ImU32 Hot[] = {4278190144, 4278190208, 4278190271, 4278190335, 4278206719, 4278223103,
+                         4278239231, 4278255615, 4283826175, 4289396735, 4294967295};
+    const ImU32 Cool[] = {4294967040, 4294960666, 4294954035, 4294947661, 4294941030, 4294934656,
+                          4294928025, 4294921651, 4294915020, 4294908646, 4294902015};
+    const ImU32 Pink[] = {4278190154, 4282532475, 4284308894, 4285690554, 4286879686, 4287870160,
+                          4288794330, 4289651940, 4291685869, 4293392118, 4294967295};
+    const ImU32 Jet[] = {4289331200, 4294901760, 4294923520, 4294945280, 4294967040, 4289396565,
+                         4283826090, 4278255615, 4278233855, 4278212095, 4278190335};
+    const ImU32 Twilight[] = {IM_RGB(226, 217, 226), IM_RGB(166, 191, 202), IM_RGB(109, 144, 192), IM_RGB(95, 88, 176),
+                              IM_RGB(83, 30, 124),   IM_RGB(47, 20, 54),    IM_RGB(100, 25, 75),   IM_RGB(159, 60, 80),
+                              IM_RGB(192, 117, 94),  IM_RGB(208, 179, 158), IM_RGB(226, 217, 226)};
+    const ImU32 RdBu[] = {IM_RGB(103, 0, 31),    IM_RGB(178, 24, 43),   IM_RGB(214, 96, 77),   IM_RGB(244, 165, 130),
+                          IM_RGB(253, 219, 199), IM_RGB(247, 247, 247), IM_RGB(209, 229, 240), IM_RGB(146, 197, 222),
+                          IM_RGB(67, 147, 195),  IM_RGB(33, 102, 172),  IM_RGB(5, 48, 97)};
+    const ImU32 BrBG[] = {IM_RGB(84, 48, 5),     IM_RGB(140, 81, 10),   IM_RGB(191, 129, 45),  IM_RGB(223, 194, 125),
+                          IM_RGB(246, 232, 195), IM_RGB(245, 245, 245), IM_RGB(199, 234, 229), IM_RGB(128, 205, 193),
+                          IM_RGB(53, 151, 143),  IM_RGB(1, 102, 94),    IM_RGB(0, 60, 48)};
+    const ImU32 PiYG[] = {IM_RGB(142, 1, 82),    IM_RGB(197, 27, 125),  IM_RGB(222, 119, 174), IM_RGB(241, 182, 218),
+                          IM_RGB(253, 224, 239), IM_RGB(247, 247, 247), IM_RGB(230, 245, 208), IM_RGB(184, 225, 134),
+                          IM_RGB(127, 188, 65),  IM_RGB(77, 146, 33),   IM_RGB(39, 100, 25)};
+    const ImU32 Spectral[] = {IM_RGB(158, 1, 66),    IM_RGB(213, 62, 79),   IM_RGB(244, 109, 67),  IM_RGB(253, 174, 97),
+                              IM_RGB(254, 224, 139), IM_RGB(255, 255, 191), IM_RGB(230, 245, 152), IM_RGB(171, 221, 164),
+                              IM_RGB(102, 194, 165), IM_RGB(50, 136, 189),  IM_RGB(94, 79, 162)};
     const ImU32 Greys[] = {IM_COL32_WHITE, IM_COL32_BLACK};
 
     IMPLOT3D_APPEND_CMAP(Deep, true);
@@ -2626,6 +2624,7 @@ void ResetContext(ImPlot3DContext* ctx) {
     ctx->Plots.Clear();
     ctx->CurrentPlot = nullptr;
     ctx->CurrentItems = nullptr;
+    ctx->CurrentItem = nullptr;
     ctx->NextItemData.Reset();
     ctx->Style = ImPlot3DStyle();
 }
@@ -2634,13 +2633,9 @@ void ResetContext(ImPlot3DContext* ctx) {
 // [SECTION] Style Utils
 //-----------------------------------------------------------------------------
 
-bool IsColorAuto(const ImVec4& col) {
-    return col.w == -1.0f;
-}
+bool IsColorAuto(const ImVec4& col) { return col.w == -1.0f; }
 
-bool IsColorAuto(ImPlot3DCol idx) {
-    return IsColorAuto(GImPlot3D->Style.Colors[idx]);
-}
+bool IsColorAuto(ImPlot3DCol idx) { return IsColorAuto(GImPlot3D->Style.Colors[idx]); }
 
 ImVec4 GetAutoColor(ImPlot3DCol idx) {
     switch (idx) {
@@ -2665,21 +2660,8 @@ ImVec4 GetAutoColor(ImPlot3DCol idx) {
 
 const char* GetStyleColorName(ImPlot3DCol idx) {
     static const char* color_names[ImPlot3DCol_COUNT] = {
-        "Line",
-        "Fill",
-        "MarkerOutline",
-        "MarkerFill",
-        "TitleText",
-        "InlayText",
-        "FrameBg",
-        "PlotBg",
-        "PlotBorder",
-        "LegendBg",
-        "LegendBorder",
-        "LegendText",
-        "AxisText",
-        "AxisGrid",
-        "AxisTick",
+        "Line",       "Fill",     "MarkerOutline", "MarkerFill", "TitleText", "InlayText", "FrameBg",  "PlotBg",
+        "PlotBorder", "LegendBg", "LegendBorder",  "LegendText", "AxisText",  "AxisGrid",  "AxisTick",
     };
     return color_names[idx];
 }
@@ -2762,13 +2744,9 @@ ImPlot3DPoint ImPlot3DPoint::Normalized() const {
     return ImPlot3DPoint(x / l, y / l, z / l);
 }
 
-ImPlot3DPoint operator*(float lhs, const ImPlot3DPoint& rhs) {
-    return ImPlot3DPoint(lhs * rhs.x, lhs * rhs.y, lhs * rhs.z);
-}
+ImPlot3DPoint operator*(float lhs, const ImPlot3DPoint& rhs) { return ImPlot3DPoint(lhs * rhs.x, lhs * rhs.y, lhs * rhs.z); }
 
-bool ImPlot3DPoint::IsNaN() const {
-    return ImPlot3D::ImNan(x) || ImPlot3D::ImNan(y) || ImPlot3D::ImNan(z);
-}
+bool ImPlot3DPoint::IsNaN() const { return ImPlot3D::ImNan(x) || ImPlot3D::ImNan(y) || ImPlot3D::ImNan(z); }
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImPlot3DBox
@@ -2784,9 +2762,7 @@ void ImPlot3DBox::Expand(const ImPlot3DPoint& point) {
 }
 
 bool ImPlot3DBox::Contains(const ImPlot3DPoint& point) const {
-    return (point.x >= Min.x && point.x <= Max.x) &&
-           (point.y >= Min.y && point.y <= Max.y) &&
-           (point.z >= Min.z && point.z <= Max.z);
+    return (point.x >= Min.x && point.x <= Max.x) && (point.y >= Min.y && point.y <= Max.y) && (point.z >= Min.z && point.z <= Max.z);
 }
 
 bool ImPlot3DBox::ClipLineSegment(const ImPlot3DPoint& p0, const ImPlot3DPoint& p1, ImPlot3DPoint& p0_clipped, ImPlot3DPoint& p1_clipped) const {
@@ -2860,9 +2836,7 @@ void ImPlot3DRange::Expand(float value) {
     Max = ImMax(Max, value);
 }
 
-bool ImPlot3DRange::Contains(float value) const {
-    return value >= Min && value <= Max;
-}
+bool ImPlot3DRange::Contains(float value) const { return value >= Min && value <= Max; }
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImPlot3DQuat
@@ -2902,8 +2876,7 @@ ImPlot3DQuat ImPlot3DQuat::FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3
     // Handle edge case: if vectors are opposite
     if (ImFabs(normalized_dot + 1.0f) < epsilon) {
         // v0 and v1 are opposite; choose an arbitrary orthogonal axis
-        ImPlot3DPoint arbitrary_axis = ImFabs(v0.x) > ImFabs(v0.z) ? ImPlot3DPoint(-v0.y, v0.x, 0.0f)
-                                                                   : ImPlot3DPoint(0.0f, -v0.z, v0.y);
+        ImPlot3DPoint arbitrary_axis = ImFabs(v0.x) > ImFabs(v0.z) ? ImPlot3DPoint(-v0.y, v0.x, 0.0f) : ImPlot3DPoint(0.0f, -v0.z, v0.y);
         arbitrary_axis.Normalize();
         q.x = arbitrary_axis.x;
         q.y = arbitrary_axis.y;
@@ -2936,18 +2909,14 @@ ImPlot3DQuat ImPlot3DQuat::FromElAz(float elevation, float azimuth) {
     return elevation_quat * zero_quat * azimuth_quat;
 }
 
-float ImPlot3DQuat::Length() const {
-    return ImSqrt(x * x + y * y + z * z + w * w);
-}
+float ImPlot3DQuat::Length() const { return ImSqrt(x * x + y * y + z * z + w * w); }
 
 ImPlot3DQuat ImPlot3DQuat::Normalized() const {
     float l = Length();
     return ImPlot3DQuat(x / l, y / l, z / l, w / l);
 }
 
-ImPlot3DQuat ImPlot3DQuat::Conjugate() const {
-    return ImPlot3DQuat(-x, -y, -z, w);
-}
+ImPlot3DQuat ImPlot3DQuat::Conjugate() const { return ImPlot3DQuat(-x, -y, -z, w); }
 
 ImPlot3DQuat ImPlot3DQuat::Inverse() const {
     float l_squared = x * x + y * y + z * z + w * w;
@@ -2955,11 +2924,8 @@ ImPlot3DQuat ImPlot3DQuat::Inverse() const {
 }
 
 ImPlot3DQuat ImPlot3DQuat::operator*(const ImPlot3DQuat& rhs) const {
-    return ImPlot3DQuat(
-        w * rhs.x + x * rhs.w + y * rhs.z - z * rhs.y,
-        w * rhs.y - x * rhs.z + y * rhs.w + z * rhs.x,
-        w * rhs.z + x * rhs.y - y * rhs.x + z * rhs.w,
-        w * rhs.w - x * rhs.x - y * rhs.y - z * rhs.z);
+    return ImPlot3DQuat(w * rhs.x + x * rhs.w + y * rhs.z - z * rhs.y, w * rhs.y - x * rhs.z + y * rhs.w + z * rhs.x,
+                        w * rhs.z + x * rhs.y - y * rhs.x + z * rhs.w, w * rhs.w - x * rhs.x - y * rhs.y - z * rhs.z);
 }
 
 ImPlot3DQuat& ImPlot3DQuat::Normalize() {
@@ -2983,13 +2949,9 @@ ImPlot3DPoint ImPlot3DQuat::operator*(const ImPlot3DPoint& point) const {
     return point + (uv * w * 2.0f) + (uuv * 2.0f);
 }
 
-bool ImPlot3DQuat::operator==(const ImPlot3DQuat& rhs) const {
-    return x == rhs.x && y == rhs.y && z == rhs.z && w == rhs.w;
-}
+bool ImPlot3DQuat::operator==(const ImPlot3DQuat& rhs) const { return x == rhs.x && y == rhs.y && z == rhs.z && w == rhs.w; }
 
-bool ImPlot3DQuat::operator!=(const ImPlot3DQuat& rhs) const {
-    return !(*this == rhs);
-}
+bool ImPlot3DQuat::operator!=(const ImPlot3DQuat& rhs) const { return !(*this == rhs); }
 
 ImPlot3DQuat ImPlot3DQuat::Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2, float t) {
     // Clamp t to [0, 1]
@@ -3007,12 +2969,7 @@ ImPlot3DQuat ImPlot3DQuat::Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2,
 
     // If the quaternions are very close, use linear interpolation to avoid numerical instability
     if (dot > 0.9995f) {
-        return ImPlot3DQuat(
-                   q1.x + t * (q2_.x - q1.x),
-                   q1.y + t * (q2_.y - q1.y),
-                   q1.z + t * (q2_.z - q1.z),
-                   q1.w + t * (q2_.w - q1.w))
-            .Normalized();
+        return ImPlot3DQuat(q1.x + t * (q2_.x - q1.x), q1.y + t * (q2_.y - q1.y), q1.z + t * (q2_.z - q1.z), q1.w + t * (q2_.w - q1.w)).Normalized();
     }
 
     // Compute the angle and the interpolation factors
@@ -3025,16 +2982,10 @@ ImPlot3DQuat ImPlot3DQuat::Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2,
     float s2 = sin_theta / sin_theta_0;
 
     // Interpolate and return the result
-    return ImPlot3DQuat(
-        s1 * q1.x + s2 * q2_.x,
-        s1 * q1.y + s2 * q2_.y,
-        s1 * q1.z + s2 * q2_.z,
-        s1 * q1.w + s2 * q2_.w);
+    return ImPlot3DQuat(s1 * q1.x + s2 * q2_.x, s1 * q1.y + s2 * q2_.y, s1 * q1.z + s2 * q2_.z, s1 * q1.w + s2 * q2_.w);
 }
 
-float ImPlot3DQuat::Dot(const ImPlot3DQuat& rhs) const {
-    return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w;
-}
+float ImPlot3DQuat::Dot(const ImPlot3DQuat& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w; }
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImDrawList3D
@@ -3064,19 +3015,47 @@ void ImDrawList3D::PrimUnreserve(int idx_count, int vtx_count) {
     ZBuffer.shrink(ZBuffer.Size - idx_count / 3);
 }
 
+void ImDrawList3D::SetTexture(ImTextureRef tex_ref) {
+    if (_TextureBuffer.empty()) {
+        // First texture assignment
+        _TextureBuffer.push_back({tex_ref, _VtxCurrentIdx});
+        return;
+    }
+
+    ImTextureBufferItem& prev_item = _TextureBuffer.back();
+    if (prev_item.VtxIdx == _VtxCurrentIdx) {
+        // Same vertex index: update existing texture ID
+        prev_item.TexRef = tex_ref;
+
+        // If the previous texture was the same, remove current texture
+        if (_TextureBuffer.Size >= 2) {
+            if (_TextureBuffer[_TextureBuffer.Size - 2].TexRef == tex_ref) {
+                _TextureBuffer.pop_back();
+            }
+        }
+    } else if (prev_item.TexRef != tex_ref) {
+        // New vertex index and different texture: insert new item
+        _TextureBuffer.push_back({tex_ref, _VtxCurrentIdx});
+    }
+}
+
+void ImDrawList3D::ResetTexture() { SetTexture(ImTextureID(0)); }
+
+#ifdef IMGUI_HAS_TEXTURES
+#define SET_TEX_REF(cmd, tex_ref) (cmd).TexRef = (tex_ref)
+#define GET_TEX_REF(cmd) (cmd).TexRef
+#else
+#define SET_TEX_REF(cmd, tex_ref) (cmd).TextureId = (tex_ref)
+#define GET_TEX_REF(cmd) (cmd).TextureId
+#endif
+
 void ImDrawList3D::SortedMoveToImGuiDrawList() {
     ImDrawList& draw_list = *ImGui::GetWindowDrawList();
 
     const int tri_count = ZBuffer.Size;
     if (tri_count == 0) {
-        // No triangles, just clear and return
-        VtxBuffer.clear();
-        IdxBuffer.clear();
-        ZBuffer.clear();
-        _VtxCurrentIdx = 0;
-        _VtxWritePtr = VtxBuffer.Data;
-        _IdxWritePtr = IdxBuffer.Data;
-        _ZWritePtr = ZBuffer.Data;
+        // No triangles, just reset buffers and return
+        ResetBuffers();
         return;
     }
 
@@ -3092,13 +3071,11 @@ void ImDrawList3D::SortedMoveToImGuiDrawList() {
     }
 
     // Sort by z (distance from viewer)
-    ImQsort(tris, (size_t)tri_count, sizeof(TriRef),
-            [](const void* a, const void* b) {
-                float za = ((const TriRef*)a)->z;
-                float zb = ((const TriRef*)b)->z;
-                return (za < zb) ? -1 : (za > zb) ? 1
-                                                  : 0;
-            });
+    ImQsort(tris, (size_t)tri_count, sizeof(TriRef), [](const void* a, const void* b) {
+        float za = ((const TriRef*)a)->z;
+        float zb = ((const TriRef*)b)->z;
+        return (za < zb) ? -1 : (za > zb) ? 1 : 0;
+    });
 
     // Reserve space in the ImGui draw list
     draw_list.PrimReserve(IdxBuffer.Size, VtxBuffer.Size);
@@ -3113,7 +3090,8 @@ void ImDrawList3D::SortedMoveToImGuiDrawList() {
     unsigned int max_index_allowed = MaxIdx() - idx_offset;
 
     // Copy indices with triangle sorting based on distance from viewer
-    ImDrawIdx* idx_out = draw_list._IdxWritePtr;
+    ImDrawIdx* idx_out_begin = draw_list._IdxWritePtr;
+    ImDrawIdx* idx_out = idx_out_begin;
     ImDrawIdx* idx_in = IdxBuffer.Data;
     for (int i = 0; i < tri_count; i++) {
         int tri_i = tris[i].tri_idx;
@@ -3124,7 +3102,7 @@ void ImDrawList3D::SortedMoveToImGuiDrawList() {
 
         // Check if after adding offset any of these indices exceed max_index_allowed
         if (i0 > max_index_allowed || i1 > max_index_allowed || i2 > max_index_allowed)
-            break;
+            continue;
 
         idx_out[0] = (ImDrawIdx)(i0 + idx_offset);
         idx_out[1] = (ImDrawIdx)(i1 + idx_offset);
@@ -3132,16 +3110,67 @@ void ImDrawList3D::SortedMoveToImGuiDrawList() {
 
         idx_out += 3;
     }
-    draw_list._IdxWritePtr = idx_out;
+    ImDrawIdx* idx_out_end = idx_out;
+    draw_list._IdxWritePtr = idx_out_end;
 
-    // Clear local buffers since we've moved them
-    VtxBuffer.clear();
-    IdxBuffer.clear();
-    ZBuffer.clear();
-    _VtxCurrentIdx = 0;
-    _VtxWritePtr = VtxBuffer.Data;
-    _IdxWritePtr = IdxBuffer.Data;
-    _ZWritePtr = ZBuffer.Data;
+    // If multiple textures were used (e.g. PlotImage was called), generate multiple ImDrawCmd
+    if (_TextureBuffer.Size > 1) {
+        ImTextureRef default_tex = GET_TEX_REF(draw_list._CmdHeader);
+        ImTextureRef curr_tex = default_tex;
+
+        // Remove elements reserved from PrimReserve
+        draw_list.CmdBuffer.back().ElemCount -= IdxBuffer.Size;
+        ImDrawIdx* last_cmd_buffer_idx = idx_out_begin;
+
+        // For each triangle added to the draw_list
+        for (idx_out = idx_out_begin; idx_out < idx_out_end; idx_out += 3) {
+            // Get index of first vertex in the triangle
+            unsigned int idx_in = (unsigned int)(*idx_out - idx_offset);
+
+            // Get the texture for this triangle
+            const ImTextureRef invalid_tex = ImTextureID(0);
+            ImTextureRef tri_tex = invalid_tex;
+            for (int j = 0; j < _TextureBuffer.Size; j++)
+                if (idx_in >= _TextureBuffer[j].VtxIdx)
+                    tri_tex = _TextureBuffer[j].TexRef;
+
+            // If tri_tex is invalid, the default texture should be used
+            if (tri_tex == invalid_tex)
+                tri_tex = default_tex;
+
+            if (tri_tex != curr_tex) {
+                // Update element count of previous draw cmd
+                draw_list.CmdBuffer.back().ElemCount += (unsigned int)(idx_out - last_cmd_buffer_idx);
+                last_cmd_buffer_idx = idx_out;
+
+                // Set custom texture
+                curr_tex = tri_tex;
+                SET_TEX_REF(draw_list._CmdHeader, curr_tex);
+
+                // Add new draw cmd for the new texture
+                ImDrawCmd draw_cmd;
+                draw_cmd.ClipRect = draw_list._CmdHeader.ClipRect;
+                SET_TEX_REF(draw_cmd, GET_TEX_REF(draw_list._CmdHeader));
+                draw_cmd.VtxOffset = draw_list._CmdHeader.VtxOffset;
+                draw_cmd.IdxOffset = (unsigned int)(idx_out - draw_list.IdxBuffer.Data);
+                draw_list.CmdBuffer.push_back(draw_cmd);
+            }
+        }
+        // Flush last elements to cmd buffer
+        draw_list.CmdBuffer.back().ElemCount += (unsigned int)(&draw_list.IdxBuffer.back() - last_cmd_buffer_idx + 1);
+
+        // Check if the last texture was not the default texture
+        if (curr_tex != default_tex) {
+            // Restore default texture
+            SET_TEX_REF(draw_list._CmdHeader, default_tex);
+
+            // Flush last draw cmd with custom texture
+            draw_list.AddDrawCmd();
+        }
+    }
+
+    // Reset buffers since we've moved them
+    ResetBuffers();
 
     IM_FREE(tris);
 }
@@ -3185,19 +3214,13 @@ void ImPlot3DPlot::ExtendFit(const ImPlot3DPoint& point) {
     }
 }
 
-ImPlot3DPoint ImPlot3DPlot::RangeMin() const {
-    return ImPlot3DPoint(Axes[0].Range.Min, Axes[1].Range.Min, Axes[2].Range.Min);
-}
+ImPlot3DPoint ImPlot3DPlot::RangeMin() const { return ImPlot3DPoint(Axes[0].Range.Min, Axes[1].Range.Min, Axes[2].Range.Min); }
 
-ImPlot3DPoint ImPlot3DPlot::RangeMax() const {
-    return ImPlot3DPoint(Axes[0].Range.Max, Axes[1].Range.Max, Axes[2].Range.Max);
-}
+ImPlot3DPoint ImPlot3DPlot::RangeMax() const { return ImPlot3DPoint(Axes[0].Range.Max, Axes[1].Range.Max, Axes[2].Range.Max); }
 
 ImPlot3DPoint ImPlot3DPlot::RangeCenter() const {
-    return ImPlot3DPoint(
-        (Axes[0].Range.Min + Axes[0].Range.Max) * 0.5f,
-        (Axes[1].Range.Min + Axes[1].Range.Max) * 0.5f,
-        (Axes[2].Range.Min + Axes[2].Range.Max) * 0.5f);
+    return ImPlot3DPoint((Axes[0].Range.Min + Axes[0].Range.Max) * 0.5f, (Axes[1].Range.Min + Axes[1].Range.Max) * 0.5f,
+                         (Axes[2].Range.Min + Axes[2].Range.Max) * 0.5f);
 }
 
 void ImPlot3DPlot::SetRange(const ImPlot3DPoint& min, const ImPlot3DPoint& max) {
@@ -3206,9 +3229,7 @@ void ImPlot3DPlot::SetRange(const ImPlot3DPoint& min, const ImPlot3DPoint& max) 
     Axes[2].SetRange(min.z, max.z);
 }
 
-float ImPlot3DPlot::GetBoxZoom() const {
-    return ImMin(PlotRect.GetWidth(), PlotRect.GetHeight()) / 1.8f;
-}
+float ImPlot3DPlot::GetBoxZoom() const { return ImMin(PlotRect.GetWidth(), PlotRect.GetHeight()) / 1.8f; }
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImPlot3DStyle

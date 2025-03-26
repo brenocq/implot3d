@@ -4,7 +4,7 @@ BasedOnStyle: LLVM
 PointerAlignment: Left
 AlwaysBreakTemplateDeclarations: No
 AllowShortCaseLabelsOnASingleLine: true
-ColumnLimit: 0
+ColumnLimit: 150
 IndentWidth: 4
 IndentCaseLabels: true
 IncludeBlocks: Preserve

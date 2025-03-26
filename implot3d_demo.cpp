@@ -1,5 +1,5 @@
 //--------------------------------------------------
-// ImPlot3D v0.2
+// ImPlot3D v0.3 WIP
 // implot3d_demo.cpp
 // Date: 2024-11-17
 // Author: Breno Cunha Queiroz (brenocq.com)
@@ -307,8 +307,7 @@ void DemoSurfacePlots() {
     ImGui::Text("Fill color");
     static int selected_fill = 1; // Colormap by default
     static ImVec4 solid_color = ImVec4(0.8f, 0.8f, 0.2f, 0.6f);
-    const char* colormaps[] = {"Viridis", "Plasma", "Hot", "Cool", "Pink", "Jet",
-                               "Twilight", "RdBu", "BrBG", "PiYG", "Spectral", "Greys"};
+    const char* colormaps[] = {"Viridis", "Plasma", "Hot", "Cool", "Pink", "Jet", "Twilight", "RdBu", "BrBG", "PiYG", "Spectral", "Greys"};
     static int sel_colormap = 5; // Jet by default
     {
         ImGui::Indent();
@@ -430,6 +429,75 @@ void DemoMeshPlots() {
     }
 }
 
+void DemoImagePlots() {
+    ImGui::BulletText("Below we are displaying the font texture, which is the only texture we have\naccess to in this demo.");
+    ImGui::BulletText("Use the 'ImTextureID' type as storage to pass pointers or identifiers to your\nown texture data.");
+    ImGui::BulletText("See ImGui Wiki page 'Image Loading and Displaying Examples'.");
+
+    static ImVec4 tint1(1, 1, 1, 1);
+    static ImVec4 tint2(1, 1, 1, 1);
+
+    static ImPlot3DPoint center1(0, 0, 1);
+    static ImPlot3DPoint axis_u1(1, 0, 0);
+    static ImPlot3DPoint axis_v1(0, 1, 0);
+    static ImVec2 uv0_1(0, 0), uv1_1(1, 1);
+
+    static ImPlot3DPoint p0(-1, -1, 0);
+    static ImPlot3DPoint p1(1, -1, 0);
+    static ImPlot3DPoint p2(1, 1, 0);
+    static ImPlot3DPoint p3(-1, 1, 0);
+    static ImVec2 uv0(0, 0), uv1(1, 0), uv2(1, 1), uv3(0, 1);
+
+    // Spacing
+    ImGui::Dummy(ImVec2(0, 10));
+
+    // Image 1 Controls
+    if (ImGui::TreeNodeEx("Image 1 Controls: Center + Axes")) {
+        ImGui::SliderFloat3("Center", &center1.x, -2, 2, "%.1f");
+        ImGui::SliderFloat3("Axis U", &axis_u1.x, -2, 2, "%.1f");
+        ImGui::SliderFloat3("Axis V", &axis_v1.x, -2, 2, "%.1f");
+        ImGui::SliderFloat2("UV0", &uv0_1.x, 0, 1, "%.2f");
+        ImGui::SliderFloat2("UV1", &uv1_1.x, 0, 1, "%.2f");
+        ImGui::ColorEdit4("Tint", &tint1.x);
+
+        ImGui::TreePop();
+    }
+
+    // Image 2 Controls
+    if (ImGui::TreeNodeEx("Image 2 Controls: Full Quad")) {
+        ImGui::SliderFloat3("P0", &p0.x, -2, 2, "%.1f");
+        ImGui::SliderFloat3("P1", &p1.x, -2, 2, "%.1f");
+        ImGui::SliderFloat3("P2", &p2.x, -2, 2, "%.1f");
+        ImGui::SliderFloat3("P3", &p3.x, -2, 2, "%.1f");
+
+        ImGui::SliderFloat2("UV0", &uv0.x, 0, 1, "%.2f");
+        ImGui::SliderFloat2("UV1", &uv1.x, 0, 1, "%.2f");
+        ImGui::SliderFloat2("UV2", &uv2.x, 0, 1, "%.2f");
+        ImGui::SliderFloat2("UV3", &uv3.x, 0, 1, "%.2f");
+
+        ImGui::ColorEdit4("Tint##2", &tint2.x);
+
+        ImGui::TreePop();
+    }
+
+    // Plot
+    if (ImPlot3D::BeginPlot("Image Plot", ImVec2(-1, 0), ImPlot3DFlags_NoClip)) {
+#ifdef IMGUI_HAS_TEXTURES
+        // We use the font atlas ImTextureRef for this demo, but in your real code when you submit
+        // an image that you have loaded yourself, you would normally have a ImTextureID which works
+        // just as well (as ImTextureRef can be constructed from ImTextureID).
+        ImTextureRef tex = ImGui::GetIO().Fonts->TexRef;
+#else
+        ImTextureID tex = ImGui::GetIO().Fonts->TexID;
+#endif
+
+        ImPlot3D::PlotImage("Image 1", tex, center1, axis_u1, axis_v1, uv0_1, uv1_1, tint1);
+        ImPlot3D::PlotImage("Image 2", tex, p0, p1, p2, p3, uv0, uv1, uv2, uv3, tint2);
+
+        ImPlot3D::EndPlot();
+    }
+}
+
 void DemoRealtimePlots() {
     ImGui::BulletText("Move your mouse to change the data!");
     static ScrollingBuffer sdata1, sdata2, sdata3;
@@ -470,7 +538,8 @@ void DemoMarkersAndText() {
 
     if (ImPlot3D::BeginPlot("##MarkerStyles", ImVec2(-1, 0), ImPlot3DFlags_CanvasOnly)) {
 
-        ImPlot3D::SetupAxes(nullptr, nullptr, nullptr, ImPlot3DAxisFlags_NoDecorations, ImPlot3DAxisFlags_NoDecorations, ImPlot3DAxisFlags_NoDecorations);
+        ImPlot3D::SetupAxes(nullptr, nullptr, nullptr, ImPlot3DAxisFlags_NoDecorations, ImPlot3DAxisFlags_NoDecorations,
+                            ImPlot3DAxisFlags_NoDecorations);
         ImPlot3D::SetupAxesLimits(-0.5, 1.5, -0.5, 1.5, 0, ImPlot3DMarker_COUNT + 1);
 
         float xs[2] = {0, 0};
@@ -612,7 +681,7 @@ void DemoBoxRotation() {
 }
 
 void DemoTickLabels() {
-    static bool custom_ticks = false;
+    static bool custom_ticks = true;
     static bool custom_labels = true;
     ImGui::Checkbox("Show Custom Ticks", &custom_ticks);
     if (custom_ticks) {
@@ -670,14 +739,8 @@ void DemoCustomRendering() {
 
         // Draw box
         ImPlot3DPoint corners[8] = {
-            ImPlot3DPoint(0, 0, 0),
-            ImPlot3DPoint(1, 0, 0),
-            ImPlot3DPoint(1, 1, 0),
-            ImPlot3DPoint(0, 1, 0),
-            ImPlot3DPoint(0, 0, 1),
-            ImPlot3DPoint(1, 0, 1),
-            ImPlot3DPoint(1, 1, 1),
-            ImPlot3DPoint(0, 1, 1),
+            ImPlot3DPoint(0, 0, 0), ImPlot3DPoint(1, 0, 0), ImPlot3DPoint(1, 1, 0), ImPlot3DPoint(0, 1, 0),
+            ImPlot3DPoint(0, 0, 1), ImPlot3DPoint(1, 0, 1), ImPlot3DPoint(1, 1, 1), ImPlot3DPoint(0, 1, 1),
         };
         ImVec2 corners_px[8];
         for (int i = 0; i < 8; i++)
@@ -766,6 +829,42 @@ void DemoHeader(const char* label, void (*demo)()) {
     }
 }
 
+void ShowAllDemos() {
+    ImGui::Text("ImPlot3D says olá! (%s)", IMPLOT3D_VERSION);
+    ImGui::Spacing();
+    if (ImGui::BeginTabBar("ImPlot3DDemoTabs")) {
+        if (ImGui::BeginTabItem("Plots")) {
+            DemoHeader("Line Plots", DemoLinePlots);
+            DemoHeader("Scatter Plots", DemoScatterPlots);
+            DemoHeader("Triangle Plots", DemoTrianglePlots);
+            DemoHeader("Quad Plots", DemoQuadPlots);
+            DemoHeader("Surface Plots", DemoSurfacePlots);
+            DemoHeader("Mesh Plots", DemoMeshPlots);
+            DemoHeader("Realtime Plots", DemoRealtimePlots);
+            DemoHeader("Image Plots", DemoImagePlots);
+            DemoHeader("Markers and Text", DemoMarkersAndText);
+            DemoHeader("NaN Values", DemoNaNValues);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Axes")) {
+            DemoHeader("Box Scale", DemoBoxScale);
+            DemoHeader("Box Rotation", DemoBoxRotation);
+            DemoHeader("Tick Labels", DemoTickLabels);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Custom")) {
+            DemoHeader("Custom Styles", DemoCustomStyles);
+            DemoHeader("Custom Rendering", DemoCustomRendering);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Help")) {
+            DemoHelp();
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+}
+
 void ShowDemoWindow(bool* p_open) {
     static bool show_implot3d_style_editor = false;
     static bool show_imgui_metrics = false;
@@ -802,41 +901,7 @@ void ShowDemoWindow(bool* p_open) {
         }
         ImGui::EndMenuBar();
     }
-
-    ImGui::Text("ImPlot3D says olá! (%s)", IMPLOT3D_VERSION);
-
-    ImGui::Spacing();
-
-    if (ImGui::BeginTabBar("ImPlot3DDemoTabs")) {
-        if (ImGui::BeginTabItem("Plots")) {
-            DemoHeader("Line Plots", DemoLinePlots);
-            DemoHeader("Scatter Plots", DemoScatterPlots);
-            DemoHeader("Triangle Plots", DemoTrianglePlots);
-            DemoHeader("Quad Plots", DemoQuadPlots);
-            DemoHeader("Surface Plots", DemoSurfacePlots);
-            DemoHeader("Mesh Plots", DemoMeshPlots);
-            DemoHeader("Realtime Plots", DemoRealtimePlots);
-            DemoHeader("Markers and Text", DemoMarkersAndText);
-            DemoHeader("NaN Values", DemoNaNValues);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Axes")) {
-            DemoHeader("Box Scale", DemoBoxScale);
-            DemoHeader("Box Rotation", DemoBoxRotation);
-            DemoHeader("Tick Labels", DemoTickLabels);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Custom")) {
-            DemoHeader("Custom Styles", DemoCustomStyles);
-            DemoHeader("Custom Rendering", DemoCustomRendering);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Help")) {
-            DemoHelp();
-            ImGui::EndTabItem();
-        }
-        ImGui::EndTabBar();
-    }
+    ShowAllDemos();
     ImGui::End();
 }
 
@@ -892,7 +957,9 @@ void RenderColorBar(const ImU32* colors, int size, ImDrawList& DrawList, const I
     }
 }
 
-static inline ImU32 CalcTextColor(const ImVec4& bg) { return (bg.x * 0.299f + bg.y * 0.587f + bg.z * 0.114f) > 0.5f ? IM_COL32_BLACK : IM_COL32_WHITE; }
+static inline ImU32 CalcTextColor(const ImVec4& bg) {
+    return (bg.x * 0.299f + bg.y * 0.587f + bg.z * 0.114f) > 0.5f ? IM_COL32_BLACK : IM_COL32_WHITE;
+}
 static inline ImU32 CalcTextColor(ImU32 bg) { return CalcTextColor(ImGui::ColorConvertU32ToFloat4(bg)); }
 
 bool ColormapButton(const char* label, const ImVec2& size_arg, ImPlot3DColormap cmap) {
@@ -967,9 +1034,8 @@ void ShowStyleEditor(ImPlot3DStyle* ref) {
     if (ImGui::Button("Revert Ref"))
         style = *ref;
     ImGui::SameLine();
-    HelpMarker(
-        "Save/Revert in local non-persistent storage. Default Colors definition are not affected. "
-        "Use \"Export\" below to save them somewhere.");
+    HelpMarker("Save/Revert in local non-persistent storage. Default Colors definition are not affected. "
+               "Use \"Export\" below to save them somewhere.");
 
     ImGui::Separator();
 
@@ -1005,8 +1071,8 @@ void ShowStyleEditor(ImPlot3DStyle* ref) {
                     const ImVec4& col = style.Colors[i];
                     const char* name = ImPlot3D::GetStyleColorName(i);
                     if (!output_only_modified || memcmp(&col, &ref->Colors[i], sizeof(ImVec4)) != 0)
-                        ImGui::LogText("colors[ImPlot3DCol_%s]%*s= ImVec4(%.2ff, %.2ff, %.2ff, %.2ff);\n",
-                                       name, 15 - (int)strlen(name), "", col.x, col.y, col.z, col.w);
+                        ImGui::LogText("colors[ImPlot3DCol_%s]%*s= ImVec4(%.2ff, %.2ff, %.2ff, %.2ff);\n", name, 15 - (int)strlen(name), "", col.x,
+                                       col.y, col.z, col.w);
                 }
                 ImGui::LogFinish();
             }
@@ -1034,17 +1100,16 @@ void ShowStyleEditor(ImPlot3DStyle* ref) {
             if (ImGui::RadioButton("Opaque", alpha_flags == ImGuiColorEditFlags_AlphaOpaque))
                 alpha_flags = ImGuiColorEditFlags_AlphaOpaque;
             ImGui::SameLine();
-            if (ImGui::RadioButton("Alpha",  alpha_flags == ImGuiColorEditFlags_None))
+            if (ImGui::RadioButton("Alpha", alpha_flags == ImGuiColorEditFlags_None))
                 alpha_flags = ImGuiColorEditFlags_None;
             ImGui::SameLine();
-            if (ImGui::RadioButton("Both",   alpha_flags == ImGuiColorEditFlags_AlphaPreviewHalf))
+            if (ImGui::RadioButton("Both", alpha_flags == ImGuiColorEditFlags_AlphaPreviewHalf))
                 alpha_flags = ImGuiColorEditFlags_AlphaPreviewHalf;
             ImGui::SameLine();
 #endif
-            HelpMarker(
-                "In the color list:\n"
-                "Left-click on color square to open color picker,\n"
-                "Right-click to open edit options menu.");
+            HelpMarker("In the color list:\n"
+                       "Left-click on color square to open color picker,\n"
+                       "Right-click to open edit options menu.");
 
             ImGui::Separator();
 
