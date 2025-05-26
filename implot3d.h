@@ -313,7 +313,6 @@ enum ImPlane3D_ {
 // Axis scale
 enum ImPlot3DScale_ {
     ImPlot3DScale_Linear = 0, // Default linear scale
-    ImPlot3DScale_Time,       // Date/Time scale
     ImPlot3DScale_Log10,      // Base 10 log scale
     ImPlot3DScale_SymLog,     // Symmetric base 10 log scale
 };
@@ -346,6 +345,9 @@ enum ImPlot3DColormap_ {
 // Given a numeric #value, format it into #buff with maximum #size characters.
 // Optionally use #user_data for context. Return the number of characters written (excluding null terminator)
 typedef int (*ImPlot3DFormatter)(double value, char* buff, int size, void* user_data);
+
+// Callback signature for axis transform
+typedef double (*ImPlot3DTransform)(float value, void* user_data);
 
 namespace ImPlot3D {
 
@@ -428,6 +430,9 @@ IMPLOT3D_API void SetupAxisTicks(ImAxis3D axis, const double* values, int n_tick
 // Sets an axis' ticks and optionally the labels for the next plot. To keep the default ticks, set #keep_default=true
 IMPLOT3D_API void SetupAxisTicks(ImAxis3D axis, double v_min, double v_max, int n_ticks, const char* const labels[] = nullptr,
                                  bool keep_default = false);
+
+// Sets an axis' scale using built-in options
+IMPLOT3D_API void SetupAxisScale(ImAxis3D axis, ImPlot3DScale scale);
 
 // Sets an axis' limits constraints. The axis will be constrained to never go below #v_min or above #v_max
 IMPLOT3D_API void SetupAxisLimitsConstraints(ImAxis3D axis, double v_min, double v_max);
