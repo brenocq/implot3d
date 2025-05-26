@@ -448,6 +448,7 @@ struct ImPlot3DAxis {
     ImPlot3DAxisFlags PreviousFlags;
     ImPlot3DRange Range;
     ImPlot3DCond RangeCond;
+    ImPlot3DScale Scale;
     ImGuiTextBuffer Label;
     // Ticks
     ImPlot3DTicker Ticker;
@@ -455,6 +456,10 @@ struct ImPlot3DAxis {
     void* FormatterData;
     ImPlot3DLocator Locator;
     bool ShowDefaultTicks;
+    // Scale
+    ImPlot3DTransform TransformForward;
+    ImPlot3DTransform TransformInverse;
+    void* TransformData;
     // Fit data
     bool FitThisFrame;
     ImPlot3DRange FitExtents;

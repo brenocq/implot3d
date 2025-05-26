@@ -301,7 +301,6 @@ enum ImPlane3D_ {
 // Axis scale
 enum ImPlot3DScale_ {
     ImPlot3DScale_Linear = 0, // Default linear scale
-    ImPlot3DScale_Time,       // Date/Time scale
     ImPlot3DScale_Log10,      // Base 10 log scale
     ImPlot3DScale_SymLog,     // Symmetric base 10 log scale
 };
@@ -332,6 +331,9 @@ enum ImPlot3DColormap_ {
 
 // Callback signature for axis tick label formatter
 typedef int (*ImPlot3DFormatter)(float value, char* buff, int size, void* user_data);
+
+// Callback signature for axis transform
+typedef double (*ImPlot3DTransform)(float value, void* user_data);
 
 namespace ImPlot3D {
 
@@ -406,6 +408,9 @@ IMPLOT3D_API void SetupAxisTicks(ImAxis3D axis, const double* values, int n_tick
 // Sets an axis' ticks and optionally the labels for the next plot. To keep the default ticks, set #keep_default=true
 IMPLOT3D_API void SetupAxisTicks(ImAxis3D axis, double v_min, double v_max, int n_ticks, const char* const labels[] = nullptr,
                                  bool keep_default = false);
+
+// Sets an axis' scale using built-in options
+IMPLOT3D_API void SetupAxisScale(ImAxis3D axis, ImPlot3DScale scale);
 
 // Sets the label and/or flags for primary X/Y/Z axes (shorthand for three calls to SetupAxis)
 IMPLOT3D_API void SetupAxes(const char* x_label, const char* y_label, const char* z_label, ImPlot3DAxisFlags x_flags = 0,
