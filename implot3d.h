@@ -71,7 +71,8 @@ typedef int ImPlot3DStyleVar; // -> ImPlot3DStyleVar_          // Enum: Style va
 typedef int ImPlot3DMarker;   // -> ImPlot3DMarker_            // Enum: Marker styles
 typedef int ImPlot3DLocation; // -> ImPlot3DLocation_          // Enum: Locations
 typedef int ImAxis3D;         // -> ImAxis3D_                  // Enum: Axis indices
-typedef int ImPlane3D;        // -> ImPlane3D_                  // Enum: Plane indices
+typedef int ImPlane3D;        // -> ImPlane3D_                 // Enum: Plane indices
+typedef int ImPlot3DScale;    // -> ImPlot3DScale_             // Enum: Axis scale (linear, log, etc.)
 typedef int ImPlot3DColormap; // -> ImPlot3DColormap_          // Enum: Colormaps
 
 // Flags
@@ -307,6 +308,14 @@ enum ImPlane3D_ {
     ImPlane3D_XZ,     // XZ plane (perpendicular to Y-axis)
     ImPlane3D_XY,     // XY plane (perpendicular to Z-axis)
     ImPlane3D_COUNT,
+};
+
+// Axis scale
+enum ImPlot3DScale_ {
+    ImPlot3DScale_Linear = 0, // Default linear scale
+    ImPlot3DScale_Time,       // Date/Time scale
+    ImPlot3DScale_Log10,      // Base 10 log scale
+    ImPlot3DScale_SymLog,     // Symmetric base 10 log scale
 };
 
 // Colormaps
