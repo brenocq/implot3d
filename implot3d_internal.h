@@ -463,6 +463,9 @@ struct ImPlot3DAxis {
     // Fit data
     bool FitThisFrame;
     ImPlot3DRange FitExtents;
+    // Constraints
+    ImPlot3DRange ConstraintRange;
+    ImPlot3DRange ConstraintZoom;
     // User input
     bool Hovered;
     bool Held;
@@ -481,35 +484,54 @@ struct ImPlot3DAxis {
         ShowDefaultTicks = true;
         // Fit data
         FitThisFrame = true;
-        FitExtents.Min = HUGE_VAL;
-        FitExtents.Max = -HUGE_VAL;
+        FitExtents = ImPlot3DRange(HUGE_VAL, -HUGE_VAL);
+        // Constraints
+        ConstraintRange = ImPlot3DRange(-INFINITY, INFINITY);
+        ConstraintZoom = ImPlot3DRange(FLT_MIN, INFINITY);
         // User input
         Hovered = false;
         Held = false;
     }
 
     inline void Reset() {
+        RangeCond = ImPlot3DCond_None;
+        // Ticks
+        Ticker.Reset();
         Formatter = nullptr;
         FormatterData = nullptr;
         Locator = nullptr;
         ShowDefaultTicks = true;
-        FitExtents.Min = HUGE_VAL;
-        FitExtents.Max = -HUGE_VAL;
-        RangeCond = ImPlot3DCond_None;
-        Ticker.Reset();
+        // Fit data
+        FitExtents = ImPlot3DRange(HUGE_VAL, -HUGE_VAL);
+        // Constraints
+        ConstraintRange = ImPlot3DRange(-INFINITY, INFINITY);
+        ConstraintZoom = ImPlot3DRange(FLT_MIN, INFINITY);
     }
 
     inline void SetRange(double v1, double v2) {
         Range.Min = (float)ImMin(v1, v2);
         Range.Max = (float)ImMax(v1, v2);
+        Constrain();
     }
 
     inline bool SetMin(double _min, bool force = false) {
         if (!force && IsLockedMin())
             return false;
         _min = ImPlot3D::ImConstrainNan((float)ImPlot3D::ImConstrainInf(_min));
+
+        // Constraints
+        if (_min < ConstraintRange.Min)
+            _min = ConstraintRange.Min;
+        double zoom = Range.Max - _min;
+        if (zoom < ConstraintZoom.Min)
+            _min = Range.Max - ConstraintZoom.Min;
+        if (zoom > ConstraintZoom.Max)
+            _min = Range.Max - ConstraintZoom.Max;
+
+        // Ensure min is less than max
         if (_min >= Range.Max)
             return false;
+
         Range.Min = (float)_min;
         return true;
     }
@@ -518,10 +540,43 @@ struct ImPlot3DAxis {
         if (!force && IsLockedMax())
             return false;
         _max = ImPlot3D::ImConstrainNan((float)ImPlot3D::ImConstrainInf(_max));
+
+        // Constraints
+        if (_max > ConstraintRange.Max)
+            _max = ConstraintRange.Max;
+        double zoom = _max - Range.Min;
+        if (zoom < ConstraintZoom.Min)
+            _max = Range.Min + ConstraintZoom.Min;
+        if (zoom > ConstraintZoom.Max)
+            _max = Range.Min + ConstraintZoom.Max;
+
+        // Ensure max is greater than min
         if (_max <= Range.Min)
             return false;
         Range.Max = (float)_max;
         return true;
+    }
+
+    inline void Constrain() {
+        Range.Min = (float)ImPlot3D::ImConstrainNan((float)ImPlot3D::ImConstrainInf((double)Range.Min));
+        Range.Max = (float)ImPlot3D::ImConstrainNan((float)ImPlot3D::ImConstrainInf((double)Range.Max));
+        if (Range.Min < ConstraintRange.Min)
+            Range.Min = ConstraintRange.Min;
+        if (Range.Max > ConstraintRange.Max)
+            Range.Max = ConstraintRange.Max;
+        float zoom = Range.Size();
+        if (zoom < ConstraintZoom.Min) {
+            float delta = (ConstraintZoom.Min - zoom) * 0.5f;
+            Range.Min -= delta;
+            Range.Max += delta;
+        }
+        if (zoom > ConstraintZoom.Max) {
+            float delta = (zoom - ConstraintZoom.Max) * 0.5f;
+            Range.Min += delta;
+            Range.Max -= delta;
+        }
+        if (Range.Max <= Range.Min)
+            Range.Max = Range.Min + FLT_EPSILON;
     }
 
     inline bool IsRangeLocked() const { return RangeCond == ImPlot3DCond_Always; }
@@ -531,6 +586,19 @@ struct ImPlot3DAxis {
     inline bool IsInputLockedMin() const { return IsLockedMin() || IsAutoFitting(); }
     inline bool IsInputLockedMax() const { return IsLockedMax() || IsAutoFitting(); }
     inline bool IsInputLocked() const { return IsLocked() || IsAutoFitting(); }
+
+    inline bool IsPanLocked(bool increasing) {
+        if (ImPlot3D::ImHasFlag(Flags, ImPlot3DAxisFlags_PanStretch)) {
+            return IsInputLocked();
+        } else {
+            if (IsLockedMin() || IsLockedMax() || IsAutoFitting())
+                return false;
+            if (increasing)
+                return Range.Max == ConstraintRange.Max;
+            else
+                return Range.Min == ConstraintRange.Min;
+        }
+    }
 
     inline void SetLabel(const char* label) {
         Label.Buf.shrink(0);

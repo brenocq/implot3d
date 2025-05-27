@@ -717,6 +717,26 @@ void DemoTickLabels() {
     }
 }
 
+void DemoAxisConstraints() {
+    static float limit_constraints[2] = {-10, 10};
+    static float zoom_constraints[2] = {1, 20};
+    static ImPlot3DAxisFlags flags;
+    ImGui::DragFloat2("Limits Constraints", limit_constraints, 0.01f);
+    ImGui::DragFloat2("Zoom Constraints", zoom_constraints, 0.01f);
+    CHECKBOX_FLAG(flags, ImPlot3DAxisFlags_PanStretch);
+    if (ImPlot3D::BeginPlot("##AxisConstraints", ImVec2(-1, 0))) {
+        ImPlot3D::SetupAxes("X", "Y", "Z", flags, flags, flags);
+        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
+        ImPlot3D::SetupAxisLimitsConstraints(ImAxis3D_X, limit_constraints[0], limit_constraints[1]);
+        ImPlot3D::SetupAxisLimitsConstraints(ImAxis3D_Y, limit_constraints[0], limit_constraints[1]);
+        ImPlot3D::SetupAxisLimitsConstraints(ImAxis3D_Z, limit_constraints[0], limit_constraints[1]);
+        ImPlot3D::SetupAxisZoomConstraints(ImAxis3D_X, zoom_constraints[0], zoom_constraints[1]);
+        ImPlot3D::SetupAxisZoomConstraints(ImAxis3D_Y, zoom_constraints[0], zoom_constraints[1]);
+        ImPlot3D::SetupAxisZoomConstraints(ImAxis3D_Z, zoom_constraints[0], zoom_constraints[1]);
+        ImPlot3D::EndPlot();
+    }
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Custom
 //-----------------------------------------------------------------------------
@@ -864,6 +884,7 @@ void ShowAllDemos() {
             DemoHeader("Box Scale", DemoBoxScale);
             DemoHeader("Box Rotation", DemoBoxRotation);
             DemoHeader("Tick Labels", DemoTickLabels);
+            DemoHeader("Axis Constraints", DemoAxisConstraints);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Custom")) {

@@ -1531,36 +1531,54 @@ void SetupAxisTicks(ImAxis3D idx, double v_min, double v_max, int n_ticks, const
 void SetupAxisScale(ImAxis3D idx, ImPlot3DScale scale) {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
-                        "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
+                         "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     ImPlot3DAxis& axis = plot.Axes[idx];
     axis.Scale = scale;
-    switch (scale)
-    {
-    case ImPlot3DScale_Log10:
-        //axis.TransformForward = TransformForward_Log10;
-        //axis.TransformInverse = TransformInverse_Log10;
-        //axis.TransformData    = nullptr;
-        //axis.Locator          = Locator_Log10;
-        //axis.ConstraintRange  = ImPlot3DRange(FLT_MIN, INFINITY);
-        break;
-    case ImPlot3DScale_SymLog:
-        //axis.TransformForward = TransformForward_SymLog;
-        //axis.TransformInverse = TransformInverse_SymLog;
-        //axis.TransformData    = nullptr;
-        //axis.Locator          = Locator_SymLog;
-        //axis.ConstraintRange  = ImPlot3DRange(-INFINITY, INFINITY);
-        break;
-    default:
-        //axis.TransformForward = nullptr;
-        //axis.TransformInverse = nullptr;
-        //axis.TransformData    = nullptr;
-        //axis.Locator          = nullptr;
-        //axis.ConstraintRange  = ImPlot3DRange(-INFINITY, INFINITY);
-        break;
+    switch (scale) {
+        case ImPlot3DScale_Log10:
+            // axis.TransformForward = TransformForward_Log10;
+            // axis.TransformInverse = TransformInverse_Log10;
+            // axis.TransformData    = nullptr;
+            // axis.Locator          = Locator_Log10;
+            // axis.ConstraintRange  = ImPlot3DRange(FLT_MIN, INFINITY);
+            break;
+        case ImPlot3DScale_SymLog:
+            // axis.TransformForward = TransformForward_SymLog;
+            // axis.TransformInverse = TransformInverse_SymLog;
+            // axis.TransformData    = nullptr;
+            // axis.Locator          = Locator_SymLog;
+            // axis.ConstraintRange  = ImPlot3DRange(-INFINITY, INFINITY);
+            break;
+        default:
+            // axis.TransformForward = nullptr;
+            // axis.TransformInverse = nullptr;
+            // axis.TransformData    = nullptr;
+            // axis.Locator          = nullptr;
+            // axis.ConstraintRange  = ImPlot3DRange(-INFINITY, INFINITY);
+            break;
     }
 }
 
+void SetupAxisLimitsConstraints(ImAxis3D idx, double v_min, double v_max) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
+                         "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
+    ImPlot3DPlot& plot = *gp.CurrentPlot;
+    ImPlot3DAxis& axis = plot.Axes[idx];
+    axis.ConstraintRange.Min = (float)v_min;
+    axis.ConstraintRange.Max = (float)v_max;
+}
+
+void SetupAxisZoomConstraints(ImAxis3D idx, double z_min, double z_max) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
+                         "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
+    ImPlot3DPlot& plot = *gp.CurrentPlot;
+    ImPlot3DAxis& axis = plot.Axes[idx];
+    axis.ConstraintZoom.Min = (float)z_min;
+    axis.ConstraintZoom.Max = (float)z_max;
+}
 
 void SetupAxes(const char* x_label, const char* y_label, const char* z_label, ImPlot3DAxisFlags x_flags, ImPlot3DAxisFlags y_flags,
                ImPlot3DAxisFlags z_flags) {
@@ -1997,7 +2015,8 @@ void HandleInput(ImPlot3DPlot& plot) {
             // Adjust plot range to translate the plot
             for (int i = 0; i < 3; i++) {
                 if (plot.Axes[i].Hovered) {
-                    if (!plot.Axes[i].IsInputLocked()) {
+                    bool increasing = delta_plot[i] < 0.0f;
+                    if (delta_plot[i] != 0.0f && !plot.Axes[i].IsPanLocked(increasing)) {
                         plot.Axes[i].SetMin(plot.Axes[i].Range.Min - delta_plot[i]);
                         plot.Axes[i].SetMax(plot.Axes[i].Range.Max - delta_plot[i]);
                     }
@@ -2021,7 +2040,8 @@ void HandleInput(ImPlot3DPlot& plot) {
             // Apply translation to the selected axes
             for (int i = 0; i < 3; i++) {
                 if (plot.Axes[i].Hovered) {
-                    if (!plot.Axes[i].IsInputLocked()) {
+                    bool increasing = delta_plot[i] < 0.0f;
+                    if (delta_plot[i] != 0.0f && !plot.Axes[i].IsPanLocked(increasing)) {
                         plot.Axes[i].SetMin(plot.Axes[i].Range.Min - delta_plot[i]);
                         plot.Axes[i].SetMax(plot.Axes[i].Range.Max - delta_plot[i]);
                     }
@@ -3228,6 +3248,7 @@ void ImPlot3DAxis::ApplyFit() {
         Range.Max += 0.5;
         Range.Min -= 0.5;
     }
+    Constrain();
     FitExtents.Min = HUGE_VAL;
     FitExtents.Max = -HUGE_VAL;
 }

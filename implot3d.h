@@ -278,6 +278,7 @@ enum ImPlot3DAxisFlags_ {
     ImPlot3DAxisFlags_LockMax = 1 << 5,      // The axis maximum value will be locked when panning/zooming
     ImPlot3DAxisFlags_AutoFit = 1 << 6,      // Axis will be auto-fitting to data extents
     ImPlot3DAxisFlags_Invert = 1 << 7,       // The axis will be inverted
+    ImPlot3DAxisFlags_PanStretch = 1 << 8,   // Panning in a locked or constrained state will cause the axis to stretch if possible
     ImPlot3DAxisFlags_Lock = ImPlot3DAxisFlags_LockMin | ImPlot3DAxisFlags_LockMax,
     ImPlot3DAxisFlags_NoDecorations = ImPlot3DAxisFlags_NoLabel | ImPlot3DAxisFlags_NoGridLines | ImPlot3DAxisFlags_NoTickLabels,
 };
@@ -400,7 +401,7 @@ IMPLOT3D_API void SetupAxis(ImAxis3D axis, const char* label = nullptr, ImPlot3D
 
 IMPLOT3D_API void SetupAxisLimits(ImAxis3D axis, double v_min, double v_max, ImPlot3DCond cond = ImPlot3DCond_Once);
 
-IMPLOT3D_API void SetupAxisFormat(ImAxis3D idx, ImPlot3DFormatter formatter, void* data = nullptr);
+IMPLOT3D_API void SetupAxisFormat(ImAxis3D axis, ImPlot3DFormatter formatter, void* data = nullptr);
 
 // Sets an axis' ticks and optionally the labels. To keep the default ticks, set #keep_default=true
 IMPLOT3D_API void SetupAxisTicks(ImAxis3D axis, const double* values, int n_ticks, const char* const labels[] = nullptr, bool keep_default = false);
@@ -411,6 +412,12 @@ IMPLOT3D_API void SetupAxisTicks(ImAxis3D axis, double v_min, double v_max, int 
 
 // Sets an axis' scale using built-in options
 IMPLOT3D_API void SetupAxisScale(ImAxis3D axis, ImPlot3DScale scale);
+
+// Sets an axis' limits constraints
+IMPLOT3D_API void SetupAxisLimitsConstraints(ImAxis3D axis, double v_min, double v_max);
+
+// Sets an axis' zoom constraints
+IMPLOT3D_API void SetupAxisZoomConstraints(ImAxis3D axis, double z_min, double z_max);
 
 // Sets the label and/or flags for primary X/Y/Z axes (shorthand for three calls to SetupAxis)
 IMPLOT3D_API void SetupAxes(const char* x_label, const char* y_label, const char* z_label, ImPlot3DAxisFlags x_flags = 0,
