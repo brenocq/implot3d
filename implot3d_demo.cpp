@@ -879,7 +879,7 @@ void DemoNaNValues() {
 void DemoBoxScale() {
     constexpr int N = 100;
     float xs[N], ys[N], zs[N];
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < N; i++) {
         float t = i / (float)(N - 1);
         xs[i] = sinf(t * 2.0f * IM_PI);
         ys[i] = cosf(t * 4.0f * IM_PI);
@@ -938,6 +938,43 @@ void DemoBoxRotation() {
         ImPlot3D::SetNextLineStyle(ImVec4(0.2f, 0.2f, 0.8f, 1));
         ImPlot3D::PlotLine("Z-Axis", origin, origin, axis, 2);
 
+        ImPlot3D::EndPlot();
+    }
+}
+
+void Demo_LogScale() {
+    static double xs[1001], ys1[1001], ys2[1001], ys3[1001], zs[1001];
+    for (int i = 0; i < 1001; i++) {
+        xs[i] = i * 0.1;
+        ys1[i] = sin(xs[i]) + 1;
+        ys2[i] = log(xs[i]);
+        ys3[i] = pow(10.0, xs[i]);
+        zs[i] = 0.0;
+    }
+
+    if (ImPlot3D::BeginPlot("Log Plot 3D", ImVec2(-1, 0))) {
+        ImPlot3D::SetupAxisScale(ImAxis3D_X, ImPlot3DScale_Log10);
+        ImPlot3D::SetupAxesLimits(0.1, 100, 0, 10, -1, 1);
+        ImPlot3D::PlotLine("f(x) = x", xs, xs, zs, 1001);
+        ImPlot3D::PlotLine("f(x) = sin(x)+1", xs, ys1, zs, 1001);
+        ImPlot3D::PlotLine("f(x) = log(x)", xs, ys2, zs, 1001);
+        ImPlot3D::PlotLine("f(x) = 10^x", xs, ys3, zs, 21);
+        ImPlot3D::EndPlot();
+    }
+}
+
+void Demo_SymmetricLogScale() {
+    static double xs[1001], ys1[1001], ys2[1001], zs[1001];
+    for (int i = 0; i < 1001; i++) {
+        xs[i] = i * 0.1f - 50;
+        ys1[i] = sin(xs[i]);
+        ys2[i] = i * 0.002 - 1;
+        zs[i] = 0.0;
+    }
+    if (ImPlot3D::BeginPlot("SymLog Plot", ImVec2(-1, 0))) {
+        ImPlot3D::SetupAxisScale(ImAxis3D_X, ImPlot3DScale_SymLog);
+        ImPlot3D::PlotLine("f(x) = a*x+b", xs, ys2, zs, 1001);
+        ImPlot3D::PlotLine("f(x) = sin(x)", xs, ys1, zs, 1001);
         ImPlot3D::EndPlot();
     }
 }
@@ -1558,6 +1595,8 @@ void ShowAllDemos() {
         if (ImGui::BeginTabItem("Axes")) {
             DemoHeader("Box Scale", DemoBoxScale);
             DemoHeader("Box Rotation", DemoBoxRotation);
+            DemoHeader("Log Scale", Demo_LogScale);
+            DemoHeader("Symmetric Log Scale", Demo_SymmetricLogScale);
             DemoHeader("Tick Labels", DemoTickLabels);
             DemoHeader("Axis Constraints", DemoAxisConstraints);
             DemoHeader("Equal Axes", DemoEqualAxes);
@@ -1849,7 +1888,7 @@ void ShowStyleEditor(ImPlot3DStyle* ref) {
                 int size = GetColormapSize();
                 const char* name = GetColormapName(gp.Style.Colormap);
                 ImGui::LogText("static const ImU32 %s_Data[%d] = {\n", name, size);
-                for (int i = 0; i < size; ++i) {
+                for (int i = 0; i < size; i++) {
                     ImU32 col = GetColormapColorU32(i, gp.Style.Colormap);
                     ImGui::LogText("    %u%s\n", col, i == size - 1 ? "" : ",");
                 }
@@ -1865,7 +1904,7 @@ void ShowStyleEditor(ImPlot3DStyle* ref) {
 
             // built-in/added
             ImGui::Separator();
-            for (int i = 0; i < gp.ColormapData.Count; ++i) {
+            for (int i = 0; i < gp.ColormapData.Count; i++) {
                 ImGui::PushID(i);
                 int size = gp.ColormapData.GetKeyCount(i);
                 bool selected = i == gp.Style.Colormap;
