@@ -466,9 +466,10 @@ struct ImPlot3DAxis {
     ImPlot3DLocator Locator;
     bool ShowDefaultTicks;
     // Scale
-    ImPlot3DTransform TransformForward;
-    ImPlot3DTransform TransformInverse;
-    void* TransformData;
+    ImPlot3DTransform TransformForward; // Custom axis forward transform
+    ImPlot3DTransform TransformInverse; // Custom axis inverse transform
+    void* TransformData;                // Custom transform data set by the user
+    ImPlot3DRange ScaledRange;          // Cached scaled range values
     // Fit data
     bool FitThisFrame;
     ImPlot3DRange FitExtents;
@@ -530,6 +531,7 @@ struct ImPlot3DAxis {
         Range.Min = ImMin(v1, v2);
         Range.Max = ImMax(v1, v2);
         Constrain();
+        UpdateTransformCache();
     }
 
     inline bool SetMin(double _min, bool force = false) {
@@ -551,6 +553,7 @@ struct ImPlot3DAxis {
             return false;
 
         Range.Min = (float)_min;
+        UpdateTransformCache();
         return true;
     }
 
@@ -571,7 +574,9 @@ struct ImPlot3DAxis {
         // Ensure max is greater than min
         if (_max <= Range.Min)
             return false;
+
         Range.Max = (float)_max;
+        UpdateTransformCache();
         return true;
     }
 
@@ -595,6 +600,28 @@ struct ImPlot3DAxis {
         }
         if (Range.Max <= Range.Min)
             Range.Max = Range.Min + DBL_EPSILON;
+    }
+
+    inline void UpdateTransformCache() {
+        if (TransformForward != nullptr) {
+            ScaledRange.Min = (float)TransformForward(Range.Min, TransformData);
+            ScaledRange.Max = (float)TransformForward(Range.Max, TransformData);
+        } else {
+            ScaledRange.Min = Range.Min;
+            ScaledRange.Max = Range.Max;
+        }
+    }
+
+    inline double PlotToNDC(double plt) const {
+        if (TransformForward != nullptr)
+            plt = TransformForward(plt, TransformData);
+        return (plt - ScaledRange.Min) / (ScaledRange.Max - ScaledRange.Min);
+    }
+
+    inline double NDCToPlot(double ndc) const {
+        if (TransformInverse != nullptr)
+            ndc = TransformInverse(ndc, TransformData);
+        return ScaledRange.Min + ndc * (ScaledRange.Max - ScaledRange.Min);
     }
 
     inline bool IsRangeLocked() const { return RangeCond == ImPlot3DCond_Always; }
