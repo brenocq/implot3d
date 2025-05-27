@@ -1028,12 +1028,27 @@ ImVec2 NDCToPixels(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
 ImPlot3DPoint PlotToNDC(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
     ImPlot3DPoint ndc_point;
     for (int i = 0; i < 3; i++) {
-        const ImPlot3DAxis& axis = plot.Axes[i];
-        // Get axis point in [0, 1] range
-        double t = (point[i] - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
-        // Convert point to NDC range [-0.5*NDCScale, 0.5*NDCScale]
-        const double ndc_range = 0.5;
-        ndc_point[i] = (ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range)) * axis.NDCScale;
+        ImPlot3DAxis& axis = plot.Axes[i];
+
+        double ScaleMin, ScaleMax;
+        if (axis.TransformForward != nullptr) {
+            ScaleMin = axis.TransformForward(axis.Range.Min, axis.TransformData);
+            ScaleMax = axis.TransformForward(axis.Range.Max, axis.TransformData);
+        } else {
+            ScaleMin = axis.Range.Min;
+            ScaleMax = axis.Range.Max;
+        }
+
+        double p;
+        if (axis.TransformForward != nullptr)
+            p = axis.TransformForward(point[i], axis.TransformData);
+        else
+            p = point[i];
+        double t = (p - ScaleMin) / (ScaleMax - ScaleMin);
+
+        t *= axis.NDCScale;
+        float ndc_range = 0.5f * axis.NDCScale;
+        ndc_point[i] = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range);
     }
     return ndc_point;
 }
@@ -1993,10 +2008,26 @@ ImPlot3DPoint NDCToPlot(const ImPlot3DPoint& point) {
     ImPlot3DPoint plot_point;
     for (int i = 0; i < 3; i++) {
         ImPlot3DAxis& axis = plot.Axes[i];
+
+        double ScaleMin, ScaleMax;
+        if (axis.TransformForward != nullptr) {
+            ScaleMin = axis.TransformForward(axis.Range.Min, axis.TransformData);
+            ScaleMax = axis.TransformForward(axis.Range.Max, axis.TransformData);
+        } else {
+            ScaleMin = axis.Range.Min;
+            ScaleMax = axis.Range.Max;
+        }
+
+        double p;
+        if (axis.TransformForward != nullptr)
+            p = axis.TransformInverse(point[i], axis.TransformData);
+        else
+            p = point[i];
+
         double ndc_range = 0.5 * axis.NDCScale;
-        double t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - point[i]) : (point[i] + ndc_range);
+        double t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - p) : (p + ndc_range);
         t /= axis.NDCScale;
-        plot_point[i] = axis.Range.Min + t * (axis.Range.Max - axis.Range.Min);
+        plot_point[i] = ScaleMin + t * (ScaleMax - ScaleMin);
     }
     return plot_point;
 }
