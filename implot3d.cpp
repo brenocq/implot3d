@@ -1261,12 +1261,85 @@ void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float p
     }
 }
 
+bool CalcLogarithmicExponents(const ImPlot3DRange& range, float pix, int& exp_min, int& exp_max, int& exp_step) {
+    if (range.Min * range.Max > 0) {
+        const int nMajor = ImMax(2, (int)IM_ROUND(pix * 0.01f)); // TODO: magic numbers
+        double log_min = ImLog10(ImAbs(range.Min));
+        double log_max = ImLog10(ImAbs(range.Max));
+        double log_a = ImMin(log_min, log_max);
+        double log_b = ImMax(log_min, log_max);
+        exp_step = ImMax(1, (int)(log_b - log_a) / nMajor);
+        exp_min = (int)log_a;
+        exp_max = (int)log_b;
+        if (exp_step != 1) {
+            while (exp_step % 3 != 0)
+                exp_step++; // make step size multiple of three
+            while (exp_min % exp_step != 0)
+                exp_min--; // decrease exp_min until exp_min + N * exp_step will be 0
+        }
+        return true;
+    }
+    return false;
+}
+
+void AddTicksLogarithmic(const ImPlot3DRange& range, int exp_min, int exp_max, int exp_step, ImPlot3DTicker& ticker, ImPlot3DFormatter formatter,
+                         void* data) {
+    const double sign = ImSign(range.Max);
+    for (int e = exp_min - exp_step; e < (exp_max + exp_step); e += exp_step) {
+        double major1 = sign * ImPow(10, (double)(e));
+        double major2 = sign * ImPow(10, (double)(e + 1));
+        double interval = (major2 - major1) / 9;
+        if (major1 >= (range.Min - DBL_EPSILON) && major1 <= (range.Max + DBL_EPSILON))
+            ticker.AddTick(major1, true, true, formatter, data);
+        for (int j = 0; j < exp_step; ++j) {
+            major1 = sign * ImPow(10, (double)(e + j));
+            major2 = sign * ImPow(10, (double)(e + j + 1));
+            interval = (major2 - major1) / 9;
+            for (int i = 1; i < (9 + (int)(j < (exp_step - 1))); ++i) {
+                double minor = major1 + i * interval;
+                if (minor >= (range.Min - DBL_EPSILON) && minor <= (range.Max + DBL_EPSILON))
+                    ticker.AddTick(minor, false, false, formatter, data);
+            }
+        }
+    }
+}
+
 void Locator_Log10(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data) {
-    // TODO
+    int exp_min, exp_max, exp_step;
+    if (CalcLogarithmicExponents(range, pixels, exp_min, exp_max, exp_step))
+        AddTicksLogarithmic(range, exp_min, exp_max, exp_step, ticker, formatter, formatter_data);
+}
+
+float CalcSymLogPixel(double plt, const ImPlot3DRange& range, float pixels) {
+    double scaleToPixels = pixels / range.Size();
+    double scaleMin = TransformForward_SymLog(range.Min, nullptr);
+    double scaleMax = TransformForward_SymLog(range.Max, nullptr);
+    double s = TransformForward_SymLog(plt, nullptr);
+    double t = (s - scaleMin) / (scaleMax - scaleMin);
+    plt = range.Min + range.Size() * t;
+
+    return (float)(0 + scaleToPixels * (plt - range.Min));
 }
 
 void Locator_SymLog(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data) {
-    // TODO
+    if (range.Min >= -1 && range.Max <= 1)
+        Locator_Default(ticker, range, pixels, formatter, formatter_data);
+    else if (range.Min * range.Max < 0) { // cross zero
+        const float pix_min = 0;
+        const float pix_max = pixels;
+        const float pix_p1 = CalcSymLogPixel(1, range, pixels);
+        const float pix_n1 = CalcSymLogPixel(-1, range, pixels);
+        int exp_min_p, exp_max_p, exp_step_p;
+        int exp_min_n, exp_max_n, exp_step_n;
+        CalcLogarithmicExponents(ImPlot3DRange(1, range.Max), ImAbs(pix_max - pix_p1), exp_min_p, exp_max_p, exp_step_p);
+        CalcLogarithmicExponents(ImPlot3DRange(range.Min, -1), ImAbs(pix_n1 - pix_min), exp_min_n, exp_max_n, exp_step_n);
+        int exp_step = ImMax(exp_step_n, exp_step_p);
+        ticker.AddTick(0, true, true, formatter, formatter_data);
+        AddTicksLogarithmic(ImPlot3DRange(1, range.Max), exp_min_p, exp_max_p, exp_step, ticker, formatter, formatter_data);
+        AddTicksLogarithmic(ImPlot3DRange(range.Min, -1), exp_min_n, exp_max_n, exp_step, ticker, formatter, formatter_data);
+    } else {
+        Locator_Log10(ticker, range, pixels, formatter, formatter_data);
+    }
 }
 
 void AddTicksCustom(const double* values, const char* const labels[], int n, ImPlot3DTicker& ticker, ImPlot3DFormatter formatter, void* data) {
