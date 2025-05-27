@@ -1246,6 +1246,14 @@ void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float p
     }
 }
 
+void Locator_Log10(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data) {
+    // TODO
+}
+
+void Locator_SymLog(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data) {
+    // TODO
+}
+
 void AddTicksCustom(const double* values, const char* const labels[], int n, ImPlot3DTicker& ticker, ImPlot3DFormatter formatter, void* data) {
     for (int i = 0; i < n; i++) {
         if (labels != nullptr)
@@ -1694,30 +1702,41 @@ void SetupAxisScale(ImAxis3D idx, ImPlot3DScale scale) {
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     ImPlot3DAxis& axis = plot.Axes[idx];
     axis.Scale = scale;
-    switch (scale)
-    {
-    case ImPlot3DScale_Log10:
-        //axis.TransformForward = TransformForward_Log10;
-        //axis.TransformInverse = TransformInverse_Log10;
-        //axis.TransformData    = nullptr;
-        //axis.Locator          = Locator_Log10;
-        //axis.ConstraintRange  = ImPlot3DRange(FLT_MIN, INFINITY);
-        break;
-    case ImPlot3DScale_SymLog:
-        //axis.TransformForward = TransformForward_SymLog;
-        //axis.TransformInverse = TransformInverse_SymLog;
-        //axis.TransformData    = nullptr;
-        //axis.Locator          = Locator_SymLog;
-        //axis.ConstraintRange  = ImPlot3DRange(-INFINITY, INFINITY);
-        break;
-    default:
-        //axis.TransformForward = nullptr;
-        //axis.TransformInverse = nullptr;
-        //axis.TransformData    = nullptr;
-        //axis.Locator          = nullptr;
-        //axis.ConstraintRange  = ImPlot3DRange(-INFINITY, INFINITY);
-        break;
+    switch (scale) {
+        case ImPlot3DScale_Log10:
+            axis.TransformForward = TransformForward_Log10;
+            axis.TransformInverse = TransformInverse_Log10;
+            axis.TransformData = nullptr;
+            axis.Locator = Locator_Log10;
+            axis.ConstraintRange = ImPlot3DRange(FLT_MIN, INFINITY);
+            break;
+        case ImPlot3DScale_SymLog:
+            axis.TransformForward = TransformForward_SymLog;
+            axis.TransformInverse = TransformInverse_SymLog;
+            axis.TransformData = nullptr;
+            axis.Locator = Locator_SymLog;
+            axis.ConstraintRange = ImPlot3DRange(-INFINITY, INFINITY);
+            break;
+        default:
+            axis.TransformForward = nullptr;
+            axis.TransformInverse = nullptr;
+            axis.TransformData = nullptr;
+            axis.Locator = nullptr;
+            axis.ConstraintRange = ImPlot3DRange(-INFINITY, INFINITY);
+            break;
     }
+}
+
+void SetupAxisScale(ImAxis3D idx, ImPlot3DTransform forward, ImPlot3DTransform inverse, void* data) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
+                         "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
+    ImPlot3DPlot& plot = *gp.CurrentPlot;
+    ImPlot3DAxis& axis = plot.Axes[idx];
+    axis.Scale = IMPLOT3D_AUTO;
+    axis.TransformForward = forward;
+    axis.TransformInverse = inverse;
+    axis.TransformData = data;
 }
 
 void SetupAxisLimitsConstraints(ImAxis3D idx, double v_min, double v_max) {

@@ -347,7 +347,7 @@ enum ImPlot3DColormap_ {
 typedef int (*ImPlot3DFormatter)(double value, char* buff, int size, void* user_data);
 
 // Callback signature for axis transform
-typedef double (*ImPlot3DTransform)(float value, void* user_data);
+typedef double (*ImPlot3DTransform)(double value, void* user_data);
 
 namespace ImPlot3D {
 
@@ -433,6 +433,9 @@ IMPLOT3D_API void SetupAxisTicks(ImAxis3D axis, double v_min, double v_max, int 
 
 // Sets an axis' scale using built-in options
 IMPLOT3D_API void SetupAxisScale(ImAxis3D axis, ImPlot3DScale scale);
+
+// Sets an axis' scale using user supplied forward and inverse transforms
+IMPLOT3D_API void SetupAxisScale(ImAxis3D axis, ImPlot3DTransform forward, ImPlot3DTransform inverse, void* data = nullptr);
 
 // Sets an axis' limits constraints. The axis will be constrained to never go below #v_min or above #v_max
 IMPLOT3D_API void SetupAxisLimitsConstraints(ImAxis3D axis, double v_min, double v_max);
