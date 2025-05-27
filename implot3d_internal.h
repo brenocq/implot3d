@@ -52,6 +52,14 @@ namespace ImPlot3D {
 
 // Computes the common (base-10) logarithm
 static inline float ImLog10(float x) { return log10f(x); }
+static inline double ImLog10(double x) { return log10(x); }
+// Computes the hyperbolic sine
+static inline float ImSinh(float x) { return sinhf(x); }
+static inline double ImSinh(double x) { return sinh(x); }
+// Computes the inverse hyperbolic sine
+static inline float ImAsinh(float x) { return asinhf(x); }
+static inline double ImAsinh(double x) { return asinh(x); }
+
 // Returns true if flag is set
 template <typename TSet, typename TFlag> static inline bool ImHasFlag(TSet set, TFlag flag) { return (set & flag) == flag; }
 // Flips a flag in a flagset
@@ -477,6 +485,10 @@ struct ImPlot3DAxis {
         Range.Min = 0.0f;
         Range.Max = 1.0f;
         RangeCond = ImPlot3DCond_None;
+        // Scale
+        Scale = ImPlot3DScale_Linear;
+        TransformForward = TransformInverse = nullptr;
+        TransformData = nullptr;
         // Ticks
         Formatter = nullptr;
         FormatterData = nullptr;
@@ -495,6 +507,10 @@ struct ImPlot3DAxis {
 
     inline void Reset() {
         RangeCond = ImPlot3DCond_None;
+        // Scale
+        Scale = ImPlot3DScale_Linear;
+        TransformForward = TransformInverse = nullptr;
+        TransformData = nullptr;
         // Ticks
         Ticker.Reset();
         Formatter = nullptr;
@@ -790,6 +806,18 @@ IMPLOT3D_API ImPlot3DRay NDCRayToPlotRay(const ImPlot3DRay& ray);
 IMPLOT3D_API void SetupLock();
 
 //-----------------------------------------------------------------------------
+// [SECTION] Transforms
+//-----------------------------------------------------------------------------
+
+static inline double TransformForward_Log10(double v, void*) { return ImLog10(v <= 0.0 ? DBL_MIN : v); }
+
+static inline double TransformInverse_Log10(double v, void*) { return ImPow(10, v); }
+
+static inline double TransformForward_SymLog(double v, void*) { return 2.0 * ImAsinh(v / 2.0); }
+
+static inline double TransformInverse_SymLog(double v, void*) { return 2.0 * ImSinh(v / 2.0); }
+
+//-----------------------------------------------------------------------------
 // [SECTION] Formatter
 //-----------------------------------------------------------------------------
 
@@ -800,6 +828,8 @@ int Formatter_Default(float value, char* buff, int size, void* data);
 //------------------------------------------------------------------------------
 
 void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data);
+void Locator_Log10(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data);
+void Locator_SymLog(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data);
 
 } // namespace ImPlot3D
 
