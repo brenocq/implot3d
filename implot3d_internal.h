@@ -617,9 +617,10 @@ struct ImPlot3DAxis {
     }
 
     inline float NDCToPlot(float ndc) const {
+        float plt = ScaledRange.Min + ndc * (ScaledRange.Max - ScaledRange.Min);
         if (TransformInverse != nullptr)
-            ndc = (float)TransformInverse((double)ndc, TransformData);
-        return ScaledRange.Min + ndc * (ScaledRange.Max - ScaledRange.Min);
+            plt = (float)TransformInverse((double)plt, TransformData);
+        return plt;
     }
 
     inline bool IsRangeLocked() const { return RangeCond == ImPlot3DCond_Always; }
