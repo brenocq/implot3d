@@ -39,6 +39,7 @@
 // [SECTION] ImPlot3DAxis
 // [SECTION] ImPlot3DPlot
 // [SECTION] ImPlot3DStyle
+// [SECTION] Metrics
 
 //-----------------------------------------------------------------------------
 // [SECTION] Includes
@@ -201,6 +202,30 @@ void AddTextCentered(ImDrawList* draw_list, ImVec2 top_center, ImU32 col, const 
 //-----------------------------------------------------------------------------
 // [SECTION] Legend Utils
 //-----------------------------------------------------------------------------
+
+static const char* short_legend_location[9] = {"C", "N", "S", "W", "E", "NW", "NE", "SW", "SE"};
+
+static const char* GetShortLegendLocationName(ImPlot3DLocation loc) {
+    if (loc == ImPlot3DLocation_Center)
+        return short_legend_location[0];
+    if (loc == ImPlot3DLocation_North)
+        return short_legend_location[1];
+    if (loc == ImPlot3DLocation_South)
+        return short_legend_location[2];
+    if (loc == ImPlot3DLocation_West)
+        return short_legend_location[3];
+    if (loc == ImPlot3DLocation_East)
+        return short_legend_location[4];
+    if (loc == ImPlot3DLocation_NorthWest)
+        return short_legend_location[5];
+    if (loc == ImPlot3DLocation_NorthEast)
+        return short_legend_location[6];
+    if (loc == ImPlot3DLocation_SouthWest)
+        return short_legend_location[7];
+    if (loc == ImPlot3DLocation_SouthEast)
+        return short_legend_location[8];
+    return nullptr;
+}
 
 ImVec2 GetLocationPos(const ImRect& outer_rect, const ImVec2& inner_size, ImPlot3DLocation loc, const ImVec2& pad) {
     ImVec2 pos;
@@ -440,6 +465,13 @@ static const int axis_corners_lookup_3d[8][3][2] = {
     // Index 7: active_faces = {1, 1, 1}
     {{4, 5}, {4, 7}, {3, 7}},
 };
+
+// Lookup table for corners based on shifted version of active_faces (3D plot)
+static const int corner_lookup_3d[8] = {6, 2, 5, 1, 7, 3, 4, 0};
+
+int Active3DFacesToCornerIndex(const bool* active_faces) {
+    return ((int)active_faces[0] << 2) | ((int)active_faces[1] << 1) | ((int)active_faces[2]);
+}
 
 int GetMouseOverPlane(const ImPlot3DPlot& plot, const bool* active_faces, const ImVec2* corners_pix, int* plane_out = nullptr) {
     ImGuiIO& io = ImGui::GetIO();
@@ -934,35 +966,57 @@ void ComputeBoxCorners(ImPlot3DPoint* corners, const ImPlot3DPoint& range_min, c
     corners[7] = ImPlot3DPoint(range_min.x, range_max.y, range_max.z); // 7
 }
 
+ImVec2 NDCToPixels(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
+    ImVec2 center = plot.PlotRect.GetCenter();
+    ImPlot3DPoint point_pix = plot.GetBoxZoom() * (plot.Rotation * point);
+    point_pix.y *= -1.0f; // Invert y-axis
+    point_pix.x += center.x;
+    point_pix.y += center.y;
+
+    return {point_pix.x, point_pix.y};
+}
+
+ImPlot3DPoint PlotToNDC(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
+
+    ImPlot3DPoint ndc_point;
+    for (int i = 0; i < 3; i++) {
+        const ImPlot3DAxis& axis = plot.Axes[i];
+        float ndc_range = 0.5f * plot.BoxScale[i];
+        float t = (point[i] - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
+        t *= plot.BoxScale[i];
+        ndc_point[i] = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range);
+    }
+    return ndc_point;
+}
+
+ImVec2 PlotToPixels(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) { return NDCToPixels(plot, PlotToNDC(plot, point)); }
+
 // Function to compute the box corners in pixel space
-void ComputeBoxCornersPix(ImVec2* corners_pix, const ImPlot3DPoint* corners) {
+void ComputeBoxCornersPix(const ImPlot3DPlot& plot, ImVec2* corners_pix, const ImPlot3DPoint* corners) {
     for (int i = 0; i < 8; i++) {
-        corners_pix[i] = PlotToPixels(corners[i]);
+        corners_pix[i] = PlotToPixels(plot, corners[i]);
     }
 }
 
-void RenderPlotBox(ImDrawList* draw_list, const ImPlot3DPlot& plot) {
+// Function to get axes parameters which can then be used later down the line
+void GetAxesParameters(const ImPlot3DPlot& plot, bool* active_faces, ImVec2* corners_pix, ImPlot3DPoint* corners, int& plane_2d,
+                       int axis_corners[3][2]) {
     // Get plot parameters
     const ImPlot3DQuat& rotation = plot.Rotation;
     ImPlot3DPoint range_min = plot.RangeMin();
     ImPlot3DPoint range_max = plot.RangeMax();
 
     // Compute active faces
-    bool active_faces[3];
-    int plane_2d = -1;
     ComputeActiveFaces(active_faces, rotation, plot.Axes, &plane_2d);
     bool is_2d = plane_2d != -1;
 
     // Compute box corners in plot space
-    ImPlot3DPoint corners[8];
     ComputeBoxCorners(corners, range_min, range_max);
 
     // Compute box corners in pixel space
-    ImVec2 corners_pix[8];
-    ComputeBoxCornersPix(corners_pix, corners);
+    ComputeBoxCornersPix(plot, corners_pix, corners);
 
     // Compute axes start and end corners (given current rotation)
-    int axis_corners[3][2];
     if (is_2d) {
         int face = plane_2d + 3 * active_faces[plane_2d]; // Face of the 2D plot
         int common_edges[2] = {-1, -1};                   // Edges shared by the 3 faces
@@ -1037,12 +1091,23 @@ void RenderPlotBox(ImDrawList* draw_list, const ImPlot3DPlot& plot) {
             axis_corners[y_axis][1] = y_corner;
         }
     } else {
-        int index = ((int)active_faces[0] << 2) | ((int)active_faces[1] << 1) | ((int)active_faces[2]);
+        int index = Active3DFacesToCornerIndex(active_faces);
         for (int a = 0; a < 3; a++) {
             axis_corners[a][0] = axis_corners_lookup_3d[index][a][0];
             axis_corners[a][1] = axis_corners_lookup_3d[index][a][1];
         }
     }
+}
+
+void RenderPlotBox(ImDrawList* draw_list, const ImPlot3DPlot& plot) {
+
+    bool active_faces[3];
+    ImVec2 corners_pix[8];
+    ImPlot3DPoint corners[8];
+    int plane_2d;
+    int axis_corners[3][2];
+
+    GetAxesParameters(plot, active_faces, corners_pix, corners, plane_2d, axis_corners);
 
     // Render components
     RenderPlotBackground(draw_list, plot, corners_pix, active_faces, plane_2d);
@@ -1162,15 +1227,15 @@ bool ShowLegendContextMenu(ImPlot3DLegend& legend, bool visible) {
         legend.Flags &= ~ImPlot3DLegendFlags_Horizontal;
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 2));
     // clang-format off
-    if (ImGui::Button("NW",ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_NorthWest; } ImGui::SameLine();
-    if (ImGui::Button("N", ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_North;     } ImGui::SameLine();
-    if (ImGui::Button("NE",ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_NorthEast; }
-    if (ImGui::Button("W", ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_West;      } ImGui::SameLine();
-    if (ImGui::InvisibleButton("C", ImVec2(1.5f*s,s))) {     } ImGui::SameLine();
-    if (ImGui::Button("E", ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_East;      }
-    if (ImGui::Button("SW",ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_SouthWest; } ImGui::SameLine();
-    if (ImGui::Button("S", ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_South;     } ImGui::SameLine();
-    if (ImGui::Button("SE",ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_SouthEast; }
+    if (ImGui::Button(GetShortLegendLocationName(ImPlot3DLocation_NorthWest),ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_NorthWest; } ImGui::SameLine();
+    if (ImGui::Button(GetShortLegendLocationName(ImPlot3DLocation_North) , ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_North;     } ImGui::SameLine();
+    if (ImGui::Button(GetShortLegendLocationName(ImPlot3DLocation_NorthEast), ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_NorthEast; }
+    if (ImGui::Button(GetShortLegendLocationName(ImPlot3DLocation_West), ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_West;      } ImGui::SameLine();
+    if (ImGui::InvisibleButton(GetShortLegendLocationName(ImPlot3DLocation_Center), ImVec2(1.5f*s,s))) {     } ImGui::SameLine();
+    if (ImGui::Button(GetShortLegendLocationName(ImPlot3DLocation_East), ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_East;      }
+    if (ImGui::Button(GetShortLegendLocationName(ImPlot3DLocation_SouthWest),ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_SouthWest; } ImGui::SameLine();
+    if (ImGui::Button(GetShortLegendLocationName(ImPlot3DLocation_South), ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_South;     } ImGui::SameLine();
+    if (ImGui::Button(GetShortLegendLocationName(ImPlot3DLocation_SouthEast),ImVec2(1.5f*s,s))) { legend.Location = ImPlot3DLocation_SouthEast; }
     // clang-format on
     ImGui::PopStyleVar();
     return ret;
@@ -1767,15 +1832,7 @@ ImPlot3DPoint PlotToNDC(const ImPlot3DPoint& point) {
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     SetupLock();
 
-    ImPlot3DPoint ndc_point;
-    for (int i = 0; i < 3; i++) {
-        ImPlot3DAxis& axis = plot.Axes[i];
-        float ndc_range = 0.5f * plot.BoxScale[i];
-        float t = (point[i] - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
-        t *= plot.BoxScale[i];
-        ndc_point[i] = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range);
-    }
-    return ndc_point;
+    return PlotToNDC(plot, point);
 }
 
 ImPlot3DPoint NDCToPlot(const ImPlot3DPoint& point) {
@@ -1801,13 +1858,7 @@ ImVec2 NDCToPixels(const ImPlot3DPoint& point) {
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     SetupLock();
 
-    ImVec2 center = plot.PlotRect.GetCenter();
-    ImPlot3DPoint point_pix = plot.GetBoxZoom() * (plot.Rotation * point);
-    point_pix.y *= -1.0f; // Invert y-axis
-    point_pix.x += center.x;
-    point_pix.y += center.y;
-
-    return {point_pix.x, point_pix.y};
+    return NDCToPixels(plot, point);
 }
 
 ImPlot3DRay PixelsToNDCRay(const ImVec2& pix) {
@@ -1893,7 +1944,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     ImPlot3DPoint corners[8];
     ComputeBoxCorners(corners, range_min, range_max);
     ImVec2 corners_pix[8];
-    ComputeBoxCornersPix(corners_pix, corners);
+    ComputeBoxCornersPix(plot, corners_pix, corners);
     int hovered_plane_idx = -1;
     int hovered_plane = GetMouseOverPlane(plot, active_faces, corners_pix, &hovered_plane_idx);
     int hovered_edge_idx = -1;
@@ -3273,5 +3324,304 @@ ImPlot3DStyle::ImPlot3DStyle() {
     ImPlot3D::StyleColorsAuto(this);
     Colormap = ImPlot3DColormap_Deep;
 };
+
+//-----------------------------------------------------------------------------
+// [SECTION] Metrics
+//-----------------------------------------------------------------------------
+
+void ShowTicksMetrics(const ImPlot3DTicker& ticker) { ImGui::BulletText("Size: %d", ticker.TickCount()); }
+
+void ShowAxisMetrics(const ImPlot3DAxis& axis) {
+    ImGui::BulletText("Label: %s", axis.GetLabel());
+    ImGui::BulletText("Flags: 0x%08X", axis.Flags);
+    ImGui::BulletText("Range: [%f,%f]", axis.Range.Min, axis.Range.Max);
+
+    ImGui::BulletText("ShowDefaultTicks: %s", axis.ShowDefaultTicks ? "true" : "false");
+    ImGui::BulletText("FitThisFrame: %s", axis.FitThisFrame ? "true" : "false");
+    ImGui::BulletText("FitExtents: [%f,%f]", axis.FitExtents.Min, axis.FitExtents.Min);
+    ImGui::BulletText("ConstraintRange: [%f,%f]", axis.ConstraintRange.Min, axis.ConstraintRange.Min);
+    ImGui::BulletText("ConstraintZoom: [%f,%f]", axis.ConstraintZoom.Min, axis.ConstraintZoom.Min);
+    ImGui::BulletText("Hovered: %s", axis.Hovered ? "true" : "false");
+    ImGui::BulletText("Held: %s", axis.Held ? "true" : "false");
+
+    if (ImGui::TreeNode("Ticks")) {
+        ShowTicksMetrics(axis.Ticker);
+        ImGui::TreePop();
+    }
+}
+
+void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
+
+    static bool show_frame_rects = false;
+    static bool show_canvas_rects = false;
+    static bool show_plot_rects = false;
+    static bool show_plot_box = false;
+    static bool show_axis_lines = false;
+    static bool show_axis_corner_indexes = false;
+    static bool show_axis_edge_indexes = false;
+    static bool show_legend_rects = false;
+
+    ImDrawList& fg = *ImGui::GetForegroundDrawList();
+
+    ImPlot3DContext& gp = *GImPlot3D;
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::Begin("Metrics (ImPlot3D)", p_popen);
+    ImGui::Text("ImPlot3D " IMPLOT3D_VERSION);
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+    ImGui::Text("Mouse Position: [%.0f,%.0f]", io.MousePos.x, io.MousePos.y);
+    ImGui::Separator();
+    if (ImGui::TreeNode("Tools")) {
+        if (ImGui::Button("Bust Plot Cache"))
+            BustPlotCache();
+        ImGui::SameLine();
+        if (ImGui::Button("Bust Item Cache"))
+            BustItemCache();
+        ImGui::Checkbox("Show Frame Rects", &show_frame_rects);
+        ImGui::Checkbox("Show Canvas Rects", &show_canvas_rects);
+        ImGui::Checkbox("Show Plot Rects", &show_plot_rects);
+        ImGui::Checkbox("Show Plot Box", &show_plot_box);
+        ImGui::Checkbox("Show Axis Lines", &show_axis_lines);
+        ImGui::Checkbox("Show Axis Corner Indexes", &show_axis_corner_indexes);
+        ImGui::Checkbox("Show Axis Edge Indexes", &show_axis_edge_indexes);
+        ImGui::Checkbox("Show Legend Rects", &show_legend_rects);
+        ImGui::TreePop();
+    }
+    const int n_plots = gp.Plots.GetBufSize();
+    bool active_faces[3];
+    ImVec2 corners_pix[8];
+    ImPlot3DPoint corners[8];
+    int plane_2d;
+    int axis_corners[3][2];
+    char buff[16];
+    enum class DisplayedType { Outer, Hidden, Inner };
+
+    // Render rectangles
+    for (int p = 0; p < n_plots; ++p) {
+        ImPlot3DPlot& plot = *gp.Plots.GetByIndex(p);
+        if (show_frame_rects)
+            fg.AddRect(plot.FrameRect.Min, plot.FrameRect.Max, IM_COL32(255, 0, 255, 255));
+        if (show_canvas_rects)
+            fg.AddRect(plot.CanvasRect.Min, plot.CanvasRect.Max, IM_COL32(0, 255, 255, 255));
+        if (show_plot_rects)
+            fg.AddRect(plot.PlotRect.Min, plot.PlotRect.Max, IM_COL32(255, 255, 0, 255));
+        if (show_plot_box || show_axis_lines || show_axis_corner_indexes || show_axis_edge_indexes)
+            GetAxesParameters(plot, active_faces, corners_pix, corners, plane_2d, axis_corners);
+        if (show_plot_box) {
+            DisplayedType edge_types[12];
+            for (int i = 0; i < 12; i++) {
+                if (plane_2d == -1)
+                    edge_types[i] = DisplayedType::Outer;
+                else
+                    edge_types[i] = DisplayedType::Hidden;
+            }
+            for (int a = 0; a < 3; a++) {
+                int face_idx = a + 3 * active_faces[a];
+                for (size_t i = 0; (plane_2d == -1 || a == plane_2d) && i < 4; i++)
+                    edge_types[face_edges[face_idx][i]] = DisplayedType::Inner;
+            }
+
+            for (int i = 0; i < 12; i++) {
+                int idx0 = edges[i][0];
+                int idx1 = edges[i][1];
+
+                // Draw different lines depending on the type that the renderer thinks it is
+                if (edge_types[i] == DisplayedType::Inner)
+                    fg.AddLine(corners_pix[idx0], corners_pix[idx1], IM_COL32(255, 200, 0, 255));
+                else if (edge_types[i] == DisplayedType::Outer)
+                    fg.AddLine(corners_pix[idx0], corners_pix[idx1], IM_COL32(100, 255, 0, 125));
+                // If the render edge type is Hidden then there this edge does not get rendered
+            }
+        }
+        if (show_axis_lines) {
+            for (int a = 0; a < 3; a++) {
+                if (plane_2d != -1 && a == plane_2d)
+                    continue;
+                int idx0 = axis_corners[a][0];
+                int idx1 = axis_corners[a][1];
+
+                // Draw axis line
+                ImVec2 axis_start_pix = corners_pix[idx0];
+                ImVec2 axis_end_pix = corners_pix[idx1];
+                fg.AddLine(axis_start_pix, axis_end_pix, IM_COL32(0, 255, 255, 255));
+            }
+        }
+        if (show_axis_corner_indexes) {
+            DisplayedType corner_types[8];
+            for (int c = 0; c < 8; c++) {
+                if (plane_2d == -1 && show_plot_box)
+                    corner_types[c] = DisplayedType::Outer;
+                else
+                    corner_types[c] = DisplayedType::Hidden;
+            }
+            for (int a = 0; a < 3; a++) {
+                int face_idx = a + 3 * active_faces[a];
+                for (size_t i = 0; (plane_2d == -1 || a == plane_2d) && i < 4; i++)
+                    corner_types[faces[face_idx][i]] = DisplayedType::Inner;
+            }
+            for (int c = 0; c < 8; c++) {
+                if (corner_types[c] == DisplayedType::Inner || corner_types[c] == DisplayedType::Outer) {
+                    ImVec2 corner = corners_pix[c];
+                    ImFormatString(buff, IM_ARRAYSIZE(buff), "C%d", c);
+                    AddTextRotated(&fg, corner, 0, IM_COL32(0, 200, 0, 200), buff);
+                }
+            }
+        }
+        if (show_axis_edge_indexes) {
+            DisplayedType edge_types[12];
+            for (int e = 0; e < 12; e++) {
+                if (plane_2d == -1 && show_plot_box)
+                    edge_types[e] = DisplayedType::Outer;
+                else
+                    edge_types[e] = DisplayedType::Hidden;
+            }
+            for (int a = 0; a < 3; a++) {
+                int face_idx = a + 3 * active_faces[a];
+                for (size_t i = 0; (plane_2d == -1 || a == plane_2d) && i < 4; i++)
+                    edge_types[face_edges[face_idx][i]] = DisplayedType::Inner;
+            }
+            for (int e = 0; e < 12; e++) {
+                if (edge_types[e] == DisplayedType::Inner || edge_types[e] == DisplayedType::Outer) {
+                    int idx0 = edges[e][0];
+                    int idx1 = edges[e][1];
+                    ImVec2 edge_middle = (corners_pix[idx0] + corners_pix[idx1]) / 2;
+                    ImFormatString(buff, IM_ARRAYSIZE(buff), "E%d", e);
+                    AddTextRotated(&fg, edge_middle, 0, IM_COL32(200, 0, 0, 200), buff);
+                }
+            }
+        }
+        if (show_legend_rects && plot.Items.GetLegendCount() > 0)
+            fg.AddRect(plot.Items.Legend.Rect.Min, plot.Items.Legend.Rect.Max, IM_COL32(255, 192, 0, 255));
+    }
+    if (ImGui::TreeNode("Plots", "Plots (%d)", n_plots)) {
+        for (int p = 0; p < n_plots; ++p) {
+            ImPlot3DPlot& plot = *gp.Plots.GetByIndex(p);
+            ImGui::PushID(p);
+            if (ImGui::TreeNode("Plot", "Plot [0x%08X]", plot.ID)) {
+                int n_items = plot.Items.GetItemCount();
+                if (ImGui::TreeNode("Items", "Items (%d)", n_items)) {
+                    for (int i = 0; i < n_items; ++i) {
+                        ImPlot3DItem* item = plot.Items.GetItemByIndex(i);
+                        ImGui::PushID(i);
+                        if (ImGui::TreeNode("Item", "Item [0x%08X]", item->ID)) {
+                            ImGui::Bullet();
+                            ImGui::Checkbox("Show", &item->Show);
+                            ImGui::Bullet();
+                            ImVec4 temp = ImGui::ColorConvertU32ToFloat4(item->Color);
+                            if (ImGui::ColorEdit4("Color", &temp.x, ImGuiColorEditFlags_NoInputs))
+                                item->Color = ImGui::ColorConvertFloat4ToU32(temp);
+
+                            ImGui::BulletText("NameOffset: %d", item->NameOffset);
+                            ImGui::BulletText("Name: %s", item->NameOffset != -1 ? plot.Items.Legend.Labels.Buf.Data + item->NameOffset : "N/A");
+                            ImGui::BulletText("Hovered: %s", item->LegendHovered ? "true" : "false");
+                            ImGui::TreePop();
+                        }
+                        ImGui::PopID();
+                    }
+                    ImGui::TreePop();
+                }
+
+                if (ImGui::TreeNode("Axes")) {
+                    // Get the axes parameters of this plot and use it to plot
+                    GetAxesParameters(plot, active_faces, corners_pix, corners, plane_2d, axis_corners);
+
+                    for (int a = 0; a < 3; ++a) {
+                        if (plane_2d != -1 && plane_2d == a)
+                            continue;
+                        if (ImGui::TreeNode(axis_labels[a])) {
+                            ShowAxisMetrics(plot.Axes[a]);
+                            ImGui::TreePop();
+                        }
+                    }
+
+                    if (plane_2d != -1)
+                        ImGui::BulletText("Plane2D: %d %s", plane_2d, plane_labels[plane_2d]);
+                    else {
+                        int corner_index = Active3DFacesToCornerIndex(active_faces);
+                        ImGui::BulletText("3D Active Faces: %d [%s, %s, %s]", corner_index, active_faces[0] ? "X-min" : "X-max",
+                                          active_faces[1] ? "Y-min" : "Y-max", active_faces[2] ? "Z-min" : "Z-max");
+                        ImGui::BulletText("3d Corner Lookup: %d {{%d, %d}, {%d, %d}, {%d, %d}]", corner_lookup_3d[corner_index],
+                                          axis_corners_lookup_3d[corner_index][0][0], axis_corners_lookup_3d[corner_index][0][1],
+                                          axis_corners_lookup_3d[corner_index][1][0], axis_corners_lookup_3d[corner_index][1][1],
+                                          axis_corners_lookup_3d[corner_index][2][0], axis_corners_lookup_3d[corner_index][2][1]);
+                    }
+
+                    for (int a = 0; a < 3; a++)
+                        ImGui::BulletText("%s Label Corners: [%d, %d]", axis_labels[a], axis_corners[a][0], axis_corners[a][1]);
+                    for (int c = 0; c < 8; c++)
+                        ImGui::BulletText("Corner %d: [%.2f, %.2f, %.2f] [%.2f, %.2f]", c, corners[c].x, corners[c].y, corners[c].z, corners_pix[c].x,
+                                          corners_pix[c].y);
+
+                    ImGui::TreePop();
+                }
+
+                ImGui::BulletText("Title: %s", plot.HasTitle() ? plot.GetTitle() : "none");
+                ImGui::BulletText("Flags: 0x%08X", plot.Flags);
+                ImGui::BulletText("Initialized: %s", plot.Initialized ? "true" : "false");
+                ImGui::BulletText("Hovered: %s", plot.Hovered ? "true" : "false");
+                ImGui::BulletText("Held: %s", plot.Held ? "true" : "false");
+                ImGui::BulletText("HeldEdgeIdx: %d", plot.HeldEdgeIdx);
+                ImGui::BulletText("HeldPlaneIdx: %d", plot.HeldPlaneIdx);
+                ImGui::BulletText("LegendLocation: %s", GetShortLegendLocationName(plot.Items.Legend.Location));
+                ImGui::BulletText("LegendHovered: %s", plot.Items.Legend.Hovered ? "true" : "false");
+                ImGui::BulletText("LegendHeld: %s", plot.Items.Legend.Held ? "true" : "false");
+                ImGui::BulletText("RotationCond: 0x%08X", plot.RotationCond);
+                ImGui::BulletText("InitialRotation: [%.2f,%.2f,%.2f,%.2f]", plot.InitialRotation.x, plot.InitialRotation.y, plot.InitialRotation.z,
+                                  plot.InitialRotation.w);
+                ImGui::BulletText("Rotation: [%.2f,%.2f,%.2f,%.2f]", plot.Rotation.x, plot.Rotation.y, plot.Rotation.z, plot.Rotation.w);
+                ImGui::BulletText("Animation: Time=%.4f RotationEnd=[%.2f,%.2f,%.2f,%.2f]", plot.AnimationTime, plot.RotationAnimationEnd.x,
+                                  plot.RotationAnimationEnd.y, plot.Rotation.z, plot.RotationAnimationEnd.w);
+                ImGui::BulletText("BoxScale: [%.2f,%.2f,%.2f]", plot.BoxScale.x, plot.BoxScale.y, plot.BoxScale.z);
+                ImGui::BulletText("BoxZoom: %.2f", plot.GetBoxZoom());
+
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+        }
+        ImGui::TreePop();
+    }
+
+    if (ImGui::TreeNode("Colormaps")) {
+        ImGui::BulletText("Colormaps:  %d", gp.ColormapData.Count);
+        ImGui::BulletText("Memory: %d bytes", gp.ColormapData.Tables.Size * sizeof(gp.ColormapData.Tables.Data[0]));
+        if (ImGui::TreeNode("Data")) {
+            for (int m = 0; m < gp.ColormapData.Count; ++m) {
+                if (ImGui::TreeNode(gp.ColormapData.GetName(m))) {
+                    int count = gp.ColormapData.GetKeyCount(m);
+                    int size = gp.ColormapData.GetTableSize(m);
+                    bool qual = gp.ColormapData.IsQual(m);
+                    ImGui::BulletText("Qualitative: %s", qual ? "true" : "false");
+                    ImGui::BulletText("Key Count: %d", count);
+                    ImGui::BulletText("Table Size: %d", size);
+                    ImGui::Indent();
+
+                    // static float t = 0.5;
+                    // ImVec4 samp;
+                    // float wid = 32 * 10 - ImGui::GetFrameHeight() - ImGui::GetStyle().ItemSpacing.x;
+                    // ImGui::SetNextItemWidth(wid);
+                    // ImPlot3D::ColormapSlider("##Sample", &t, &samp, "%.3f", m);
+                    // ImGui::SameLine();
+                    // ImGui::ColorButton("Sampler", samp);
+                    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+                    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+                    for (int c = 0; c < size; ++c) {
+                        ImVec4 col = ImGui::ColorConvertU32ToFloat4(gp.ColormapData.GetTableColor(m, c));
+                        ImGui::PushID(m * 1000 + c);
+                        ImGui::ColorButton("", col, 0, ImVec2(10, 10));
+                        ImGui::PopID();
+                        if ((c + 1) % 32 != 0 && c != size - 1)
+                            ImGui::SameLine();
+                    }
+                    ImGui::PopStyleVar();
+                    ImGui::PopStyleColor();
+                    ImGui::Unindent();
+                    ImGui::TreePop();
+                }
+            }
+            ImGui::TreePop();
+        }
+        ImGui::TreePop();
+    }
+    ImGui::End();
+}
 
 #endif // #ifndef IMGUI_DISABLE
