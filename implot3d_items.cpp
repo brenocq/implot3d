@@ -37,6 +37,8 @@
 
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
+#include "imgui.h"
+#include <type_traits>
 #endif
 
 #include "implot3d.h"
@@ -1321,6 +1323,136 @@ IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const
                                            int offset, int stride);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
+
+//-----------------------------------------------------------------------------
+//[Section] PlotPrismLine
+//-----------------------------------------------------------------------------
+
+template<typename T> requires(std::is_floating_point_v<T>) 
+struct Vec3 {
+	T x, y, z;
+
+	Vec3() = default;
+	Vec3(T x, T y, T z) : x(x), y(y), z(z) {}
+
+	Vec3 operator+(const Vec3& b) const { return {x + b.x, y + b.y, z + b.z}; }
+	Vec3 operator-(const Vec3& b) const { return {x - b.x, y - b.y, z - b.z}; }
+	Vec3 operator*(T s) const { return {x * s, y * s, z * s}; }
+	Vec3 operator/(T s) const { return {x / s, y / s, z / s}; }
+
+	T dot(const Vec3& b) const {
+		return x * b.x + y * b.y + z * b.z;
+	}
+
+	Vec3 cross(const Vec3& b) const {
+		return {
+			y * b.z - z * b.y,
+			z * b.x - x * b.z,
+			x * b.y - y * b.x
+		};
+	}
+
+	static constexpr T EPSILON = 1e-6f;
+
+	T length() const {
+		return sqrt(x * x + y * y + z * z); // or sqrtf if you prefer T
+	}
+
+	Vec3 normalized() const {
+		T len = length();
+		if (len > EPSILON) {
+			return *this / len;
+		}
+		return Vec3{0.0f, 0.0f, 0.0f};
+	}
+};
+
+template<typename T> requires(std::is_floating_point_v<T>)
+void PlotPrismLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, int const sides, ImPlot3DLineFlags flags, int offset, int stride) {
+	const ImPlot3DNextItemData& n = GetItemData();
+	const auto radius = n.LineWeight * 0.0005f;
+
+	auto quad_xs = (T*)malloc(count * sides * 4 * sizeof(T));
+        auto quad_ys = (T*)malloc(count * sides * 4 * sizeof(T));
+        auto quad_zs = (T*)malloc(count * sides * 4 * sizeof(T));
+
+        auto octagonPoints1 = (Vec3<double> *) malloc(sides * sizeof(Vec3<double>));
+        auto octagonPoints2 = (Vec3<double> *) malloc(sides * sizeof(Vec3<double>));
+
+	for (int i = 0; i < count - 1; ++i) {
+		Vec3<double> p0(xs[i], ys[i], zs[i]);
+		Vec3<double> p1(xs[i + 1], ys[i + 1], zs[i + 1]);
+
+		Vec3<double> axis = (p1 - p0);
+
+		// Pick a helper vector that is not parallel to axis
+		Vec3<double> helper;
+
+		if (fabs(axis.x) <= fabs(axis.y) && fabs(axis.x) <= fabs(axis.z)) {
+			helper = Vec3<double>(1, 0, 0);
+		} else if (fabs(axis.y) <= fabs(axis.z)) {
+			helper = Vec3<double>(0, 1, 0);
+		} else {
+			helper = Vec3<double>(0, 0, 1);
+		}
+
+		// Project helper onto the plane perpendicular to axis (Gram-Schmidt step)
+		Vec3<double> right = (helper - axis * axis.dot(helper)).normalized();
+
+		// Ensure orthonormality
+		Vec3<double> up = axis.cross(right).normalized();
+
+		for (int j = 0; j < sides; ++j) {
+			T const angle = 2.0f * IM_PI * j / sides;
+			T const x = cosf(angle) * radius;
+			T const y = sinf(angle) * radius;
+
+			// Generate points in the plane perpendicular to axis
+			Vec3<double> offsetVec = right * x + up * y;
+
+			octagonPoints1[j] = p0 + offsetVec;
+			octagonPoints2[j] = p1 + offsetVec;
+		}
+
+		for (int j = 0; j < sides; ++j) {
+			int j_next = (j + 1) % sides;
+
+			Vec3<double> vertices[4];
+			vertices[0] = octagonPoints1[j];
+			vertices[1] = octagonPoints2[j];
+			vertices[2] = octagonPoints2[j_next];
+			vertices[3] = octagonPoints1[j_next];
+
+			for (int k =0; k < 4; ++k) {
+				quad_xs[(i * sides * 4) + (j * 4) + (k)] = vertices[k].x;
+				quad_ys[(i * sides * 4) + (j * 4) + (k)] = vertices[k].y;
+				quad_zs[(i * sides * 4) + (j * 4) + (k)] = vertices[k].z;
+			}		
+		}
+	}
+	
+	PlotQuad(label_id, quad_xs, quad_ys, quad_zs, (count - 1) * sides * 4);
+
+	free(quad_xs);
+	free(quad_ys);
+	free(quad_zs);
+        free(octagonPoints1);
+        free(octagonPoints2);
+}
+
+#define INSTANTIATE_MACRO(T)                                                                                                                         \
+	template IMPLOT3D_API void PlotPrismLine<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, int const sides, ImPlot3DLineFlags flags, int offset, int stride);
+#define CALL_INSTANTIATE_FOR_FLOATING_TYPES \
+    INSTANTIATE_MACRO(float);               \
+    INSTANTIATE_MACRO(double);              \
+    INSTANTIATE_MACRO(long double)
+
+CALL_INSTANTIATE_FOR_FLOATING_TYPES
+#undef INSTANTIATE_MACRO
+#undef CALL_INSTANTIATE_FOR_FLOATING_TYPES
+
+// CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
+// #undef INSTANTIATE_MACRO
 
 //-----------------------------------------------------------------------------
 // [SECTION] PlotSurface
