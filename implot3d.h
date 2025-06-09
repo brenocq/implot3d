@@ -544,6 +544,12 @@ IMPLOT3D_API void SetNextMarkerStyle(ImPlot3DMarker marker = IMPLOT3D_AUTO, floa
 IMPLOT3D_API ImVec4 GetStyleColorVec4(ImPlot3DCol idx);
 IMPLOT3D_API ImU32 GetStyleColorU32(ImPlot3DCol idx);
 
+// Returns white or black text given background color
+static inline ImU32 CalcTextColor(const ImVec4& bg) {
+    return (bg.x * 0.299f + bg.y * 0.587f + bg.z * 0.114f) > 0.5f ? IM_COL32_BLACK : IM_COL32_WHITE;
+}
+static inline ImU32 CalcTextColor(ImU32 bg) { return CalcTextColor(ImGui::ColorConvertU32ToFloat4(bg)); }
+
 //-----------------------------------------------------------------------------
 // [SECTION] Colormaps
 //-----------------------------------------------------------------------------
@@ -605,6 +611,9 @@ IMPLOT3D_API void ShowAllDemos();
 
 // Shows ImPlot3D style editor block (not a window)
 IMPLOT3D_API void ShowStyleEditor(ImPlot3DStyle* ref = nullptr);
+
+// Shows ImPlot3D metrics/debug information window.
+IMPLOT3D_API void ShowMetricsWindow(bool* p_popen = nullptr);
 
 } // namespace ImPlot3D
 

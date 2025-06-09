@@ -735,6 +735,10 @@ IMPLOT3D_API ImU32 GetColormapColorU32(int idx, ImPlot3DColormap cmap);
 // Returns the next unused colormap color and advances the colormap. Can be used to skip colors if desired
 IMPLOT3D_API ImU32 NextColormapColorU32();
 
+// Render a colormap bar
+IMPLOT3D_API void RenderColorBar(const ImU32* colors, int size, ImDrawList& DrawList, const ImRect& bounds, bool vert, bool reversed,
+                                 bool continuous);
+
 //-----------------------------------------------------------------------------
 // [SECTION] Item Utils
 //-----------------------------------------------------------------------------

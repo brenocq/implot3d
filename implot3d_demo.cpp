@@ -901,17 +901,19 @@ void ShowAllDemos() {
 }
 
 void ShowDemoWindow(bool* p_open) {
+    static bool show_implot3d_metrics = false;
     static bool show_implot3d_style_editor = false;
     static bool show_imgui_metrics = false;
     static bool show_imgui_style_editor = false;
     static bool show_imgui_demo = false;
 
+    if (show_implot3d_metrics)
+        ImPlot3D::ShowMetricsWindow(&show_implot3d_metrics);
     if (show_implot3d_style_editor) {
         ImGui::Begin("Style Editor (ImPlot3D)", &show_implot3d_style_editor);
         ImPlot3D::ShowStyleEditor();
         ImGui::End();
     }
-
     if (show_imgui_style_editor) {
         ImGui::Begin("Style Editor (ImGui)", &show_imgui_style_editor);
         ImGui::ShowStyleEditor();
@@ -927,6 +929,7 @@ void ShowDemoWindow(bool* p_open) {
     ImGui::Begin("ImPlot3D Demo", p_open, ImGuiWindowFlags_MenuBar);
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("Tools")) {
+            ImGui::MenuItem("Metrics", nullptr, &show_implot3d_metrics);
             ImGui::MenuItem("Style Editor", nullptr, &show_implot3d_style_editor);
             ImGui::Separator();
             ImGui::MenuItem("ImGui Metrics", nullptr, &show_imgui_metrics);
@@ -957,45 +960,6 @@ bool ShowStyleSelector(const char* label) {
     }
     return false;
 }
-
-void RenderColorBar(const ImU32* colors, int size, ImDrawList& DrawList, const ImRect& bounds, bool vert, bool reversed, bool continuous) {
-    const int n = continuous ? size - 1 : size;
-    ImU32 col1, col2;
-    if (vert) {
-        const float step = bounds.GetHeight() / n;
-        ImRect rect(bounds.Min.x, bounds.Min.y, bounds.Max.x, bounds.Min.y + step);
-        for (int i = 0; i < n; ++i) {
-            if (reversed) {
-                col1 = colors[size - i - 1];
-                col2 = continuous ? colors[size - i - 2] : col1;
-            } else {
-                col1 = colors[i];
-                col2 = continuous ? colors[i + 1] : col1;
-            }
-            DrawList.AddRectFilledMultiColor(rect.Min, rect.Max, col1, col1, col2, col2);
-            rect.TranslateY(step);
-        }
-    } else {
-        const float step = bounds.GetWidth() / n;
-        ImRect rect(bounds.Min.x, bounds.Min.y, bounds.Min.x + step, bounds.Max.y);
-        for (int i = 0; i < n; ++i) {
-            if (reversed) {
-                col1 = colors[size - i - 1];
-                col2 = continuous ? colors[size - i - 2] : col1;
-            } else {
-                col1 = colors[i];
-                col2 = continuous ? colors[i + 1] : col1;
-            }
-            DrawList.AddRectFilledMultiColor(rect.Min, rect.Max, col1, col2, col2, col1);
-            rect.TranslateX(step);
-        }
-    }
-}
-
-static inline ImU32 CalcTextColor(const ImVec4& bg) {
-    return (bg.x * 0.299f + bg.y * 0.587f + bg.z * 0.114f) > 0.5f ? IM_COL32_BLACK : IM_COL32_WHITE;
-}
-static inline ImU32 CalcTextColor(ImU32 bg) { return CalcTextColor(ImGui::ColorConvertU32ToFloat4(bg)); }
 
 bool ColormapButton(const char* label, const ImVec2& size_arg, ImPlot3DColormap cmap) {
     ImGuiContext& G = *GImGui;
