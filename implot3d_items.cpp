@@ -1451,9 +1451,6 @@ CALL_INSTANTIATE_FOR_FLOATING_TYPES
 #undef INSTANTIATE_MACRO
 #undef CALL_INSTANTIATE_FOR_FLOATING_TYPES
 
-// CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
-// #undef INSTANTIATE_MACRO
-
 //-----------------------------------------------------------------------------
 // [SECTION] PlotSurface
 //-----------------------------------------------------------------------------
