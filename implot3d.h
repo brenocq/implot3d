@@ -448,7 +448,7 @@ IMPLOT3D_TMP void PlotTriangle(const char* label_id, const T* xs, const T* ys, c
 IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DQuadFlags flags = 0, int offset = 0,
                            int stride = sizeof(T));
 
-IMPLOT3D_TMP void PlotPrismLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, int const sides = 8, ImPlot3DLineFlags flags = 0, int offset = 0,
+IMPLOT3D_TMP void PlotPrismLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, int const sides = 8, float wieght = -1.0f, ImPlot3DLineFlags flags = 0, int offset = 0,
 				int stride = sizeof(T));
 
 // Plot the surface defined by a grid of vertices. The grid is defined by the x and y arrays, and the z array contains the height of each vertex. A

@@ -1368,9 +1368,9 @@ struct Vec3 {
 };
 
 template<typename T> requires(std::is_floating_point_v<T>)
-void PlotPrismLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, int const sides, ImPlot3DLineFlags flags, int offset, int stride) {
-	const ImPlot3DNextItemData& n = GetItemData();
-	const auto radius = n.LineWeight * 0.0005f;
+void PlotPrismLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, int const sides, float weight, ImPlot3DLineFlags flags, int offset, int stride) {
+	//const ImPlot3DNextItemData& n = GetItemData();
+	const auto radius = weight * 0.0005f;
 
 	auto quad_xs = (T*)malloc(count * sides * 4 * sizeof(T));
         auto quad_ys = (T*)malloc(count * sides * 4 * sizeof(T));
@@ -1441,7 +1441,7 @@ void PlotPrismLine(const char* label_id, const T* xs, const T* ys, const T* zs, 
 }
 
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
-	template IMPLOT3D_API void PlotPrismLine<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, int const sides, ImPlot3DLineFlags flags, int offset, int stride);
+	template IMPLOT3D_API void PlotPrismLine<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, int const sides, float weight, ImPlot3DLineFlags flags, int offset, int stride);
 #define CALL_INSTANTIATE_FOR_FLOATING_TYPES \
     INSTANTIATE_MACRO(float);               \
     INSTANTIATE_MACRO(double);              \
