@@ -26,6 +26,7 @@
 // [SECTION] PlotLine
 // [SECTION] PlotTriangle
 // [SECTION] PlotQuad
+// [SECTION] PlotPrismLine
 // [SECTION] PlotSurface
 // [SECTION] PlotMesh
 // [SECTION] PlotImage
