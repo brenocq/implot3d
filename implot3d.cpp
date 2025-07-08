@@ -28,6 +28,7 @@
 // [SECTION] Setup Utils
 // [SECTION] Miscellaneous
 // [SECTION] Styles
+// [SECTION] Input Mapping
 // [SECTION] Colormaps
 // [SECTION] Context Utils
 // [SECTION] Style Utils
@@ -39,6 +40,7 @@
 // [SECTION] ImPlot3DAxis
 // [SECTION] ImPlot3DPlot
 // [SECTION] ImPlot3DStyle
+// [SECTION] ImPlot3DInputMap
 // [SECTION] Metrics
 
 //-----------------------------------------------------------------------------
@@ -1934,6 +1936,7 @@ ImPlot3DRay NDCRayToPlotRay(const ImPlot3DRay& ray) {
 static const float MOUSE_CURSOR_DRAG_THRESHOLD = 5.0f;
 
 void HandleInput(ImPlot3DPlot& plot) {
+    ImPlot3DContext& gp = *GImPlot3D;
     ImGuiIO& IO = ImGui::GetIO();
 
     // clang-format off
@@ -1950,7 +1953,7 @@ void HandleInput(ImPlot3DPlot& plot) {
 #endif
 
     // State
-    const ImVec2 rot_drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
+    const ImVec2 rot_drag = ImPlot3D::ImHasFlag(IO.KeyMods, gp.InputMap.RotateMod) ? ImGui::GetMouseDragDelta(gp.InputMap.Rotate) : ImVec2(0, 0);
     const bool rotating = ImLengthSqr(rot_drag) > MOUSE_CURSOR_DRAG_THRESHOLD;
 
     // Check if any axis/plane is hovered
@@ -1974,7 +1977,8 @@ void HandleInput(ImPlot3DPlot& plot) {
     }
 
     // If the user is no longer pressing the translation/zoom buttons, set axes as not held
-    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) && !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
+    if (!(ImPlot3D::ImHasFlag(IO.KeyMods, gp.InputMap.PanMod) && ImGui::IsMouseDown(gp.InputMap.Pan)) &&
+        !(ImPlot3D::ImHasFlag(IO.KeyMods, gp.InputMap.ZoomMod) && ImGui::IsMouseDown(ImGuiMouseButton_Middle))) {
         for (int i = 0; i < 3; i++)
             plot.Axes[i].Held = false;
     }
@@ -2014,7 +2018,8 @@ void HandleInput(ImPlot3DPlot& plot) {
     ImPlot3DPoint mouse_pos_plot = PixelsToPlotPlane(mouse_pos, mouse_plane, false);
 
     // Handle translation/zoom fit with double click
-    if (plot_clicked && (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Middle))) {
+    if (plot_clicked && (ImGui::IsMouseDoubleClicked(gp.InputMap.Fit) ||
+                         (ImPlot3D::ImHasFlag(IO.KeyMods, gp.InputMap.ZoomMod) && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Middle)))) {
         plot.FitThisFrame = true;
         for (int i = 0; i < 3; i++)
             plot.Axes[i].FitThisFrame = plot.Axes[i].Hovered;
@@ -2027,8 +2032,12 @@ void HandleInput(ImPlot3DPlot& plot) {
             plot.Axes[i].FitThisFrame = true;
         }
 
+    // cancel due to DND activity
+    if (GImGui->DragDropActive || ImPlot3D::ImHasFlag(IO.KeyMods, gp.InputMap.OverrideMod))
+        return;
+
     // Handle translation with right mouse button
-    if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+    if (plot.Held && ImPlot3D::ImHasFlag(IO.KeyMods, gp.InputMap.PanMod) && ImGui::IsMouseDown(gp.InputMap.Pan)) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
         if (plot.Axes[0].Hovered && plot.Axes[1].Hovered && plot.Axes[2].Hovered) {
@@ -2046,7 +2055,7 @@ void HandleInput(ImPlot3DPlot& plot) {
 
             // Adjust delta for inverted axes
             for (int i = 0; i < 3; i++) {
-                if (ImHasFlag(plot.Axes[i].Flags, ImPlot3DAxisFlags_Invert))
+                if (ImPlot3D::ImHasFlag(plot.Axes[i].Flags, ImPlot3DAxisFlags_Invert))
                     delta_plot[i] *= -1;
             }
 
@@ -2094,13 +2103,14 @@ void HandleInput(ImPlot3DPlot& plot) {
     }
 
     // Handle context click with right mouse button
-    if (plot.Held && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_NoMenus))
+    if (plot.Held && ImGui::IsMouseClicked(gp.InputMap.Menu) && !ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_NoMenus))
         plot.ContextClick = true;
-    if (rotating || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right))
+    if (rotating || (ImPlot3D::ImHasFlag(IO.KeyMods, gp.InputMap.RotateMod) && ImGui::IsMouseDoubleClicked(gp.InputMap.Rotate)))
         plot.ContextClick = false;
 
     // Handle reset rotation with left mouse double click
-    if (plot.Held && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && !plot.IsRotationLocked()) {
+    if (plot.Held && ImPlot3D::ImHasFlag(IO.KeyMods, gp.InputMap.RotateMod) && ImGui::IsMouseDoubleClicked(gp.InputMap.ResetRotate) &&
+        !plot.IsRotationLocked()) {
         plot.RotationAnimationEnd = plot.Rotation;
 
         // Calculate rotation to align the z-axis with the camera direction
@@ -2161,7 +2171,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     }
 
     // Handle rotation with left mouse dragging
-    if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Right) && !plot.IsRotationLocked()) {
+    if (plot.Held && ImPlot3D::ImHasFlag(IO.KeyMods, gp.InputMap.RotateMod) && ImGui::IsMouseDown(gp.InputMap.Rotate) && !plot.IsRotationLocked()) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
         // Map delta to rotation angles (in radians)
@@ -2178,10 +2188,11 @@ void HandleInput(ImPlot3DPlot& plot) {
     }
 
     // Handle zoom with mouse wheel
-    if (plot.Hovered) {
+    if (plot.Hovered && ImPlot3D::ImHasFlag(IO.KeyMods, gp.InputMap.ZoomMod)) {
         ImGui::SetKeyOwner(ImGuiKey_MouseWheelY, plot.ID);
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Middle) || IO.MouseWheel != 0.0f) {
-            float delta = ImGui::IsMouseDown(ImGuiMouseButton_Middle) ? (-0.01f * IO.MouseDelta.y) : (-0.1f * IO.MouseWheel);
+        const bool middle_mouse_button_down = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
+        if (middle_mouse_button_down || IO.MouseWheel != 0.0f) {
+            float delta = middle_mouse_button_down ? (-0.01f * IO.MouseDelta.y) : (-gp.InputMap.ZoomRate * IO.MouseWheel);
             float zoom = 1.0f + delta;
             for (int i = 0; i < 3; i++) {
                 ImPlot3DAxis& axis = plot.Axes[i];
@@ -2226,8 +2237,8 @@ void HandleInput(ImPlot3DPlot& plot) {
     }
 
     // Handle context menu (should not happen if it is not a double click action)
-    bool not_double_click = (float)(ImGui::GetTime() - IO.MouseClickedTime[ImGuiMouseButton_Right]) > IO.MouseDoubleClickTime;
-    if (plot.Hovered && plot.ContextClick && not_double_click && !ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+    bool not_double_click = (float)(ImGui::GetTime() - IO.MouseClickedTime[gp.InputMap.Menu]) > IO.MouseDoubleClickTime;
+    if (plot.Hovered && plot.ContextClick && not_double_click && !ImGui::IsMouseDown(gp.InputMap.Menu)) {
         plot.ContextClick = false;
         plot.OpenContextThisFrame = true;
     }
@@ -2545,6 +2556,30 @@ void PopStyleVar(int count) {
 ImVec4 GetStyleColorVec4(ImPlot3DCol idx) { return IsColorAuto(idx) ? GetAutoColor(idx) : GImPlot3D->Style.Colors[idx]; }
 
 ImU32 GetStyleColorU32(ImPlot3DCol idx) { return ImGui::ColorConvertFloat4ToU32(ImPlot3D::GetStyleColorVec4(idx)); }
+
+//-----------------------------------------------------------------------------
+// [Section] Input Mapping
+//-----------------------------------------------------------------------------
+
+ImPlot3DInputMap& GetInputMap() {
+    IMPLOT3D_CHECK_CTX();
+    ImPlot3DContext& gp = *GImPlot3D;
+    return gp.InputMap;
+}
+
+void MapInputDefault(ImPlot3DInputMap* dst) {
+    ImPlot3DInputMap& map = dst ? *dst : GetInputMap();
+    map.Pan = ImGuiMouseButton_Left;
+    map.PanMod = ImGuiMod_None;
+    map.Fit = ImGuiMouseButton_Left;
+    map.ResetRotate = ImGuiMouseButton_Right;
+    map.Rotate = ImGuiMouseButton_Right;
+    map.RotateMod = ImGuiMod_None;
+    map.Menu = ImGuiMouseButton_Right;
+    map.OverrideMod = ImGuiMod_Ctrl;
+    map.ZoomMod = ImGuiMod_None;
+    map.ZoomRate = 0.1f;
+}
 
 //------------------------------------------------------------------------------
 // [SECTION] Colormaps
@@ -3411,6 +3446,12 @@ ImPlot3DStyle::ImPlot3DStyle() {
     ImPlot3D::StyleColorsAuto(this);
     Colormap = ImPlot3DColormap_Deep;
 };
+
+//-----------------------------------------------------------------------------
+// [SECTION] ImPlot3DInputMap
+//-----------------------------------------------------------------------------
+
+ImPlot3DInputMap::ImPlot3DInputMap() { ImPlot3D::MapInputDefault(this); }
 
 //-----------------------------------------------------------------------------
 // [SECTION] Metrics
