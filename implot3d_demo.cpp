@@ -790,6 +790,57 @@ void DemoCustomRendering() {
     }
 }
 
+void ButtonSelector(const char* label, ImGuiMouseButton* b) {
+    ImGui::PushID(label);
+    if (ImGui::RadioButton("LMB", *b == ImGuiMouseButton_Left))
+        *b = ImGuiMouseButton_Left;
+    ImGui::SameLine();
+    if (ImGui::RadioButton("RMB", *b == ImGuiMouseButton_Right))
+        *b = ImGuiMouseButton_Right;
+    ImGui::SameLine();
+    if (ImGui::RadioButton("MMB", *b == ImGuiMouseButton_Middle))
+        *b = ImGuiMouseButton_Middle;
+    ImGui::PopID();
+}
+
+void ModSelector(const char* label, int* k) {
+    ImGui::PushID(label);
+    ImGui::CheckboxFlags("Ctrl", (unsigned int*)k, ImGuiMod_Ctrl);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("Shift", (unsigned int*)k, ImGuiMod_Shift);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("Alt", (unsigned int*)k, ImGuiMod_Alt);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("Super", (unsigned int*)k, ImGuiMod_Super);
+    ImGui::PopID();
+}
+
+void InputMapping(const char* label, ImGuiMouseButton* b, int* k) {
+    ImGui::LabelText("##", "%s", label);
+    if (b != nullptr) {
+        ImGui::SameLine(130);
+        ButtonSelector(label, b);
+    }
+    if (k != nullptr) {
+        ImGui::SameLine(300);
+        ModSelector(label, k);
+    }
+}
+
+void ShowInputMapping() {
+    ImPlot3DInputMap& map = ImPlot3D::GetInputMap();
+    if (ImGui::Button("Reset"))
+        MapInputDefault(&map);
+    InputMapping("Pan", &map.Pan, &map.PanMod);
+    InputMapping("Fit", &map.Fit, nullptr);
+    InputMapping("Reset Rotate", &map.ResetRotate, nullptr);
+    InputMapping("Rotate", &map.Rotate, &map.RotateMod);
+    InputMapping("Menu", &map.Menu, nullptr);
+    InputMapping("OverrideMod", nullptr, &map.OverrideMod);
+    InputMapping("ZoomMod", nullptr, &map.ZoomMod);
+    ImGui::SliderFloat("ZoomRate", &map.ZoomRate, -1, 1);
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Demo Window
 //-----------------------------------------------------------------------------
@@ -890,6 +941,7 @@ void ShowAllDemos() {
         if (ImGui::BeginTabItem("Custom")) {
             DemoHeader("Custom Styles", DemoCustomStyles);
             DemoHeader("Custom Rendering", DemoCustomRendering);
+            DemoHeader("Show Input Mapping", ShowInputMapping);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Help")) {
