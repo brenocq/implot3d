@@ -830,7 +830,7 @@ void InputMapping(const char* label, ImGuiMouseButton* b, int* k) {
 void ShowInputMapping() {
     ImPlot3DInputMap& map = ImPlot3D::GetInputMap();
     if (ImGui::Button("Reset"))
-        MapInputDefault(&map);
+        ImPlot3D::MapInputDefault(&map);
     InputMapping("Pan", &map.Pan, &map.PanMod);
     InputMapping("Fit", &map.Fit, nullptr);
     InputMapping("Reset Rotate", &map.ResetRotate, nullptr);
