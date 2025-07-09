@@ -1,0 +1,241 @@
+
+    <svg width="670" height="100" xmlns="http://www.w3.org/2000/svg">
+        <!-- https://github.com/brenocq/implot3d/issues/24 -->
+
+        <!-- Definitions -->
+        <defs>
+            <clipPath id="circle-clip">
+                <circle cx="0" cy="0" r="17.5" />
+            </clipPath>
+        </defs>
+
+        <!-- Style -->
+        
+<style>
+    :root {
+         --border-color: #d1d9e0;
+         --fgColor-default: #1f2328;
+         --fgColor-accent: #0969da;
+         --fgColor-muted: #59636e;
+         --fgColor-success: #1a7f37;
+         --fgColor-danger: #d1242f;
+         --fgColor-done: #8250df;
+         --bgColor-neutral-muted: #818b981f;
+         --bgColor-success: #1f883d;
+         --text-large: 1rem;
+         --text-medium: 0.875rem;
+         --text-small: 0.75rem;
+         --text-weight-light: 300;
+         --text-weight-normal: 400;
+         --text-weight-medium: 500;
+         --text-weight-semibold: 600;
+     }
+
+    text {
+        font-family: Arial, sans-serif;
+        font-size: var(--text-medium);
+    }
+
+    text.title {
+        fill: var(--fgColor-default);
+        font-size: var(--text-large);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.small {
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.medium {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.muted {
+        fill: var(--fgColor-muted);
+    }
+
+    text.counter {
+        fill: var(--fgColor-muted);
+        font-size: 40px;
+        text-anchor: middle;
+    }
+
+    text.button {
+        font-size: 14px;
+        fill: var(--fgColor-default);
+    }
+
+    text.label {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.label-muted {
+        fill: var(--fgColor-muted);
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    rect.labelBg {
+        fill-opacity: 1.0;
+    }
+
+    rect.labelBg-muted {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 0.5px;
+    }
+
+    rect.card {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 1.5px;
+        rx: 6px;
+        ry: 6px;
+    }
+
+    rect.progress-bg {
+        fill: var(--bgColor-neutral-muted);
+    }
+
+    rect.progress-fill {
+        fill: var(--bgColor-success);
+    }
+
+    .icon-open {
+        fill: var(--fgColor-success);
+    }
+
+    .icon-closed {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-completed {
+        fill: var(--fgColor-done);
+    }
+
+    .icon-danger {
+        fill: var(--fgColor-danger);
+    }
+
+    .icon-muted {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-default {
+        fill: var(--fgColor-default);
+    }
+
+    @media (prefers-color-scheme: light) {
+        text.label {
+            fill: #000000;
+        }
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --border-color: #3d444d;
+            --fgColor-default: #d1d7e0;
+            --fgColor-muted: #9198a1;
+            --fgColor-accent: #478be6;
+            --fgColor-success: #57ab5a;
+            --fgColor-danger: #e5534b;
+            --fgColor-done: #986ee2;
+            --bgColor-neutral-muted: #656c7633;
+            --bgColor-success: #347d39;
+            --button-background-color: #2a313c;
+        }
+
+        rect.labelBg {
+            fill-opacity: 0.2;
+        }
+    }
+</style>
+
+
+        <!-- Card Background -->
+        <rect class="card" x="0" y="0" width="670" height="100"/>
+
+        <!-- Issue Icon -->
+        <path class="icon-open" transform="translate(8, 8)" d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/>
+
+        <!-- Issue Title -->
+        <text class="title" x="28" y="18.0" text-anchor="start" dominant-baseline="middle">
+            High-Level Feedback <tspan style="fill: var(--fgColor-muted);font-weight: var(--text-weight-normal);">#24</tspan>
+        </text>
+
+        
+        <!-- Pinned Icon -->
+        <path class="icon-muted" transform="translate(646, 8)" d="m11.294.984 3.722 3.722a1.75 1.75 0 0 1-.504 2.826l-1.327.613a3.089 3.089 0 0 0-1.707 2.084l-.584 2.454c-.317 1.332-1.972 1.8-2.94.832L5.75 11.311 1.78 15.28a.749.749 0 1 1-1.06-1.06l3.969-3.97-2.204-2.204c-.968-.968-.5-2.623.832-2.94l2.454-.584a3.08 3.08 0 0 0 2.084-1.707l.613-1.327a1.75 1.75 0 0 1 2.826-.504ZM6.283 9.723l2.732 2.731a.25.25 0 0 0 .42-.119l.584-2.454a4.586 4.586 0 0 1 2.537-3.098l1.328-.613a.25.25 0 0 0 .072-.404l-3.722-3.722a.25.25 0 0 0-.404.072l-.613 1.328a4.584 4.584 0 0 1-3.098 2.537l-2.454.584a.25.25 0 0 0-.119.42l2.731 2.732Z"/>
+
+        
+        <!-- Label -->
+        <g transform="translate(615.0, 8)">
+            <rect class="labelBg-muted" x="-27.0" y="0" width="54" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">type:fix</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(552.5, 8)">
+            <rect class="labelBg-muted" x="-31.5" y="0" width="63" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">type:docs</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(486.5, 8)">
+            <rect class="labelBg-muted" x="-30.5" y="0" width="61" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">type:feat</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(410.5, 8)">
+            <rect class="labelBg-muted" x="-41.5" y="0" width="83" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">type:refactor</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(335.0, 8)">
+            <rect class="labelBg-muted" x="-30.0" y="0" width="60" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">prio:high</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(263.0, 8)">
+            <rect class="labelBg-muted" x="-38.0" y="0" width="76" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">status:doing</text>
+        </g>
+        
+        <!-- Contributor Comment -->
+        <text class="small" fill="var(--fgColor-muted)" x="8" y="91"><tspan style="text-decoration: underline;">epezent</tspan> opened on Dec 22 · <tspan style="text-decoration: underline;">brenocq</tspan> commented on Dec 22</text>
+    
+        <!-- Avatars -->
+        
+            <g transform="translate(644.5, 54.0)">
+                <image x="-17.5" y="-17.5" width="35" height="35" href="data:image/png;base64,/9j/2wCEAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDIBCQkJDAsMGA0NGDIhHCEyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMv/AABEIACgAKAMBIgACEQEDEQH/xAGiAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgsQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+gEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoLEQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2gAMAwEAAhEDEQA/AOX8DXf2HwrrN/OjyiO6iXAbDHKsOD+NW9S8YeVpczWUFxFc8FJJZg6j1+XAzxms7Q5APhzqOTy97F/X/Cs2VBcIsQ78/h0/rTWxLWpMfG/ixQqtOiBhuXdbgZHY0v8AwnXiosB9siB9oFq80Vzq0sb3LGRo4xGpx0UdBVmHQI1IZgCaJPX3djT2aGPr/i0aPHqK6su6SdovLFsnACg5zj3qj/wl3jH/AKCY/wC/Ef8AhXUS2C/2FaxAD/j4lOP+ApVD+y/YVVTRq3ZBGmmW18Aatpfhu400XNtKslwswlLFQFA78VS0rwddXGs3NnPP5cltAJ8qmVljJxlSSD94Y6Y4NWtdaaHxAk0epT3Iu2ESQO5+5gKzBScIGJOAfTPvWjbapbWXjrVr+e5mW0tNIOSGLIQdqBSMcfOWOO5AIrBc+zYc0N0je03w7bWtpeTfbWiiSDMisqtwOSc8YH+FUI4rKZB5c9u+R/DIpqPXvEWiXuiNpUupXFm85jlkSKyMjSREblB3MNuSQfX25rgraztZlfzrZJFVCxHA6VcFLl95lSqxvojvp1TbJaRoM2oWUtnrvyMf+OfrVD5v7v6j/GuUvLKyW6VRYWsQWNEIjjAz8owTx1Pf3NR/YLP/AJ9ov++a1s5asz9sl0HXiW8GtNLpmpQ3l29zkTwFzhvl2feGR9OcdOa9B8OQR6Hp92XD3uo3qiS9uMSFWYZCouQANuc9+hB6ivJPDH/IYh/6/wBP/Qlr2uy/49Jf+urfzFQkZyOG8S6frF5qP2+/mtmJQJFFDEyhEBJC8Ajuep71Dp9tHbQrO86N54KhcdNvX19a6zxB/q4/pXGw/wDHhaf9dJ//AEIVMm1JJGkHHld1d9PIS8tLq8vpPscDzk4wIxk/dH9RUf8AYniD/oGXn/fo10/hH/kL/gK9CrZHO3Zn/9k=" clip-path="url(#circle-clip)" />
+                <circle cx="0" cy="0" r="17.5" fill="none" stroke="var(--border-color)" stroke-width="1" />
+            </g>
+            
+            <g transform="translate(624.5, 54.0)">
+                <image x="-17.5" y="-17.5" width="35" height="35" href="data:image/png;base64,/9j/2wCEAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDIBCQkJDAsMGA0NGDIhHCEyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMv/AABEIACgAKAMBIgACEQEDEQH/xAGiAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgsQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+gEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoLEQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2gAMAwEAAhEDEQA/APAQKekZdgo6mkArX0TTnv7qNAreXvxI4XOBj/8AXxQ9AWrsUpbMW4xK5DjqNvFV2TB9a9W1Gz8JjSQ0EW2UDy/3oYux/r+FeaXcKxXMqICFViBkdaUZXLnDl6meRSYqRxg0zFMglWu3+HOrCz1n7DJGHiuTu3HqhVWOfyzXELXWeBrrT7TWVlu22TgfuXZsKCQQQfqDSmrxZVN2kmegeJ5oo/sw2ARht/J3euBkj9K8o1S5S7v5ZY1Cx9FA9B3r0HxFb+dP5scRWLYdzZwg9+uB1rzGd1S5kSP5ogxCt6iopGteTZXl61HT5GBORTK0MByNzzU4bjrVZetTDpTQiRnJXaWOB2zUTNg4p3aom+8KAGk5NJSUtIZ//9k=" clip-path="url(#circle-clip)" />
+                <circle cx="0" cy="0" r="17.5" fill="none" stroke="var(--border-color)" stroke-width="1" />
+            </g>
+            
+        
+        <!-- Comments -->
+        <g transform="translate(563.5, 43.0)">
+            <rect class="labelBg-muted" x="0" y="0" width="37" height="22.0" rx="11.0"/>
+            <path class="icon-muted" transform="translate(7, 4.0) scale(0.875)" d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/>
+            <text class="small muted" x="24" y="15">1</text>
+        </g>
+        
+                <!-- Comments -->
+                <g transform="translate(520.5, 43.0)">
+                    <rect class="labelBg-muted" x="0" y="0" width="39" height="22.0" rx="11.0"/>
+                    <text class="small muted" x="7" y="15">❤️</text>
+                    <text class="small muted" x="24" y="15">5</text>
+                </g>
+                
+    </svg>
+    
