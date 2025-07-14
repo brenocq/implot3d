@@ -791,9 +791,9 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
             Min = FLT_MAX;
             Max = -FLT_MAX;
             for (int i = 0; i < Getter.Count; i++) {
-                float z = Getter(i).z;
-                Min = ImMin(Min, z);
-                Max = ImMax(Max, z);
+                float val = Getter.GetSurfaceValue(Getter(i));
+                Min = ImMin(Min, val);
+                Max = ImMax(Max, val);
             }
         }
     }
@@ -824,7 +824,7 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
                 max = (float)ScaleMax;
             }
             for (int i = 0; i < 4; i++) {
-                ImVec4 col = SampleColormap(ImClamp(ImRemap01(p_plot[i].z, min, max), 0.0f, 1.0f));
+                ImVec4 col = SampleColormap(ImClamp(ImRemap01(Getter.GetSurfaceValue(p_plot[i]), min, max), 0.0f, 1.0f));
                 col.w *= alpha;
                 cols[i] = ImGui::ColorConvertFloat4ToU32(col);
             }
@@ -970,6 +970,9 @@ template <typename _IndexerX, typename _IndexerY, typename _IndexerZ> struct Get
     template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
         return ImPlot3DPoint((float)IndexerX(idx), (float)IndexerY(idx), (float)IndexerZ(idx));
     }
+
+    IMPLOT3D_INLINE float GetSurfaceValue(const ImPlot3DPoint& point) const { return point.z; }
+
     const _IndexerX IndexerX;
     const _IndexerY IndexerY;
     const _IndexerZ IndexerZ;
@@ -980,7 +983,8 @@ template <typename _Indexer> struct GetterMinorMajor {
     GetterMinorMajor(const _Indexer& indexer, int num_major, int num_minor, int count, const ImVec2& major_bounds, const ImVec2& minor_bounds,
                      ImAxis3D values_axis, ImAxis3D major_axis)
         : Indexer(indexer), NumMajor(num_major), NumMinor(num_minor), Count(count), MajorRef(major_bounds.y - major_bounds.x),
-          MajorOffset(major_bounds.x), MinorRef(minor_bounds.y - minor_bounds.x), MinorOffset(minor_bounds.x), Type(values_axis * 3 + major_axis) {}
+          MajorOffset(major_bounds.x), MinorRef(minor_bounds.y - minor_bounds.x), MinorOffset(minor_bounds.x), ValueAxis(values_axis),
+          Type(values_axis * 3 + major_axis) {}
     template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
         const int major = idx / NumMinor;
         const int minor = idx % NumMinor;
@@ -1000,9 +1004,19 @@ template <typename _Indexer> struct GetterMinorMajor {
             default: return ImPlot3DPoint(0, 0, 0);
         }
     }
+
+    IMPLOT3D_INLINE float GetSurfaceValue(const ImPlot3DPoint& point) const {
+        switch (ValueAxis) {
+            case 0: return point.x; // X-Values
+            case 1: return point.y; // Y-Values
+            case 2:                 // Z-Values
+            default: return point.z;
+        }
+    }
     const _Indexer& Indexer;
     const int NumMajor, NumMinor, Count;
     const float MajorRef, MajorOffset, MinorRef, MinorOffset;
+    const ImAxis3D ValueAxis;
     const int Type;
 };
 
