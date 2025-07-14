@@ -37,6 +37,8 @@
 #include "imgui.h"
 #ifndef IMGUI_DISABLE
 
+#include <limits.h>
+
 //-----------------------------------------------------------------------------
 // [SECTION] Macros and Defines
 //-----------------------------------------------------------------------------
@@ -50,6 +52,7 @@
 #define IMPLOT3D_AUTO -1                      // Deduce variable automatically
 #define IMPLOT3D_AUTO_COL ImVec4(0, 0, 0, -1) // Deduce color automatically
 #define IMPLOT3D_TMP template <typename T> IMPLOT3D_API
+#define IMPLOT3D_DEFAULT_MAJOR_STRIDE INT_MAX
 
 //-----------------------------------------------------------------------------
 // [SECTION] Forward declarations and basic types
@@ -453,6 +456,10 @@ IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const
 // to a predefined range
 IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count, double scale_min = 0.0,
                               double scale_max = 0.0, ImPlot3DSurfaceFlags flags = 0, int offset = 0, int stride = sizeof(T));
+IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* values, int minor_count, int major_count, double scale_min = 0.0, double scale_max = 0.0,
+                              const ImVec2& minor_bounds = ImVec2(-1, 1), const ImVec2& major_bounds = ImVec2(-1, 1), ImPlot3DSurfaceFlags flags = 0,
+                              ImAxis3D values_axis = ImAxis3D_Z, ImAxis3D major_axis = ImAxis3D_Y, int minor_offset = 0, int major_offset = 0,
+                              int minor_stride = sizeof(T), int major_stride = IMPLOT3D_DEFAULT_MAJOR_STRIDE);
 
 IMPLOT3D_API void PlotMesh(const char* label_id, const ImPlot3DPoint* vtx, const unsigned int* idx, int vtx_count, int idx_count,
                            ImPlot3DMeshFlags flags = 0);

@@ -57,6 +57,8 @@ template <typename TSet, typename TFlag> static inline bool ImHasFlag(TSet set, 
 // Flips a flag in a flagset
 template <typename TSet, typename TFlag> static inline void ImFlipFlag(TSet& set, TFlag flag) { ImHasFlag(set, flag) ? set &= ~flag : set |= flag; }
 template <typename T> static inline T ImRemap01(T x, T x0, T x1) { return (x1 - x0) ? ((x - x0) / (x1 - x0)) : 0; }
+// Returns always positive modulo (assumes r != 0)
+static inline int ImPosMod(int l, int r) { return (l % r + r) % r; }
 // Returns true if val is NAN
 static inline bool ImNan(float val) { return isnan(val); }
 // Returns true if val is NAN or INFINITY

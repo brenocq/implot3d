@@ -917,6 +917,50 @@ template <typename T> struct IndexerIdx {
     int Stride;
 };
 
+template <typename T> struct IndexerIdxMajorMinor {
+    IndexerIdxMajorMinor(const T* data, int num_major, int num_minor, int major_offset, int minor_offset, int major_stride, int minor_stride)
+        : Data(data),
+          // If the stride does not have to be applied then use the major offset index as the number of major columns to shift by instead of applying
+          // the shift for the indexes It is a bit simpler to only have to append a constant to the index instead of having to add a constant to first
+          // determine the rows and then column offsets
+          MajorOffset((major_stride == int(sizeof(T)) * num_minor && minor_stride > 0) ? ImPosMod(num_minor * major_offset, num_minor * num_major)
+                                                                                       : ImPosMod(major_offset, num_major)),
+          MinorOffset(ImPosMod(minor_offset, num_minor)), MajorStride(major_stride), MinorStride(minor_stride),
+          Type(((MinorOffset == 0) << 0) | ((MajorOffset == 0) << 1) | ((MinorStride == int(sizeof(T)) && MajorStride > 0) << 2) |
+               ((MajorStride == int(sizeof(T)) * num_minor && MinorStride > 0) << 3)) {}
+
+    template <typename I> IMPLOT3D_INLINE double operator()(I idx, int count, int major, int minor, int num_major, int num_minor) const {
+        return (double)GetData(idx, count, major, minor, num_major, num_minor);
+    }
+
+    template <typename I> IMPLOT3D_INLINE T GetData(I idx, int count, int major, int minor, int num_major, int num_minor) const {
+        // clang-format off
+       // Get the data based based on the type
+        switch (Type) {
+        case 15: return Data[idx]; // No offset or stride
+        case 14: return Data[(((minor + MinorOffset) < num_minor ? MinorOffset : (MinorOffset - num_minor)) + idx) % count]; // Minor offset
+        case 13: return Data[(MajorOffset + idx) % count]; // Major offset
+        case 12: return Data[(MajorOffset + ((minor + MinorOffset) < num_minor ? MinorOffset : (MinorOffset - num_minor)) + idx) % count]; // Major+minor offset
+        case 11: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((idx)) * MinorStride); // Minor stride
+        case 10: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((((minor + MinorOffset) < num_minor ? MinorOffset : (MinorOffset - num_minor)) + idx) % count) * MinorStride); // Minor stride and minor offset
+        case  9: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((MajorOffset + idx) % count) * MinorStride); // Minor stride and major offset
+        case  8: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((MajorOffset + ((minor + MinorOffset) < num_minor ? MinorOffset : (MinorOffset - num_minor)) + idx) % count) * MinorStride); // Minor stride and major + minor offset
+        case  7: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major)) * MajorStride + minor * sizeof(T)); // Major stride
+        case  6: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major)) * MajorStride + ((minor + MinorOffset) % num_minor) * sizeof(T)); // Major stride and minor offset
+        case  5: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major + MajorOffset) % num_major) * MajorStride + minor * sizeof(T)); // Major stride and major offset
+        case  4: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major + MajorOffset) % num_major) * MajorStride + ((minor + MinorOffset) % num_minor) * sizeof(T)); // Major stride and major+minor offset
+        case  3: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major)) * MajorStride + (size_t)((minor)) * MinorStride); // Major+minor stride
+        case  2: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major)) * MajorStride + (size_t)((minor + MinorOffset) % num_minor) * MinorStride); // Major+minor stride and minor offset
+        case  1: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major + MajorOffset) % num_major) * MajorStride + (size_t)((minor)) * MinorStride); // Major+minor stride and major offset
+        case  0: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major + MajorOffset) % num_major) * MajorStride + (size_t)((minor + MinorOffset) % num_minor) * MinorStride); // Major+minor stride and major+minor offset
+        default: return T(0);
+        }
+        // clang-format on
+    }
+    const T* const Data;
+    const int MajorOffset, MinorOffset, MajorStride, MinorStride, Type;
+};
+
 //-----------------------------------------------------------------------------
 // [SECTION] Getters
 //-----------------------------------------------------------------------------
@@ -930,6 +974,36 @@ template <typename _IndexerX, typename _IndexerY, typename _IndexerZ> struct Get
     const _IndexerY IndexerY;
     const _IndexerZ IndexerZ;
     const int Count;
+};
+
+template <typename _Indexer> struct GetterMinorMajor {
+    GetterMinorMajor(const _Indexer& indexer, int num_major, int num_minor, int count, const ImVec2& major_bounds, const ImVec2& minor_bounds,
+                     ImAxis3D values_axis, ImAxis3D major_axis)
+        : Indexer(indexer), NumMajor(num_major), NumMinor(num_minor), Count(count), MajorRef(major_bounds.y - major_bounds.x),
+          MajorOffset(major_bounds.x), MinorRef(minor_bounds.y - minor_bounds.x), MinorOffset(minor_bounds.x), Type(values_axis * 3 + major_axis) {}
+    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
+        const int major = idx / NumMinor;
+        const int minor = idx % NumMinor;
+        const float major_value = (major / float(NumMajor - 1.0f)) * MajorRef + MajorOffset;
+        const float minor_value = (minor / float(NumMinor - 1.0f)) * MinorRef + MinorOffset;
+        const float value = (float)Indexer(idx, Count, major, minor, NumMajor, NumMinor);
+        switch (Type) {
+            case 7: return ImPlot3DPoint(minor_value, major_value, value); // Z-Values + Y-Major
+            case 6: return ImPlot3DPoint(major_value, minor_value, value); // Z-Values + X-Major
+            case 5: return ImPlot3DPoint(minor_value, value, major_value); // Y-Values + Z-Major
+            case 3: return ImPlot3DPoint(major_value, value, minor_value); // Y-Values + X-Major
+            case 2: return ImPlot3DPoint(value, minor_value, major_value); // X-Values + Z-Major
+            case 1: return ImPlot3DPoint(value, major_value, minor_value); // X-Values + Y-Major
+            case 8:                                                        // Z-Values + Z-Major. Not valid. Maybe assert here?
+            case 4:                                                        // Y-Values + Y-Major. Not valid. Maybe assert here?
+            case 0:                                                        // X-Values + X-Major. Not Valid. Maybe assert here?
+            default: return ImPlot3DPoint(0, 0, 0);
+        }
+    }
+    const _Indexer& Indexer;
+    const int NumMajor, NumMinor, Count;
+    const float MajorRef, MajorOffset, MinorRef, MinorOffset;
+    const int Type;
 };
 
 template <typename _Getter> struct GetterLoop {
@@ -1364,9 +1438,32 @@ IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, co
     return PlotSurfaceEx(label_id, getter, x_count, y_count, scale_min, scale_max, flags);
 }
 
+IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* values, int minor_count, int major_count, double scale_min, double scale_max,
+                              const ImVec2& minor_bounds, const ImVec2& major_bounds, ImPlot3DSurfaceFlags flags, ImAxis3D values_axis,
+                              ImAxis3D major_axis, int minor_offset, int major_offset, int minor_stride, int major_stride) {
+    IM_ASSERT_USER_ERROR(values_axis != major_axis, "The values axis and major axis needs to be two different values");
+    // IM_ASSERT_USER_ERROR(values_axis == ImAxis3D_Z, "Only support Z-Axis at the moment. Need to change PlotSurfaceEx for this to work with anything
+    // other than z-axis");
+    int count = major_count * minor_count;
+    if (count < 4)
+        return;
+    GetterMinorMajor<IndexerIdxMajorMinor<T>> getter(
+        IndexerIdxMajorMinor<T>(values, major_count, minor_count, major_offset, minor_offset,
+                                (major_stride == IMPLOT3D_DEFAULT_MAJOR_STRIDE ? (sizeof(T) * minor_count) : major_stride), minor_stride),
+        major_count, minor_count, count, major_bounds, minor_bounds, values_axis, major_axis);
+
+    // TODO: I am pretty sure that the way that PlotSurfaceEx works is that it takes in the minor and the major count and thus it first iterates over
+    // the major then minor values. I need to confirm this first though
+    return PlotSurfaceEx(label_id, getter, minor_count, major_count, scale_min, scale_max, flags);
+}
+
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
     template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count,                 \
-                                              double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride);
+                                              double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride);               \
+    template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* values, int minor_count, int major_count, double scale_min,             \
+                                              double scale_max, const ImVec2& minor_bounds, const ImVec2& major_bounds, ImPlot3DSurfaceFlags flags,  \
+                                              ImAxis3D values_axis, ImAxis3D major_axis, int minor_offset, int major_offset, int minor_stride,       \
+                                              int major_stride);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
