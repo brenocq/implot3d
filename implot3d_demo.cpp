@@ -420,11 +420,6 @@ void DemoSimplifiedSurfacePlotsOffsetStride() {
         }
     }
 
-    // Choose range
-    static bool custom_range = false;
-    static float range_min = -1.0f;
-    static float range_max = 1.0f;
-
     // Determine the
     static ImAxis3D values_axis = ImAxis3D_Z;
     static ImAxis3D major_axis = ImAxis3D_Y;
