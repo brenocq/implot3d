@@ -420,12 +420,12 @@ void DemoSimplifiedSurfacePlotsOffsetStride() {
         }
     }
 
-    // Determine the
+    // Set which axis information to use for this plot
+    // The major and value axis flags cannot be set to the same value
     static ImAxis3D values_axis = ImAxis3D_Z;
     static ImAxis3D major_axis = ImAxis3D_Y;
     static ImAxis3D surface_axis = ImAxis3D_COUNT;
     if (ImGui::Combo("Values Axis", &values_axis, "X-Axis\0Y-Axis\0Z-Axis")) {
-        // The major and value axis cannot be the same
         if (major_axis == values_axis) {
             major_axis = (major_axis + 1) % ImAxis3D_COUNT;
         }
@@ -435,19 +435,19 @@ void DemoSimplifiedSurfacePlotsOffsetStride() {
             values_axis = (values_axis + 1) % ImAxis3D_COUNT;
         }
     }
-    ImGui::Combo("Surface Axis", &surface_axis, "X-Axis\0Y-Axis\0Z-Axis\0Values-Axis");
+    ImGui::Combo("Surface Axis", &surface_axis, "X-Axis\0Y-Axis\0Z-Axis\0Values Axis");
+
     // Add offset and stride
     static int minor_offset = 0;
     static int major_offset = 0;
     static int minor_stride = 1;
     static int major_stride = 1;
-
     ImGui::SliderInt("Minor Offset", &minor_offset, -20, 20);
     ImGui::SliderInt("Major Offset", &major_offset, -20, 20);
     ImGui::SliderInt("Minor Stride", &minor_stride, -7, 7);
     ImGui::SliderInt("Major Stride", &major_stride, -7, 7);
 
-    // Select flags
+    // Select flags for the surface plot
     static ImPlot3DSurfaceFlags flags = ImPlot3DSurfaceFlags_NoMarkers;
     CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoLines);
     CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoFill);
