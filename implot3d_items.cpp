@@ -1456,18 +1456,15 @@ IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* values, int minor_c
                               const ImVec2& minor_bounds, const ImVec2& major_bounds, ImPlot3DSurfaceFlags flags, ImAxis3D values_axis,
                               ImAxis3D major_axis, int minor_offset, int major_offset, int minor_stride, int major_stride, ImAxis3D surface_axis) {
     IM_ASSERT_USER_ERROR(values_axis != major_axis, "The values axis and major axis needs to be two different values");
-    // IM_ASSERT_USER_ERROR(values_axis == ImAxis3D_Z, "Only support Z-Axis at the moment. Need to change PlotSurfaceEx for this to work with anything
-    // other than z-axis");
     int count = major_count * minor_count;
     if (count < 4)
         return;
-    GetterMinorMajor<IndexerIdxMajorMinor<T>> getter(
-        IndexerIdxMajorMinor<T>(values, major_count, minor_count, major_offset, minor_offset,
-                                (major_stride == IMPLOT3D_DEFAULT_MAJOR_STRIDE ? (sizeof(T) * minor_count) : major_stride), minor_stride),
-        major_count, minor_count, count, major_bounds, minor_bounds, values_axis, major_axis, surface_axis);
-
-    // TODO: I am pretty sure that the way that PlotSurfaceEx works is that it takes in the minor and the major count and thus it first iterates over
-    // the major then minor values. I need to confirm this first though
+    // Create the getter and the indexer that will be passed to PlotSurfaceEx. The getter and the indexer will produce the correct information based
+    // on the indexes passed in
+    IndexerIdxMajorMinor<T> indexer(values, major_count, minor_count, major_offset, minor_offset,
+                                    (major_stride == IMPLOT3D_DEFAULT_MAJOR_STRIDE ? (sizeof(T) * minor_count) : major_stride), minor_stride);
+    GetterMinorMajor<IndexerIdxMajorMinor<T>> getter(indexer, major_count, minor_count, count, major_bounds, minor_bounds, values_axis, major_axis,
+                                                     surface_axis);
     return PlotSurfaceEx(label_id, getter, minor_count, major_count, scale_min, scale_max, flags);
 }
 
