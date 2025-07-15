@@ -981,10 +981,10 @@ template <typename _IndexerX, typename _IndexerY, typename _IndexerZ> struct Get
 
 template <typename _Indexer> struct GetterMinorMajor {
     GetterMinorMajor(const _Indexer& indexer, int num_major, int num_minor, int count, const ImVec2& major_bounds, const ImVec2& minor_bounds,
-                     ImAxis3D values_axis, ImAxis3D major_axis)
+                     ImAxis3D values_axis, ImAxis3D major_axis, ImAxis3D surface_axis)
         : Indexer(indexer), NumMajor(num_major), NumMinor(num_minor), Count(count), MajorRef(major_bounds.y - major_bounds.x),
-          MajorOffset(major_bounds.x), MinorRef(minor_bounds.y - minor_bounds.x), MinorOffset(minor_bounds.x), ValueAxis(values_axis),
-          Type(values_axis * 3 + major_axis) {}
+          MajorOffset(major_bounds.x), MinorRef(minor_bounds.y - minor_bounds.x), MinorOffset(minor_bounds.x),
+          SurfaceAxis(surface_axis == ImAxis3D_COUNT ? values_axis : surface_axis), Type(values_axis * 3 + major_axis) {}
     template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
         const int major = idx / NumMinor;
         const int minor = idx % NumMinor;
@@ -1006,7 +1006,7 @@ template <typename _Indexer> struct GetterMinorMajor {
     }
 
     IMPLOT3D_INLINE float GetSurfaceValue(const ImPlot3DPoint& point) const {
-        switch (ValueAxis) {
+        switch (SurfaceAxis) {
             case 0: return point.x; // X-Values
             case 1: return point.y; // Y-Values
             case 2:                 // Z-Values
@@ -1016,7 +1016,7 @@ template <typename _Indexer> struct GetterMinorMajor {
     const _Indexer& Indexer;
     const int NumMajor, NumMinor, Count;
     const float MajorRef, MajorOffset, MinorRef, MinorOffset;
-    const ImAxis3D ValueAxis;
+    const ImAxis3D SurfaceAxis;
     const int Type;
 };
 
@@ -1454,7 +1454,7 @@ IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, co
 
 IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* values, int minor_count, int major_count, double scale_min, double scale_max,
                               const ImVec2& minor_bounds, const ImVec2& major_bounds, ImPlot3DSurfaceFlags flags, ImAxis3D values_axis,
-                              ImAxis3D major_axis, int minor_offset, int major_offset, int minor_stride, int major_stride) {
+                              ImAxis3D major_axis, int minor_offset, int major_offset, int minor_stride, int major_stride, ImAxis3D surface_axis) {
     IM_ASSERT_USER_ERROR(values_axis != major_axis, "The values axis and major axis needs to be two different values");
     // IM_ASSERT_USER_ERROR(values_axis == ImAxis3D_Z, "Only support Z-Axis at the moment. Need to change PlotSurfaceEx for this to work with anything
     // other than z-axis");
@@ -1464,7 +1464,7 @@ IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* values, int minor_c
     GetterMinorMajor<IndexerIdxMajorMinor<T>> getter(
         IndexerIdxMajorMinor<T>(values, major_count, minor_count, major_offset, minor_offset,
                                 (major_stride == IMPLOT3D_DEFAULT_MAJOR_STRIDE ? (sizeof(T) * minor_count) : major_stride), minor_stride),
-        major_count, minor_count, count, major_bounds, minor_bounds, values_axis, major_axis);
+        major_count, minor_count, count, major_bounds, minor_bounds, values_axis, major_axis, surface_axis);
 
     // TODO: I am pretty sure that the way that PlotSurfaceEx works is that it takes in the minor and the major count and thus it first iterates over
     // the major then minor values. I need to confirm this first though
@@ -1477,7 +1477,7 @@ IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* values, int minor_c
     template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* values, int minor_count, int major_count, double scale_min,             \
                                               double scale_max, const ImVec2& minor_bounds, const ImVec2& major_bounds, ImPlot3DSurfaceFlags flags,  \
                                               ImAxis3D values_axis, ImAxis3D major_axis, int minor_offset, int major_offset, int minor_stride,       \
-                                              int major_stride);
+                                              int major_stride, ImAxis3D surface_axis);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 

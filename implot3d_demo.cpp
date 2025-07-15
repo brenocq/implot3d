@@ -423,17 +423,19 @@ void DemoSimplifiedSurfacePlotsOffsetStride() {
     // Determine the
     static ImAxis3D values_axis = ImAxis3D_Z;
     static ImAxis3D major_axis = ImAxis3D_Y;
-    if (ImGui::Combo("Values Axis", &values_axis, "X-Axis\0Y-Axis\0Z-Axis\0")) {
+    static ImAxis3D surface_axis = ImAxis3D_COUNT;
+    if (ImGui::Combo("Values Axis", &values_axis, "X-Axis\0Y-Axis\0Z-Axis")) {
         // The major and value axis cannot be the same
         if (major_axis == values_axis) {
             major_axis = (major_axis + 1) % ImAxis3D_COUNT;
         }
     }
-    if (ImGui::Combo("Major Axis", &major_axis, "X-Axis\0Y-Axis\0Z-Axis\0")) {
+    if (ImGui::Combo("Major Axis", &major_axis, "X-Axis\0Y-Axis\0Z-Axis")) {
         if (major_axis == values_axis) {
             values_axis = (values_axis + 1) % ImAxis3D_COUNT;
         }
     }
+    ImGui::Combo("Surface Axis", &surface_axis, "X-Axis\0Y-Axis\0Z-Axis\0Values-Axis");
     // Add offset and stride
     static int minor_offset = 0;
     static int major_offset = 0;
@@ -477,7 +479,7 @@ void DemoSimplifiedSurfacePlotsOffsetStride() {
         // The surface is flipped around the minor axis by specifying ImVec2(1, -1) for the minor bounds
         ImPlot3D::PlotSurface("Wave Surface", &values[array_offset], updated_num_minor, updated_num_major, 0.0, 0.0, ImVec2(1, -1), ImVec2(-1, 1),
                               flags, values_axis, major_axis, minor_offset, major_offset, minor_stride * sizeof(float),
-                              major_stride * M * sizeof(float));
+                              major_stride * M * sizeof(float), surface_axis);
 
         // End the plot
         ImPlot3D::PopStyleVar();

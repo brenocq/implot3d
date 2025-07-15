@@ -459,7 +459,7 @@ IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, co
 IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* values, int minor_count, int major_count, double scale_min = 0.0, double scale_max = 0.0,
                               const ImVec2& minor_bounds = ImVec2(-1, 1), const ImVec2& major_bounds = ImVec2(-1, 1), ImPlot3DSurfaceFlags flags = 0,
                               ImAxis3D values_axis = ImAxis3D_Z, ImAxis3D major_axis = ImAxis3D_Y, int minor_offset = 0, int major_offset = 0,
-                              int minor_stride = sizeof(T), int major_stride = IMPLOT3D_DEFAULT_MAJOR_STRIDE);
+                              int minor_stride = sizeof(T), int major_stride = IMPLOT3D_DEFAULT_MAJOR_STRIDE, ImAxis3D surface_axis = ImAxis3D_COUNT);
 
 IMPLOT3D_API void PlotMesh(const char* label_id, const ImPlot3DPoint* vtx, const unsigned int* idx, int vtx_count, int idx_count,
                            ImPlot3DMeshFlags flags = 0);
