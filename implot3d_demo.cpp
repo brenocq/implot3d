@@ -17,6 +17,7 @@
 // [SECTION] Plots
 // [SECTION] Axes
 // [SECTION] Custom
+// [SECTION] Tools
 // [SECTION] Demo Window
 // [SECTION] Style Editor
 // [SECTION] User Namespace Implementation
@@ -397,18 +398,18 @@ void DemoSurfacePlots() {
         ImPlot3D::PopColormap();
 }
 
-void DemoSimplifiedSurfacePlotsOffsetStride() {
+void DemoSimplifiedSurfacePlots() {
     constexpr int N = 10;
     constexpr int M = 20;
     static float values[N * M];
     static float t = 0.0f;
-    // t += ImGui::GetIO().DeltaTime;
+    t += ImGui::GetIO().DeltaTime;
 
     // Define the range for X and Y
     constexpr float min_val = -1.0f;
     constexpr float max_val = 1.0f;
-    constexpr float x_step = (max_val - min_val) / (N - 1);
-    constexpr float y_step = (max_val - min_val) / (M - 1);
+    constexpr float x_step = (max_val - min_val) / (M - 1);
+    constexpr float y_step = (max_val - min_val) / (N - 1);
 
     // Populate the values array
     for (int i = 0; i < N; i++) {
@@ -420,33 +421,6 @@ void DemoSimplifiedSurfacePlotsOffsetStride() {
         }
     }
 
-    // Set which axis information to use for this plot
-    // The major and value axis flags cannot be set to the same value
-    static ImAxis3D values_axis = ImAxis3D_Z;
-    static ImAxis3D major_axis = ImAxis3D_Y;
-    static ImAxis3D surface_axis = ImAxis3D_COUNT;
-    if (ImGui::Combo("Values Axis", &values_axis, "X-Axis\0Y-Axis\0Z-Axis")) {
-        if (major_axis == values_axis) {
-            major_axis = (major_axis + 1) % ImAxis3D_COUNT;
-        }
-    }
-    if (ImGui::Combo("Major Axis", &major_axis, "X-Axis\0Y-Axis\0Z-Axis")) {
-        if (major_axis == values_axis) {
-            values_axis = (values_axis + 1) % ImAxis3D_COUNT;
-        }
-    }
-    ImGui::Combo("Surface Axis", &surface_axis, "X-Axis\0Y-Axis\0Z-Axis\0Values Axis");
-
-    // Add offset and stride
-    static int minor_offset = 0;
-    static int major_offset = 0;
-    static int minor_stride = 1;
-    static int major_stride = 1;
-    ImGui::SliderInt("Minor Offset", &minor_offset, -20, 20);
-    ImGui::SliderInt("Major Offset", &major_offset, -20, 20);
-    ImGui::SliderInt("Minor Stride", &minor_stride, -7, 7);
-    ImGui::SliderInt("Major Stride", &major_stride, -7, 7);
-
     // Select flags for the surface plot
     static ImPlot3DSurfaceFlags flags = ImPlot3DSurfaceFlags_NoMarkers;
     CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoLines);
@@ -457,7 +431,7 @@ void DemoSimplifiedSurfacePlotsOffsetStride() {
     ImPlot3D::PushColormap("Jet");
     if (ImPlot3D::BeginPlot("Surface Plots", ImVec2(-1, 400), ImPlot3DFlags_NoClip)) {
         ImPlot3D::SetupAxes("x", "y", "z");
-        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1.5, 1.5);
+        ImPlot3D::SetupAxesLimits(-10, -5, 5, 10, -1.5, 1.5);
 
         // Set fill style
         ImPlot3D::PushStyleVar(ImPlot3DStyleVar_FillAlpha, 0.8f);
@@ -468,18 +442,9 @@ void DemoSimplifiedSurfacePlotsOffsetStride() {
         // Set marker style
         ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, IMPLOT3D_AUTO, ImPlot3D::GetColormapColor(2));
 
-        // Update the number of minor and major items depending on the stride that was selected
-        const int updated_num_minor = minor_stride == 0 ? M : (M / abs(minor_stride) + (M % minor_stride == 0 ? 0 : 1));
-        const int updated_num_major = major_stride == 0 ? N : (N / abs(major_stride) + (N % major_stride == 0 ? 0 : 1));
-
-        // Add an offset to the array if either the major or the minor stride is negative
-        const int array_offset = (major_stride < 0 ? (M * (N - 1)) : 0) + (minor_stride < 0 ? M : 1) - 1;
-
         // Plot the surface
-        // The surface is flipped around the minor axis by specifying ImVec2(1, -1) for the minor bounds
-        ImPlot3D::PlotSurface("Wave Surface", &values[array_offset], updated_num_minor, updated_num_major, 0.0, 0.0, ImVec2(1, -1), ImVec2(-1, 1),
-                              flags, values_axis, major_axis, minor_offset, major_offset, minor_stride * sizeof(float),
-                              major_stride * M * sizeof(float), surface_axis);
+        // Plot the X-Axis range from [-10, -5] and Y-Axis range from [5, 10]
+        ImPlot3D::PlotSurface("Wave Surface", values, M, N, 0.0, 0.0, ImVec2(-10, -5), ImVec2(5, 10), flags);
 
         // End the plot
         ImPlot3D::PopStyleVar();
@@ -829,6 +794,99 @@ void DemoAxisConstraints() {
 }
 
 //-----------------------------------------------------------------------------
+// [SECTION] Tools
+//-----------------------------------------------------------------------------
+
+void DemoSurfaceAxisOffsetStride() {
+    constexpr int N = 10;
+    constexpr int M = 20;
+    static float values[N * M];
+
+    // Define the range for X and Y
+    constexpr float min_val = -1.0f;
+    constexpr float max_val = 1.0f;
+    constexpr float x_step = (max_val - min_val) / (N - 1);
+    constexpr float y_step = (max_val - min_val) / (M - 1);
+
+    // Populate the values array
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < M; j++) {
+            int idx = i * M + j;
+            float x = min_val + j * x_step;
+            float y = min_val + i * y_step;
+            values[idx] = ImSin(ImSqrt((x * x + y * y))); // value = sin(sqrt(x^2 + y^2))
+        }
+    }
+
+    // Set which axis information to use for this plot
+    // The major and value axis flags cannot be set to the same value
+    static ImAxis3D values_axis = ImAxis3D_Z;
+    static ImAxis3D major_axis = ImAxis3D_Y;
+    static ImAxis3D surface_axis = ImAxis3D_COUNT;
+    if (ImGui::Combo("Values Axis", &values_axis, "X-Axis\0Y-Axis\0Z-Axis")) {
+        if (major_axis == values_axis) {
+            major_axis = (major_axis + 1) % ImAxis3D_COUNT;
+        }
+    }
+    if (ImGui::Combo("Major Axis", &major_axis, "X-Axis\0Y-Axis\0Z-Axis")) {
+        if (major_axis == values_axis) {
+            values_axis = (values_axis + 1) % ImAxis3D_COUNT;
+        }
+    }
+    ImGui::Combo("Surface Axis", &surface_axis, "X-Axis\0Y-Axis\0Z-Axis\0Values Axis");
+
+    // Add offset and stride
+    static int minor_offset = 0;
+    static int major_offset = 0;
+    static int minor_stride = 1;
+    static int major_stride = 1;
+    ImGui::SliderInt("Minor Offset", &minor_offset, -20, 20);
+    ImGui::SliderInt("Major Offset", &major_offset, -20, 20);
+    ImGui::SliderInt("Minor Stride", &minor_stride, -7, 7);
+    ImGui::SliderInt("Major Stride", &major_stride, -7, 7);
+
+    // Select flags for the surface plot
+    static ImPlot3DSurfaceFlags flags = ImPlot3DSurfaceFlags_NoMarkers;
+    CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoLines);
+    CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoFill);
+    CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoMarkers);
+
+    // Begin the plot
+    ImPlot3D::PushColormap("Jet");
+    if (ImPlot3D::BeginPlot("Surface Plots", ImVec2(-1, 400), ImPlot3DFlags_NoClip)) {
+        ImPlot3D::SetupAxes("x", "y", "z");
+        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
+
+        // Set fill style
+        ImPlot3D::PushStyleVar(ImPlot3DStyleVar_FillAlpha, 0.8f);
+
+        // Set line style
+        ImPlot3D::SetNextLineStyle(ImPlot3D::GetColormapColor(1));
+
+        // Set marker style
+        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, IMPLOT3D_AUTO, ImPlot3D::GetColormapColor(2));
+
+        // Update the number of minor and major items depending on the stride that was selected
+        const int updated_num_minor = minor_stride == 0 ? M : (M / abs(minor_stride) + (M % minor_stride == 0 ? 0 : 1));
+        const int updated_num_major = major_stride == 0 ? N : (N / abs(major_stride) + (N % major_stride == 0 ? 0 : 1));
+
+        // Add an offset to the array if either the major or the minor stride is negative
+        const int array_offset = (major_stride < 0 ? (M * (N - 1)) : 0) + (minor_stride < 0 ? M : 1) - 1;
+
+        // Plot the surface
+        // The surface is flipped around the minor axis by specifying ImVec2(1, -1) for the minor bounds
+        ImPlot3D::PlotSurface("Wave Surface", &values[array_offset], updated_num_minor, updated_num_major, 0.0, 0.0, ImVec2(1, -1), ImVec2(-1, 1),
+                              flags, values_axis, major_axis, minor_offset, major_offset, minor_stride * sizeof(float),
+                              major_stride * M * sizeof(float), surface_axis);
+
+        // End the plot
+        ImPlot3D::PopStyleVar();
+        ImPlot3D::EndPlot();
+    }
+    ImPlot3D::PopColormap();
+}
+
+//-----------------------------------------------------------------------------
 // [SECTION] Custom
 //-----------------------------------------------------------------------------
 
@@ -964,7 +1022,7 @@ void ShowAllDemos() {
             DemoHeader("Triangle Plots", DemoTrianglePlots);
             DemoHeader("Quad Plots", DemoQuadPlots);
             DemoHeader("Surface Plots", DemoSurfacePlots);
-            DemoHeader("Simplified Surface Plots with Offset and Stride", DemoSimplifiedSurfacePlotsOffsetStride);
+            DemoHeader("Simplified Surface Plots", DemoSimplifiedSurfacePlots);
             DemoHeader("Mesh Plots", DemoMeshPlots);
             DemoHeader("Realtime Plots", DemoRealtimePlots);
             DemoHeader("Image Plots", DemoImagePlots);
@@ -977,6 +1035,10 @@ void ShowAllDemos() {
             DemoHeader("Box Rotation", DemoBoxRotation);
             DemoHeader("Tick Labels", DemoTickLabels);
             DemoHeader("Axis Constraints", DemoAxisConstraints);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Tools")) {
+            DemoHeader("Surface Axis, Offset and Stride Plot", DemoSurfaceAxisOffsetStride);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Custom")) {
