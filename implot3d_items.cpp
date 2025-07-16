@@ -984,7 +984,8 @@ template <typename _Indexer> struct GetterMinorMajor {
                      ImAxis3D values_axis, ImAxis3D major_axis, ImAxis3D surface_axis)
         : Indexer(indexer), NumMajor(num_major), NumMinor(num_minor), Count(count), MajorRef(major_bounds.y - major_bounds.x),
           MajorOffset(major_bounds.x), MinorRef(minor_bounds.y - minor_bounds.x), MinorOffset(minor_bounds.x),
-          SurfaceAxis(surface_axis == ImAxis3D_COUNT ? values_axis : surface_axis), Type(values_axis * 3 + major_axis) {}
+          SurfaceAxis(surface_axis == ImAxis3D_COUNT ? values_axis : surface_axis),
+          Type((values_axis == major_axis) ? 6 : (values_axis * 2 + (major_axis - (major_axis > values_axis ? 1 : 0)))) {}
     template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
         const int major = idx / NumMinor;
         const int minor = idx % NumMinor;
@@ -992,25 +993,21 @@ template <typename _Indexer> struct GetterMinorMajor {
         const float minor_value = (minor / float(NumMinor - 1.0f)) * MinorRef + MinorOffset;
         const float value = (float)Indexer(idx, Count, major, minor, NumMajor, NumMinor);
         switch (Type) {
-            case 7: return ImPlot3DPoint(minor_value, major_value, value); // Z-Values + Y-Major
-            case 6: return ImPlot3DPoint(major_value, minor_value, value); // Z-Values + X-Major
-            case 5: return ImPlot3DPoint(minor_value, value, major_value); // Y-Values + Z-Major
-            case 3: return ImPlot3DPoint(major_value, value, minor_value); // Y-Values + X-Major
-            case 2: return ImPlot3DPoint(value, minor_value, major_value); // X-Values + Z-Major
-            case 1: return ImPlot3DPoint(value, major_value, minor_value); // X-Values + Y-Major
-            case 8:                                                        // Z-Values + Z-Major. Not valid. Maybe assert here?
-            case 4:                                                        // Y-Values + Y-Major. Not valid. Maybe assert here?
-            case 0:                                                        // X-Values + X-Major. Not Valid. Maybe assert here?
+            case 5: return ImPlot3DPoint(minor_value, major_value, value); // Z-Values + Y-Major
+            case 4: return ImPlot3DPoint(major_value, minor_value, value); // Z-Values + X-Major
+            case 3: return ImPlot3DPoint(minor_value, value, major_value); // Y-Values + Z-Major
+            case 2: return ImPlot3DPoint(major_value, value, minor_value); // Y-Values + X-Major
+            case 1: return ImPlot3DPoint(value, minor_value, major_value); // X-Values + Z-Major
+            case 0: return ImPlot3DPoint(value, major_value, minor_value); // X-Values + Y-Major
             default: return ImPlot3DPoint(0, 0, 0);
         }
     }
 
     IMPLOT3D_INLINE float GetSurfaceValue(const ImPlot3DPoint& point) const {
         switch (SurfaceAxis) {
-            case 0: return point.x; // X-Values
-            case 1: return point.y; // Y-Values
-            case 2:                 // Z-Values
-            default: return point.z;
+            case 0: return point.x;  // X-Values
+            case 1: return point.y;  // Y-Values
+            default: return point.z; // Z-Values(2)
         }
     }
     const _Indexer& Indexer;
