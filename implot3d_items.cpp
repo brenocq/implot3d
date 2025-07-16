@@ -803,10 +803,10 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
         int major = prim / (MinorCount - 1);
 
         ImPlot3DPoint p_plot[4];
-        p_plot[0] = Getter(minor + major * MinorCount);
-        p_plot[1] = Getter(minor + 1 + major * MinorCount);
-        p_plot[2] = Getter(minor + 1 + (major + 1) * MinorCount);
-        p_plot[3] = Getter(minor + (major + 1) * MinorCount);
+        p_plot[0] = Getter(minor + major * MinorCount, minor, major);
+        p_plot[1] = Getter(minor + 1 + major * MinorCount, minor + 1, major);
+        p_plot[2] = Getter(minor + 1 + (major + 1) * MinorCount, minor + 1, (major + 1));
+        p_plot[3] = Getter(minor + (major + 1) * MinorCount, minor, (major + 1));
 
         // Check if the quad is outside the culling box
         if (!cull_box.Contains(p_plot[0]) && !cull_box.Contains(p_plot[1]) && !cull_box.Contains(p_plot[2]) && !cull_box.Contains(p_plot[3]))
@@ -971,6 +971,8 @@ template <typename _IndexerX, typename _IndexerY, typename _IndexerZ> struct Get
         return ImPlot3DPoint((float)IndexerX(idx), (float)IndexerY(idx), (float)IndexerZ(idx));
     }
 
+    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx, int minor, int major) const { return (*this)(idx); }
+
     IMPLOT3D_INLINE float GetSurfaceValue(const ImPlot3DPoint& point) const { return point.z; }
 
     const _IndexerX IndexerX;
@@ -989,6 +991,9 @@ template <typename _Indexer> struct GetterMinorMajor {
     template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
         const int major = idx / NumMinor;
         const int minor = idx % NumMinor;
+        return (*this)(idx, minor, major);
+    }
+    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx, int minor, int major) const {
         const float major_value = major * MajorRef + MajorOffset;
         const float minor_value = minor * MinorRef + MinorOffset;
         const float value = (float)Indexer(idx, Count, major, minor, NumMajor, NumMinor);
@@ -1080,7 +1085,7 @@ template <typename _Getter> struct GetterSurfaceLines {
             py = row + endpoint_i;
         }
 
-        return Getter(py * MinorCount + px);
+        return Getter(py * MinorCount + px, px, py);
     }
 
     const _Getter Getter;
