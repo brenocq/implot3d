@@ -984,8 +984,9 @@ template <typename _IndexerX, typename _IndexerY, typename _IndexerZ> struct Get
 template <typename _Indexer> struct GetterMinorMajor {
     GetterMinorMajor(const _Indexer& indexer, int num_major, int num_minor, int count, const ImVec2& major_bounds, const ImVec2& minor_bounds,
                      ImAxis3D values_axis, ImAxis3D major_axis, ImAxis3D surface_axis)
-        : Indexer(indexer), NumMajor(num_major), NumMinor(num_minor), Count(count), MajorRef((major_bounds.y - major_bounds.x) / (num_major - 1.0f)),
-          MajorOffset(major_bounds.x), MinorRef((minor_bounds.y - minor_bounds.x) / (num_minor - 1.0f)), MinorOffset(minor_bounds.x),
+        : Indexer(indexer), NumMajor(num_major), NumMinor(num_minor), Count(count),
+          MajorValueRef((major_bounds.y - major_bounds.x) / (num_major - 1.0f)), MajorValueOffset(major_bounds.x),
+          MinorValueRef((minor_bounds.y - minor_bounds.x) / (num_minor - 1.0f)), MinorValueOffset(minor_bounds.x),
           SurfaceAxis(surface_axis == ImAxis3D_COUNT ? values_axis : surface_axis),
           Type((values_axis == major_axis) ? 6 : (values_axis * 2 + (major_axis - (major_axis > values_axis ? 1 : 0)))) {}
     template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
@@ -994,8 +995,8 @@ template <typename _Indexer> struct GetterMinorMajor {
         return (*this)(idx, minor, major);
     }
     template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx, int minor, int major) const {
-        const float major_value = major * MajorRef + MajorOffset;
-        const float minor_value = minor * MinorRef + MinorOffset;
+        const float major_value = major * MajorValueRef + MajorValueOffset;
+        const float minor_value = minor * MinorValueRef + MinorValueOffset;
         const float value = (float)Indexer(idx, Count, major, minor, NumMajor, NumMinor);
         switch (Type) {
             case 5: return ImPlot3DPoint(minor_value, major_value, value); // Z-Values + Y-Major
@@ -1017,7 +1018,7 @@ template <typename _Indexer> struct GetterMinorMajor {
     }
     const _Indexer& Indexer;
     const int NumMajor, NumMinor, Count;
-    const float MajorRef, MajorOffset, MinorRef, MinorOffset;
+    const float MajorValueRef, MajorValueOffset, MinorValueRef, MinorValueOffset;
     const ImAxis3D SurfaceAxis;
     const int Type;
 };
