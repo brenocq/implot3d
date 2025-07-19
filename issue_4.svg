@@ -1,0 +1,235 @@
+
+    <svg width="670" height="100" xmlns="http://www.w3.org/2000/svg">
+        <!-- https://github.com/brenocq/implot3d/issues/126 -->
+
+        <!-- Definitions -->
+        <defs>
+            <clipPath id="circle-clip">
+                <circle cx="0" cy="0" r="17.5" />
+            </clipPath>
+        </defs>
+
+        <!-- Style -->
+        
+<style>
+    :root {
+         --border-color: #d1d9e0;
+         --fgColor-default: #1f2328;
+         --fgColor-accent: #0969da;
+         --fgColor-muted: #59636e;
+         --fgColor-success: #1a7f37;
+         --fgColor-danger: #d1242f;
+         --fgColor-done: #8250df;
+         --bgColor-neutral-muted: #818b981f;
+         --bgColor-success: #1f883d;
+         --text-large: 1rem;
+         --text-medium: 0.875rem;
+         --text-small: 0.75rem;
+         --text-weight-light: 300;
+         --text-weight-normal: 400;
+         --text-weight-medium: 500;
+         --text-weight-semibold: 600;
+     }
+
+    text {
+        font-family: Arial, sans-serif;
+        font-size: var(--text-medium);
+    }
+
+    text.title {
+        fill: var(--fgColor-default);
+        font-size: var(--text-large);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.small {
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.medium {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.muted {
+        fill: var(--fgColor-muted);
+    }
+
+    text.counter {
+        fill: var(--fgColor-muted);
+        font-size: 40px;
+        text-anchor: middle;
+    }
+
+    text.button {
+        font-size: 14px;
+        fill: var(--fgColor-default);
+    }
+
+    text.label {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.label-muted {
+        fill: var(--fgColor-muted);
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    rect.labelBg {
+        fill-opacity: 1.0;
+    }
+
+    rect.labelBg-muted {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 0.5px;
+    }
+
+    rect.card {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 1.5px;
+        rx: 6px;
+        ry: 6px;
+    }
+
+    rect.progress-bg {
+        fill: var(--bgColor-neutral-muted);
+    }
+
+    rect.progress-fill {
+        fill: var(--bgColor-success);
+    }
+
+    .icon-open {
+        fill: var(--fgColor-success);
+    }
+
+    .icon-closed {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-completed {
+        fill: var(--fgColor-done);
+    }
+
+    .icon-danger {
+        fill: var(--fgColor-danger);
+    }
+
+    .icon-muted {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-default {
+        fill: var(--fgColor-default);
+    }
+
+    @media (prefers-color-scheme: light) {
+        text.label {
+            fill: #000000;
+        }
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --border-color: #3d444d;
+            --fgColor-default: #d1d7e0;
+            --fgColor-muted: #9198a1;
+            --fgColor-accent: #478be6;
+            --fgColor-success: #57ab5a;
+            --fgColor-danger: #e5534b;
+            --fgColor-done: #986ee2;
+            --bgColor-neutral-muted: #656c7633;
+            --bgColor-success: #347d39;
+            --button-background-color: #2a313c;
+        }
+
+        rect.labelBg {
+            fill-opacity: 0.2;
+        }
+    }
+</style>
+
+
+        <!-- Card Background -->
+        <rect class="card" x="0" y="0" width="670" height="100"/>
+
+        <!-- Issue Icon -->
+        <path class="icon-open" transform="translate(8, 8)" d="M4.72.22a.75.75 0 0 1 1.06 0l1 .999a3.488 3.488 0 0 1 2.441 0l.999-1a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 0 1 .556 1.392L13 7.258V9h2.25a.75.75 0 0 1 0 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 0 1-.557 1.392l-2.184-.873A4.997 4.997 0 0 1 8 16a4.997 4.997 0 0 1-4.288-2.427l-2.183.873a.75.75 0 0 1-.558-1.392l2.17-.868A5.036 5.036 0 0 1 3 11v-.5H.75a.75.75 0 0 1 0-1.5H3V7.258L.971 6.446a.75.75 0 0 1 .558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.677 1.677 0 0 1-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 0 1 0-1.06Zm.53 6.28a.75.75 0 0 0-.75.75V11a3.5 3.5 0 1 0 7 0V7.25a.75.75 0 0 0-.75-.75ZM6.173 5h3.654A.172.172 0 0 0 10 4.827V4.5a2 2 0 1 0-4 0v.327c0 .096.077.173.173.173Z"/>
+
+        <!-- Issue Title -->
+        <text class="title" x="28" y="18.0" text-anchor="start" dominant-baseline="middle">
+            Line Duplication Due To Line-Plane Inter... <tspan style="fill: var(--fgColor-muted);font-weight: var(--text-weight-normal);">#126</tspan>
+        </text>
+
+        
+        <!-- Label -->
+        <g transform="translate(631.0, 8)">
+            <rect class="labelBg-muted" x="-27.0" y="0" width="54" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">type:fix</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(570.0, 8)">
+            <rect class="labelBg-muted" x="-30.0" y="0" width="60" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">prio:high</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(493.5, 8)">
+            <rect class="labelBg-muted" x="-42.5" y="0" width="85" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">status:review</text>
+        </g>
+        
+        <!-- Contributor Comment -->
+        <text class="small" fill="var(--fgColor-muted)" x="8" y="91"><tspan style="text-decoration: underline;">AhmedLilah</tspan> opened on Jun 2 · <tspan style="text-decoration: underline;">brenocq</tspan> commented on Jul 18</text>
+    
+            <!-- Deletions -->
+            <text class="small" fill="var(--fgColor-danger)" x="650" y="92">-0</text>
+            
+            <!-- Additions -->
+            <text class="small" fill="var(--fgColor-success)" x="619" y="92">+135</text>
+            
+            <!-- Commit Count -->
+            <text class="small muted" x="608" y="92">5</text>
+            
+            <path class="icon-muted" transform="translate(594, 82) scale(0.75)" d="M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z"/>
+            
+            <!-- Linked PR -->
+            <text class="small muted" x="563" y="92">#129</text>
+            
+            <path class="icon-open" transform="translate(549, 82) scale(0.75)" d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/>
+            
+        <!-- Avatars -->
+        
+            <g transform="translate(644.5, 54.0)">
+                <image x="-17.5" y="-17.5" width="35" height="35" href="data:image/png;base64,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" clip-path="url(#circle-clip)" />
+                <circle cx="0" cy="0" r="17.5" fill="none" stroke="var(--border-color)" stroke-width="1" />
+            </g>
+            
+            <g transform="translate(624.5, 54.0)">
+                <image x="-17.5" y="-17.5" width="35" height="35" href="data:image/png;base64,/9j/2wCEAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDIBCQkJDAsMGA0NGDIhHCEyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMv/AABEIACgAKAMBIgACEQEDEQH/xAGiAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgsQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+gEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoLEQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2gAMAwEAAhEDEQA/APAQKekZdgo6mkArX0TTnv7qNAreXvxI4XOBj/8AXxQ9AWrsUpbMW4xK5DjqNvFV2TB9a9W1Gz8JjSQ0EW2UDy/3oYux/r+FeaXcKxXMqICFViBkdaUZXLnDl6meRSYqRxg0zFMglWu3+HOrCz1n7DJGHiuTu3HqhVWOfyzXELXWeBrrT7TWVlu22TgfuXZsKCQQQfqDSmrxZVN2kmegeJ5oo/sw2ARht/J3euBkj9K8o1S5S7v5ZY1Cx9FA9B3r0HxFb+dP5scRWLYdzZwg9+uB1rzGd1S5kSP5ogxCt6iopGteTZXl61HT5GBORTK0MByNzzU4bjrVZetTDpTQiRnJXaWOB2zUTNg4p3aom+8KAGk5NJSUtIZ//9k=" clip-path="url(#circle-clip)" />
+                <circle cx="0" cy="0" r="17.5" fill="none" stroke="var(--border-color)" stroke-width="1" />
+            </g>
+            
+        
+        <!-- Comments -->
+        <g transform="translate(561.5, 43.0)">
+            <rect class="labelBg-muted" x="0" y="0" width="39" height="22.0" rx="11.0"/>
+            <path class="icon-muted" transform="translate(7, 4.0) scale(0.875)" d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/>
+            <text class="small muted" x="24" y="15">8</text>
+        </g>
+        
+                <!-- Comments -->
+                <g transform="translate(520.5, 43.0)">
+                    <rect class="labelBg-muted" x="0" y="0" width="37" height="22.0" rx="11.0"/>
+                    <text class="small muted" x="7" y="15">❤️</text>
+                    <text class="small muted" x="24" y="15">1</text>
+                </g>
+                
+    </svg>
+    
