@@ -778,9 +778,9 @@ template <class _Getter> struct RendererQuadImage : RendererBase {
 };
 
 template <class _Getter> struct RendererSurfaceFill : RendererBase {
-    RendererSurfaceFill(const _Getter& getter, int x_count, int y_count, ImU32 col, double scale_min, double scale_max)
-        : RendererBase((x_count - 1) * (y_count - 1), 6, 4), Getter(getter), XCount(x_count), YCount(y_count), Col(col), ScaleMin(scale_min),
-          ScaleMax(scale_max) {}
+    RendererSurfaceFill(const _Getter& getter, int minor_count, int major_count, ImU32 col, double scale_min, double scale_max)
+        : RendererBase((minor_count - 1) * (major_count - 1), 6, 4), Getter(getter), MinorCount(minor_count), MajorCount(major_count), Col(col),
+          ScaleMin(scale_min), ScaleMax(scale_max) {}
 
     void Init(ImDrawList3D& draw_list_3d) const {
         UV = draw_list_3d._SharedData->TexUvWhitePixel;
@@ -791,22 +791,22 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
             Min = FLT_MAX;
             Max = -FLT_MAX;
             for (int i = 0; i < Getter.Count; i++) {
-                float z = Getter(i).z;
-                Min = ImMin(Min, z);
-                Max = ImMax(Max, z);
+                float val = Getter.GetSurfaceValue(Getter(i));
+                Min = ImMin(Min, val);
+                Max = ImMax(Max, val);
             }
         }
     }
 
     IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
-        int x = prim % (XCount - 1);
-        int y = prim / (XCount - 1);
+        int minor = prim % (MinorCount - 1);
+        int major = prim / (MinorCount - 1);
 
         ImPlot3DPoint p_plot[4];
-        p_plot[0] = Getter(x + y * XCount);
-        p_plot[1] = Getter(x + 1 + y * XCount);
-        p_plot[2] = Getter(x + 1 + (y + 1) * XCount);
-        p_plot[3] = Getter(x + (y + 1) * XCount);
+        p_plot[0] = Getter(minor + major * MinorCount, minor, major);
+        p_plot[1] = Getter(minor + 1 + major * MinorCount, minor + 1, major);
+        p_plot[2] = Getter(minor + 1 + (major + 1) * MinorCount, minor + 1, (major + 1));
+        p_plot[3] = Getter(minor + (major + 1) * MinorCount, minor, (major + 1));
 
         // Check if the quad is outside the culling box
         if (!cull_box.Contains(p_plot[0]) && !cull_box.Contains(p_plot[1]) && !cull_box.Contains(p_plot[2]) && !cull_box.Contains(p_plot[3]))
@@ -824,7 +824,7 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
                 max = (float)ScaleMax;
             }
             for (int i = 0; i < 4; i++) {
-                ImVec4 col = SampleColormap(ImClamp(ImRemap01(p_plot[i].z, min, max), 0.0f, 1.0f));
+                ImVec4 col = SampleColormap(ImClamp(ImRemap01(Getter.GetSurfaceValue(p_plot[i]), min, max), 0.0f, 1.0f));
                 col.w *= alpha;
                 cols[i] = ImGui::ColorConvertFloat4ToU32(col);
             }
@@ -886,8 +886,8 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
     mutable ImVec2 UV;
     mutable float Min; // Minimum value for the colormap
     mutable float Max; // Minimum value for the colormap
-    const int XCount;
-    const int YCount;
+    const int MinorCount;
+    const int MajorCount;
     const ImU32 Col;
     const double ScaleMin;
     const double ScaleMax;
@@ -917,6 +917,50 @@ template <typename T> struct IndexerIdx {
     int Stride;
 };
 
+template <typename T> struct IndexerIdxMajorMinor {
+    IndexerIdxMajorMinor(const T* data, int num_major, int num_minor, int major_offset, int minor_offset, int major_stride, int minor_stride)
+        : Data(data),
+          // If the stride does not have to be applied then use the major offset index as the number of major columns to shift by instead of applying
+          // the shift for the indexes It is a bit simpler to only have to append a constant to the index instead of having to add a constant to first
+          // determine the rows and then column offsets
+          MajorOffset((major_stride == int(sizeof(T)) * num_minor && minor_stride > 0) ? ImPosMod(num_minor * major_offset, num_minor * num_major)
+                                                                                       : ImPosMod(major_offset, num_major)),
+          MinorOffset(ImPosMod(minor_offset, num_minor)), MajorStride(major_stride), MinorStride(minor_stride),
+          Type(((MinorOffset == 0) << 0) | ((MajorOffset == 0) << 1) | ((MinorStride == int(sizeof(T)) && MajorStride > 0) << 2) |
+               ((MajorStride == int(sizeof(T)) * num_minor && MinorStride > 0) << 3)) {}
+
+    template <typename I> IMPLOT3D_INLINE double operator()(I idx, int count, int major, int minor, int num_major, int num_minor) const {
+        return (double)GetData(idx, count, major, minor, num_major, num_minor);
+    }
+
+    template <typename I> IMPLOT3D_INLINE T GetData(I idx, int count, int major, int minor, int num_major, int num_minor) const {
+        // clang-format off
+       // Get the data based based on the type
+        switch (Type) {
+        case 15: return Data[idx]; // No offset or stride
+        case 14: return Data[(((minor + MinorOffset) < num_minor ? MinorOffset : (MinorOffset - num_minor)) + idx) % count]; // Minor offset
+        case 13: return Data[(MajorOffset + idx) % count]; // Major offset
+        case 12: return Data[(MajorOffset + ((minor + MinorOffset) < num_minor ? MinorOffset : (MinorOffset - num_minor)) + idx) % count]; // Major+minor offset
+        case 11: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((idx)) * MinorStride); // Minor stride
+        case 10: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((((minor + MinorOffset) < num_minor ? MinorOffset : (MinorOffset - num_minor)) + idx) % count) * MinorStride); // Minor stride and minor offset
+        case  9: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((MajorOffset + idx) % count) * MinorStride); // Minor stride and major offset
+        case  8: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((MajorOffset + ((minor + MinorOffset) < num_minor ? MinorOffset : (MinorOffset - num_minor)) + idx) % count) * MinorStride); // Minor stride and major + minor offset
+        case  7: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major)) * MajorStride + minor * sizeof(T)); // Major stride
+        case  6: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major)) * MajorStride + ((minor + MinorOffset) % num_minor) * sizeof(T)); // Major stride and minor offset
+        case  5: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major + MajorOffset) % num_major) * MajorStride + minor * sizeof(T)); // Major stride and major offset
+        case  4: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major + MajorOffset) % num_major) * MajorStride + ((minor + MinorOffset) % num_minor) * sizeof(T)); // Major stride and major+minor offset
+        case  3: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major)) * MajorStride + (size_t)((minor)) * MinorStride); // Major+minor stride
+        case  2: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major)) * MajorStride + (size_t)((minor + MinorOffset) % num_minor) * MinorStride); // Major+minor stride and minor offset
+        case  1: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major + MajorOffset) % num_major) * MajorStride + (size_t)((minor)) * MinorStride); // Major+minor stride and major offset
+        case  0: return *(const T*)(const void*)((const unsigned char*)Data + (size_t)((major + MajorOffset) % num_major) * MajorStride + (size_t)((minor + MinorOffset) % num_minor) * MinorStride); // Major+minor stride and major+minor offset
+        default: return T(0);
+        }
+        // clang-format on
+    }
+    const T* const Data;
+    const int MajorOffset, MinorOffset, MajorStride, MinorStride, Type;
+};
+
 //-----------------------------------------------------------------------------
 // [SECTION] Getters
 //-----------------------------------------------------------------------------
@@ -926,10 +970,57 @@ template <typename _IndexerX, typename _IndexerY, typename _IndexerZ> struct Get
     template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
         return ImPlot3DPoint((float)IndexerX(idx), (float)IndexerY(idx), (float)IndexerZ(idx));
     }
+
+    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx, int minor, int major) const { return (*this)(idx); }
+
+    IMPLOT3D_INLINE float GetSurfaceValue(const ImPlot3DPoint& point) const { return point.z; }
+
     const _IndexerX IndexerX;
     const _IndexerY IndexerY;
     const _IndexerZ IndexerZ;
     const int Count;
+};
+
+template <typename _Indexer> struct GetterMinorMajor {
+    GetterMinorMajor(const _Indexer& indexer, int num_major, int num_minor, int count, const ImVec2& major_bounds, const ImVec2& minor_bounds,
+                     ImAxis3D values_axis, ImAxis3D major_axis, ImAxis3D surface_axis)
+        : Indexer(indexer), NumMajor(num_major), NumMinor(num_minor), Count(count),
+          MajorValueRef((major_bounds.y - major_bounds.x) / (num_major - 1.0f)), MajorValueOffset(major_bounds.x),
+          MinorValueRef((minor_bounds.y - minor_bounds.x) / (num_minor - 1.0f)), MinorValueOffset(minor_bounds.x),
+          SurfaceAxis(surface_axis == ImAxis3D_COUNT ? values_axis : surface_axis),
+          Type((values_axis == major_axis) ? 6 : (values_axis * 2 + (major_axis - (major_axis > values_axis ? 1 : 0)))) {}
+    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
+        const int major = idx / NumMinor;
+        const int minor = idx % NumMinor;
+        return (*this)(idx, minor, major);
+    }
+    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx, int minor, int major) const {
+        const float major_value = major * MajorValueRef + MajorValueOffset;
+        const float minor_value = minor * MinorValueRef + MinorValueOffset;
+        const float value = (float)Indexer(idx, Count, major, minor, NumMajor, NumMinor);
+        switch (Type) {
+            case 5: return ImPlot3DPoint(minor_value, major_value, value); // Z-Values + Y-Major
+            case 4: return ImPlot3DPoint(major_value, minor_value, value); // Z-Values + X-Major
+            case 3: return ImPlot3DPoint(minor_value, value, major_value); // Y-Values + Z-Major
+            case 2: return ImPlot3DPoint(major_value, value, minor_value); // Y-Values + X-Major
+            case 1: return ImPlot3DPoint(value, minor_value, major_value); // X-Values + Z-Major
+            case 0: return ImPlot3DPoint(value, major_value, minor_value); // X-Values + Y-Major
+            default: return ImPlot3DPoint(0, 0, 0);
+        }
+    }
+
+    IMPLOT3D_INLINE float GetSurfaceValue(const ImPlot3DPoint& point) const {
+        switch (SurfaceAxis) {
+            case 0: return point.x;  // X-Values
+            case 1: return point.y;  // Y-Values
+            default: return point.z; // Z-Values(2)
+        }
+    }
+    const _Indexer& Indexer;
+    const int NumMajor, NumMinor, Count;
+    const float MajorValueRef, MajorValueOffset, MinorValueRef, MinorValueOffset;
+    const ImAxis3D SurfaceAxis;
+    const int Type;
 };
 
 template <typename _Getter> struct GetterLoop {
@@ -963,9 +1054,9 @@ template <typename _Getter> struct GetterQuadLines {
 };
 
 template <typename _Getter> struct GetterSurfaceLines {
-    GetterSurfaceLines(_Getter getter, int x_count, int y_count) : Getter(getter), XCount(x_count), YCount(y_count) {
-        int horizontal_segments = (XCount - 1) * YCount;
-        int vertical_segments = (YCount - 1) * XCount;
+    GetterSurfaceLines(_Getter getter, int minor_count, int major_count) : Getter(getter), MinorCount(minor_count), MajorCount(major_count) {
+        int horizontal_segments = (MinorCount - 1) * MajorCount;
+        int vertical_segments = (MajorCount - 1) * MinorCount;
         int segments = horizontal_segments + vertical_segments;
         Count = segments * 2; // Each segment has 2 endpoints
     }
@@ -975,33 +1066,33 @@ template <typename _Getter> struct GetterSurfaceLines {
         int endpoint_i = (int)(idx % 2);
         int segment_i = (int)(idx / 2);
 
-        int horizontal_segments = (XCount - 1) * YCount;
+        int horizontal_segments = (MinorCount - 1) * MajorCount;
 
         int px, py;
         if (segment_i < horizontal_segments) {
             // Horizontal segment
-            int row = segment_i / (XCount - 1);
-            int col = segment_i % (XCount - 1);
+            int row = segment_i / (MinorCount - 1);
+            int col = segment_i % (MinorCount - 1);
             // Endpoint 0 is (col, row), endpoint 1 is (col+1, row)
             px = endpoint_i == 0 ? col : col + 1;
             py = row;
         } else {
             // Vertical segment
             int seg_v = segment_i - horizontal_segments;
-            int col = seg_v / (YCount - 1);
-            int row = seg_v % (YCount - 1);
+            int col = seg_v / (MajorCount - 1);
+            int row = seg_v % (MajorCount - 1);
             // Endpoint 0 is (col, row), endpoint 1 is (col, row+1)
             px = col;
             py = row + endpoint_i;
         }
 
-        return Getter(py * XCount + px);
+        return Getter(py * MinorCount + px, px, py);
     }
 
     const _Getter Getter;
     int Count;
-    const int XCount;
-    const int YCount;
+    const int MinorCount;
+    const int MajorCount;
 };
 
 struct Getter3DPoints {
@@ -1326,7 +1417,7 @@ CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 // [SECTION] PlotSurface
 //-----------------------------------------------------------------------------
 
-template <typename _Getter> void PlotSurfaceEx(const char* label_id, const _Getter& getter, int x_count, int y_count, double scale_min,
+template <typename _Getter> void PlotSurfaceEx(const char* label_id, const _Getter& getter, int minor_count, int major_count, double scale_min,
                                                double scale_max, ImPlot3DSurfaceFlags flags) {
     if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Fill)) {
         const ImPlot3DNextItemData& n = GetItemData();
@@ -1334,13 +1425,13 @@ template <typename _Getter> void PlotSurfaceEx(const char* label_id, const _Gett
         // Render fill
         if (getter.Count >= 4 && n.RenderFill && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoFill)) {
             const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
-            RenderPrimitives<RendererSurfaceFill>(getter, x_count, y_count, col_fill, scale_min, scale_max);
+            RenderPrimitives<RendererSurfaceFill>(getter, minor_count, major_count, col_fill, scale_min, scale_max);
         }
 
         // Render lines
         if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoLines)) {
             const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
-            RenderPrimitives<RendererLineSegments>(GetterSurfaceLines<_Getter>(getter, x_count, y_count), col_line, n.LineWeight);
+            RenderPrimitives<RendererLineSegments>(GetterSurfaceLines<_Getter>(getter, minor_count, major_count), col_line, n.LineWeight);
         }
 
         // Render markers
@@ -1364,9 +1455,29 @@ IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, co
     return PlotSurfaceEx(label_id, getter, x_count, y_count, scale_min, scale_max, flags);
 }
 
+IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* values, int minor_count, int major_count, double scale_min, double scale_max,
+                              const ImVec2& minor_bounds, const ImVec2& major_bounds, ImPlot3DSurfaceFlags flags, ImAxis3D values_axis,
+                              ImAxis3D major_axis, int minor_offset, int major_offset, int minor_stride, int major_stride, ImAxis3D surface_axis) {
+    IM_ASSERT_USER_ERROR(values_axis != major_axis, "The values axis and major axis needs to be two different values");
+    int count = major_count * minor_count;
+    if (count < 4)
+        return;
+    // Create the getter and the indexer that will be passed to PlotSurfaceEx. The getter and the indexer will produce the correct information based
+    // on the indexes passed in
+    IndexerIdxMajorMinor<T> indexer(values, major_count, minor_count, major_offset, minor_offset,
+                                    (major_stride == IMPLOT3D_DEFAULT_MAJOR_STRIDE ? (sizeof(T) * minor_count) : major_stride), minor_stride);
+    GetterMinorMajor<IndexerIdxMajorMinor<T>> getter(indexer, major_count, minor_count, count, major_bounds, minor_bounds, values_axis, major_axis,
+                                                     surface_axis);
+    return PlotSurfaceEx(label_id, getter, minor_count, major_count, scale_min, scale_max, flags);
+}
+
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
     template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count,                 \
-                                              double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride);
+                                              double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride);               \
+    template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* values, int minor_count, int major_count, double scale_min,             \
+                                              double scale_max, const ImVec2& minor_bounds, const ImVec2& major_bounds, ImPlot3DSurfaceFlags flags,  \
+                                              ImAxis3D values_axis, ImAxis3D major_axis, int minor_offset, int major_offset, int minor_stride,       \
+                                              int major_stride, ImAxis3D surface_axis);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
