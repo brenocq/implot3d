@@ -231,10 +231,10 @@ enum ImPlot3DSurfaceFlags_ {
     ImPlot3DSurfaceFlags_NoMarkers = 1 << 12, // No markers will be rendered
 
     // The plane to use for the surface plot
-    ImPlot3DSurfaceFlags_PlaneXY = 1 << 0,
-    ImPlot3DSurfaceFlags_PlaneXZ = 1 << 13,
-    ImPlot3DSurfaceFlags_PlaneYZ = 1 << 14,
-    ImPlot3DSurfaceFlags_SwapAxes = 1 << 15,
+    ImPlot3DSurfaceFlags_PlaneXY = 1 << 0, // Use the XY plane and Z values for surface. Default behavior
+    ImPlot3DSurfaceFlags_PlaneXZ = 1 << 13, // Use the XZ plane and Y values for surface
+    ImPlot3DSurfaceFlags_PlaneYZ = 1 << 14, // Use the YZ plane and X values for surface
+    ImPlot3DSurfaceFlags_SwapAxes = 1 << 15, // Swap the minor and major axis. Only has an effect on the PlotSurface function where only the values are passed in
     ImPlot3DSurfaceFlags_PlaneMask_ = ImPlot3DSurfaceFlags_PlaneXY | ImPlot3DSurfaceFlags_PlaneXZ | ImPlot3DSurfaceFlags_PlaneYZ,
 };
 
@@ -461,7 +461,7 @@ IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const
 // Plot the surface defined by a grid of vertices. The grid is defined by the x and y arrays, and the z array contains the height of each vertex. A
 // total of x_count * y_count vertices are expected for each array. Leave #scale_min and #scale_max both at 0 for automatic color scaling, or set them
 // to a predefined range
-IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count, double scale_min = 0.0,
+IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, int minor_count, int major_count, double scale_min = 0.0,
                               double scale_max = 0.0, ImPlot3DSurfaceFlags flags = 0, int offset = 0, int stride = sizeof(T));
 IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* values, int minor_count, int major_count, double scale_min = 0.0, double scale_max = 0.0,
                               ImPlot3DSurfaceFlags flags = 0, const ImVec2& minor_bounds = ImVec2(-1, 1), const ImVec2& major_bounds = ImVec2(-1, 1),

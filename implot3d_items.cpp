@@ -1455,14 +1455,14 @@ template <typename _Getter> void PlotSurfaceEx(const char* label_id, const _Gett
     }
 }
 
-IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count, double scale_min,
+IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, int minor_count, int major_count, double scale_min,
                               double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride) {
-    int count = x_count * y_count;
+    int count = minor_count * major_count;
     if (count < 4)
         return;
     GetterXYZ<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, offset, stride), IndexerIdx<T>(ys, count, offset, stride),
                                                                   IndexerIdx<T>(zs, count, offset, stride), count);
-    return PlotSurfaceEx(label_id, getter, x_count, y_count, scale_min, scale_max, flags);
+    return PlotSurfaceEx(label_id, getter, minor_count, major_count, scale_min, scale_max, flags);
 }
 
 IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* values, int minor_count, int major_count, double scale_min, double scale_max,
@@ -1486,7 +1486,7 @@ IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* values, int minor_c
 }
 
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
-    template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count,                 \
+    template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int minor_count, int major_count,                 \
                                               double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride);               \
     template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* values, int minor_count, int major_count, double scale_min,             \
                                               double scale_max, ImPlot3DSurfaceFlags flags, const ImVec2& minor_bounds, const ImVec2& major_bounds,  \
