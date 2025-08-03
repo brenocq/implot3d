@@ -231,7 +231,7 @@ enum ImPlot3DSurfaceFlags_ {
     ImPlot3DSurfaceFlags_NoMarkers = 1 << 12, // No markers will be rendered
 
     // The plane to use for the surface plot
-    ImPlot3DSurfaceFlags_PlaneXY = 1 << 0, // Use the XY plane and Z values for surface. Default behavior
+    ImPlot3DSurfaceFlags_PlaneXY = 0, // Use the XY plane and Z values for surface. Default behavior. Use for None flag
     ImPlot3DSurfaceFlags_PlaneXZ = 1 << 13, // Use the XZ plane and Y values for surface
     ImPlot3DSurfaceFlags_PlaneYZ = 1 << 14, // Use the YZ plane and X values for surface
     ImPlot3DSurfaceFlags_SwapAxes = 1 << 15, // Swap the minor and major axis. Only has an effect on the PlotSurface function where only the values are passed in

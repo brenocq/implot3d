@@ -833,12 +833,12 @@ void DemoSurfaceAxisOffsetStride() {
         ImGui::SliderInt("Major Stride", &major_stride, -10, 10);
 
     // Select flags for the surface plot
+    // Default to using ImPlot3DSurfaceFlags_PlaneXY flag. If neither the ImPlot3DSurfaceFlags_PlaneXZ and the ImPlot3DSurfaceFlags_PlaneYZ flag is
+    // set then use ImPlot3DSurfaceFlags_PlaneXY
     static ImPlot3DSurfaceFlags flags = ImPlot3DSurfaceFlags_NoMarkers | ImPlot3DSurfaceFlags_PlaneXY;
     CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoLines);
     CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoFill);
     CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoMarkers);
-    if (ImGui::CheckboxFlags("ImPlot3DSurfaceFlags_PlaneXY", &flags, ImPlot3DSurfaceFlags_PlaneXY))
-        flags &= ~(ImPlot3DSurfaceFlags_PlaneMask_ & ~ImPlot3DSurfaceFlags_PlaneXY);
     if (ImGui::CheckboxFlags("ImPlot3DSurfaceFlags_PlaneXZ", &flags, ImPlot3DSurfaceFlags_PlaneXZ))
         flags &= ~(ImPlot3DSurfaceFlags_PlaneMask_ & ~ImPlot3DSurfaceFlags_PlaneXZ);
     if (ImGui::CheckboxFlags("ImPlot3DSurfaceFlags_PlaneYZ", &flags, ImPlot3DSurfaceFlags_PlaneYZ))
