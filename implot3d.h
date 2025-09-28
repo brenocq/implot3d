@@ -58,6 +58,7 @@
 // Forward declarations
 struct ImPlot3DContext;
 struct ImPlot3DStyle;
+struct ImPlot3DInputMap;
 struct ImPlot3DPoint;
 struct ImPlot3DRay;
 struct ImPlot3DPlane;
@@ -546,6 +547,16 @@ IMPLOT3D_API ImVec4 GetStyleColorVec4(ImPlot3DCol idx);
 IMPLOT3D_API ImU32 GetStyleColorU32(ImPlot3DCol idx);
 
 //-----------------------------------------------------------------------------
+// [SECTION] Input Mapping
+//-----------------------------------------------------------------------------
+
+// Provides access to input mapping structure for permanant modifications to controls for pan, select, etc.
+IMPLOT3D_API ImPlot3DInputMap& GetInputMap();
+
+// Default input mapping: pan = LMB drag, box select = RMB drag, fit = LMB double click, context menu = RMB click, zoom = scroll.
+IMPLOT3D_API void MapInputDefault(ImPlot3DInputMap* dst = nullptr);
+
+//-----------------------------------------------------------------------------
 // [SECTION] Colormaps
 //-----------------------------------------------------------------------------
 
@@ -829,6 +840,25 @@ struct ImPlot3DStyle {
     // Constructor
     IMPLOT3D_API ImPlot3DStyle();
     ImPlot3DStyle(const ImPlot3DStyle& other) = default;
+};
+
+//-----------------------------------------------------------------------------
+// [SECTION] ImPlot3DInputMap
+//-----------------------------------------------------------------------------
+
+// Input mapping structure. Default values listed. See also MapInputDefault, MapInputReverse.
+struct ImPlot3DInputMap {
+    ImGuiMouseButton Pan;         // LMB    enables panning when held,
+    int PanMod;                   // none   optional modifier that must be held for panning/fitting
+    ImGuiMouseButton Fit;         // LMB    initiates fit when double clicked
+    ImGuiMouseButton ResetRotate; // RMB    initiates reset of the rotate when double clicked. When double clicked over the axis change to 2D view of the axis
+    ImGuiMouseButton Rotate;      // RMB    rotate the plot
+    int RotateMod;                // none   optional modifier that must be held when rotating
+    ImGuiMouseButton Menu;        // RMB    opens context menus (if enabled) when clicked
+    int OverrideMod;              // Ctrl   when held, all input is ignored; used to enable axis/plots as DND sources
+    int ZoomMod;                  // none   optional modifier that must be held for scroll wheel zooming
+    float ZoomRate;               // 0.1f   zoom rate for scroll (e.g. 0.1f = 10% plot range every scroll click); make negative to invert
+    IMPLOT3D_API ImPlot3DInputMap();
 };
 
 //-----------------------------------------------------------------------------
