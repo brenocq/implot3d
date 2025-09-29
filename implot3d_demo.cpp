@@ -298,7 +298,7 @@ void DemoQuadPlots() {
 
 void DemoSurfacePlots() {
     constexpr int N = 20;
-    static float xs[N * N], ys[N * N], zs[N * N];
+    static float xs[N * N], ys[N * N], zs[N * N], vs[N * N];
     static float t = 0.0f;
     t += ImGui::GetIO().DeltaTime;
 
@@ -314,6 +314,7 @@ void DemoSurfacePlots() {
             xs[idx] = min_val + j * step;                                             // X values are constant along rows
             ys[idx] = min_val + i * step;                                             // Y values are constant along columns
             zs[idx] = ImSin(2 * t + ImSqrt((xs[idx] * xs[idx] + ys[idx] * ys[idx]))); // z = sin(2t + sqrt(x^2 + y^2))
+            vs[idx] = (1.f - 0.5f * xs[idx] + powf(ys[idx], 5) + powf(zs[idx], 3)) * expf(-xs[idx] * xs[idx] - ys[idx] * ys[idx] - zs[idx] * zs[idx]); // v = (1 - x/2 + y^5 + z^3)* exp(-x^2 - y^2 - z^2)
         }
     }
 
@@ -360,6 +361,10 @@ void DemoSurfacePlots() {
         ImGui::Unindent();
     }
 
+    // Select to plot additional data
+    static bool additional_value = false;
+    ImGui::Checkbox("Color indicates the value of each point", &additional_value);
+
     // Select flags
     static ImPlot3DSurfaceFlags flags = ImPlot3DSurfaceFlags_NoMarkers;
     CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoLines);
@@ -385,9 +390,15 @@ void DemoSurfacePlots() {
 
         // Plot the surface
         if (custom_range)
-            ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, (double)range_min, (double)range_max, flags);
+            if (additional_value)
+                ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, vs, N, N, (double)range_min, (double)range_max, flags);
+            else
+                ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, (double)range_min, (double)range_max, flags);
         else
-            ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, 0.0, 0.0, flags);
+            if (additional_value)
+                ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, vs, N, N, 0.0, 0.0, flags);
+            else
+                ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, 0.0, 0.0, flags);
 
         // End the plot
         ImPlot3D::PopStyleVar();
