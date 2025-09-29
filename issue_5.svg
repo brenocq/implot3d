@@ -1,0 +1,228 @@
+
+    <svg width="670" height="100" xmlns="http://www.w3.org/2000/svg">
+        <!-- https://github.com/brenocq/implot3d/issues/108 -->
+
+        <!-- Definitions -->
+        <defs>
+            <clipPath id="circle-clip">
+                <circle cx="0" cy="0" r="17.5" />
+            </clipPath>
+        </defs>
+
+        <!-- Style -->
+        
+<style>
+    :root {
+         --border-color: #d1d9e0;
+         --fgColor-default: #1f2328;
+         --fgColor-accent: #0969da;
+         --fgColor-muted: #59636e;
+         --fgColor-success: #1a7f37;
+         --fgColor-danger: #d1242f;
+         --fgColor-done: #8250df;
+         --bgColor-neutral-muted: #818b981f;
+         --bgColor-success: #1f883d;
+         --text-large: 1rem;
+         --text-medium: 0.875rem;
+         --text-small: 0.75rem;
+         --text-weight-light: 300;
+         --text-weight-normal: 400;
+         --text-weight-medium: 500;
+         --text-weight-semibold: 600;
+     }
+
+    text {
+        font-family: Arial, sans-serif;
+        font-size: var(--text-medium);
+    }
+
+    text.title {
+        fill: var(--fgColor-default);
+        font-size: var(--text-large);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.small {
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.medium {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.muted {
+        fill: var(--fgColor-muted);
+    }
+
+    text.counter {
+        fill: var(--fgColor-muted);
+        font-size: 40px;
+        text-anchor: middle;
+    }
+
+    text.button {
+        font-size: 14px;
+        fill: var(--fgColor-default);
+    }
+
+    text.label {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.label-muted {
+        fill: var(--fgColor-muted);
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    rect.labelBg {
+        fill-opacity: 1.0;
+    }
+
+    rect.labelBg-muted {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 0.5px;
+    }
+
+    rect.card {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 1.5px;
+        rx: 6px;
+        ry: 6px;
+    }
+
+    rect.progress-bg {
+        fill: var(--bgColor-neutral-muted);
+    }
+
+    rect.progress-fill {
+        fill: var(--bgColor-success);
+    }
+
+    .icon-open {
+        fill: var(--fgColor-success);
+    }
+
+    .icon-closed {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-completed {
+        fill: var(--fgColor-done);
+    }
+
+    .icon-danger {
+        fill: var(--fgColor-danger);
+    }
+
+    .icon-muted {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-default {
+        fill: var(--fgColor-default);
+    }
+
+    @media (prefers-color-scheme: light) {
+        text.label {
+            fill: #000000;
+        }
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --border-color: #3d444d;
+            --fgColor-default: #d1d7e0;
+            --fgColor-muted: #9198a1;
+            --fgColor-accent: #478be6;
+            --fgColor-success: #57ab5a;
+            --fgColor-danger: #e5534b;
+            --fgColor-done: #986ee2;
+            --bgColor-neutral-muted: #656c7633;
+            --bgColor-success: #347d39;
+            --button-background-color: #2a313c;
+        }
+
+        rect.labelBg {
+            fill-opacity: 0.2;
+        }
+    }
+</style>
+
+
+        <!-- Card Background -->
+        <rect class="card" x="0" y="0" width="670" height="100"/>
+
+        <!-- Issue Icon -->
+        <path class="icon-open" transform="translate(8, 8)" d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/>
+
+        <!-- Issue Title -->
+        <text class="title" x="28" y="18.0" text-anchor="start" dominant-baseline="middle">
+            Highlight origin grid lines <tspan style="fill: var(--fgColor-muted);font-weight: var(--text-weight-normal);">#108</tspan>
+        </text>
+
+        
+        <!-- Label -->
+        <g transform="translate(627.5, 8)">
+            <rect class="labelBg-muted" x="-30.5" y="0" width="61" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">type:feat</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(555.5, 8)">
+            <rect class="labelBg-muted" x="-37.5" y="0" width="75" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">prio:medium</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(471.5, 8)">
+            <rect class="labelBg-muted" x="-42.5" y="0" width="85" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">status:review</text>
+        </g>
+        
+        <!-- Contributor Comment -->
+        <text class="small" fill="var(--fgColor-muted)" x="8" y="91"><tspan style="text-decoration: underline;">brenocq</tspan> opened on May 25</text>
+    
+            <!-- Deletions -->
+            <text class="small" fill="var(--fgColor-danger)" x="650" y="92">-6</text>
+            
+            <!-- Additions -->
+            <text class="small" fill="var(--fgColor-success)" x="631" y="92">+8</text>
+            
+            <!-- Commit Count -->
+            <text class="small muted" x="620" y="92">3</text>
+            
+            <path class="icon-muted" transform="translate(606, 82) scale(0.75)" d="M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z"/>
+            
+            <!-- Linked PR -->
+            <text class="small muted" x="575" y="92">#137</text>
+            
+            <path class="icon-open" transform="translate(561, 82) scale(0.75)" d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/>
+            
+        <!-- Avatars -->
+        
+            <g transform="translate(644.5, 54.0)">
+                <image x="-17.5" y="-17.5" width="35" height="35" href="data:image/png;base64,/9j/2wCEAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDIBCQkJDAsMGA0NGDIhHCEyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMv/AABEIACgAKAMBIgACEQEDEQH/xAGiAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgsQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+gEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoLEQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2gAMAwEAAhEDEQA/APAQKekZdgo6mkArX0XT3vruNAGEe/Ejhc7R/nPFD0BauxSlsxAMSuQ46jbx+dV2TafWvVtQsPCQ0kPAuJQPLJl3F2P9fw4rzW8gWK6lRAQqtgZGCaUZXLnDl6meRTcVI4waZimQSrXcfDjVVtNY+wSxho7k7gxP3Cqsf5Zrh1rrfAs9hba0st02y4UfuCxwuSCCD74PFKavFlU3aSZ3/ieSFPs6+XiMPv5w2euBk15Tq1xHdahLJEoWMfKuB1x3/PNeg+IrYzXO6KJwgQ55O1f1wK8xuHSK6ljjO+NWIVs9RUUjWvJsrS9ajqSRgTkVHWhgPRqmDcdarL1qYdKaETNPI0YjMjFB0UtwKgZscU7tUTfeFADSeaSg9qKQz//Z" clip-path="url(#circle-clip)" />
+                <circle cx="0" cy="0" r="17.5" fill="none" stroke="var(--border-color)" stroke-width="1" />
+            </g>
+            
+            <g transform="translate(624.5, 54.0)">
+                <image x="-17.5" y="-17.5" width="35" height="35" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAIAAAADnC86AAADOElEQVR4nGL59uMXw0AApgGxddTiUYtHLR61mBLAQqS6P3/+HD919tzFK2/evmNgYFBSkPPzcvvz5+/m7bsePn7KwMAgJipipK9rbmLAwkKUmYzElNWv3rztnzL71es3yII83Fz//zN8/fYNWVBaSqIwO1VQgJ+gmUS5btW6za9ev9HX1XJ1tJWVkfr/7/+ajduOHD/FwMDgZG/t5+XGyMDw8PGTnXsPXb1+c9W6zelJMQTNJBzHv3//uXj5GjcXV3pSjKa6Kg83Ny8vj42lKUTW0daSl4ebh4dbW1M9OzWei5PzzPlLf/78oYLF3398//fvn4y0JDsbG8I1MKN/I9nBzs4mJSn+79+/7z9+UMFiRkZGBgaGv3//IgvevnMPwrh+4zay+N+//0BaGBipYDEXJxcbK+vDx09fvoImrtt37+/adwjC3rJz770HjyDs5y9fPXn6jI2NlZOLk6CxhBMXExMjCwvzt+8/qps6uTg54SEZ4OP+69fvbbv2tXZP4uTkYGJk/PrtO8ihXJxMjIR9TMDiHz9/zl6w7Nv3H/x8vFxcnC9fvWFmZlZVVnS0szI3MWRgYBAXEzl09OTDx0////snLSXx+fOXT5+/zJy/NCUuAn+GJpCPl65av+/gUQYGBi0NteLcNIL+6Jow/ebtuwwMDB6ujqEB3nhUEojjU2fOo4n8/vNn4vS5h46ehHD3Hjgyfc6i////oyk7Cs7l5Fv85es3NJFXr99cunL9xOlzEO6hYyfPnL/06fMXNGWfv3ylyGLaAQIWq6sqo4kI8PMJCwkqyMtCuCqKChLiYlwY+UdbUw2/yQQS1+cvX/unzHr4+CkLC4u3u5OjrRUvLw9WlR8+ftp/6NiOPfv//PmroqxYkJXMycFBvsWQCnHDlp279x/+8+cPCwuznramqrKilKQ4Px8f2L6Pz56/vHX3/uWrN/7+/cvOxubqZOfr6crCwkyRj+Hg9Zu3+w4ePXj0xM+f2NVzcnI42Fg62lkLCwkQYyCxFkPAnz9/7z14ePP23WfPX37+8oWBgZGXl0dGSkJdVVlRXpaZmYAvybeYimCwZqdRi0ctHrV41GLcABAAAP//SJhLQj8E8FAAAAAASUVORK5CYII=" clip-path="url(#circle-clip)" />
+                <circle cx="0" cy="0" r="17.5" fill="none" stroke="var(--border-color)" stroke-width="1" />
+            </g>
+            
+        
+                <!-- Comments -->
+                <g transform="translate(563.5, 43.0)">
+                    <rect class="labelBg-muted" x="0" y="0" width="37" height="22.0" rx="11.0"/>
+                    <text class="small muted" x="7" y="15">👀</text>
+                    <text class="small muted" x="24" y="15">1</text>
+                </g>
+                
+    </svg>
+    
