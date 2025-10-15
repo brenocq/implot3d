@@ -1052,7 +1052,7 @@ void ComputeBoxCorners(ImPlot3DPoint* corners, const ImPlot3DPoint& range_min, c
     }
 }
 
-static const float IMPLOT3D_PERSPECTIVE_FOV = 45.0f * (3.1415f / 180.0f);
+static const float IMPLOT3D_PERSPECTIVE_FOV = 45.0f * (IM_PI / 180.0f);
 
 float GetPerspectiveFocalLength() {
     const float focal = 1.0f / tanf(IMPLOT3D_PERSPECTIVE_FOV * 0.5f);
@@ -1669,7 +1669,7 @@ void EndPlot() {
 // [SECTION] Setup
 //-----------------------------------------------------------------------------
 
-static const float ANIMATION_ANGULAR_VELOCITY = 2 * 3.1415f;
+static const float ANIMATION_ANGULAR_VELOCITY = 2 * IM_PI;
 
 float CalcAnimationTime(ImPlot3DQuat q0, ImPlot3DQuat q1) {
     // Compute the angular distance between orientations
@@ -2328,8 +2328,8 @@ void HandleInput(ImPlot3DPlot& plot) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
         // Map delta to rotation angles (in radians)
-        float angle_x = delta.x * (3.1415f / 180.0f);
-        float angle_y = delta.y * (3.1415f / 180.0f);
+        float angle_x = delta.x * (IM_PI / 180.0f);
+        float angle_y = delta.y * (IM_PI / 180.0f);
 
         // Detect if the plot is upside down by checking the transformed up vector
         ImPlot3DPoint up_vector = plot.Rotation * ImPlot3DPoint(0.0f, 0.0f, 1.0f);
