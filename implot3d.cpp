@@ -1438,6 +1438,8 @@ void ShowPlotContextMenu(ImPlot3DPlot& plot) {
             ImFlipFlag(plot.Flags, ImPlot3DFlags_NoClip);
         if (ImGui::MenuItem("Mouse Position", nullptr, !ImHasFlag(plot.Flags, ImPlot3DFlags_NoMouseText)))
             ImFlipFlag(plot.Flags, ImPlot3DFlags_NoMouseText);
+        if (ImGui::MenuItem("Lock Ground", nullptr, ImHasFlag(plot.Flags, ImPlot3DFlags_LockGround)))
+            ImFlipFlag(plot.Flags, ImPlot3DFlags_LockGround);
         ImGui::EndMenu();
     }
 }
@@ -1757,6 +1759,8 @@ void SetupBoxRotation(ImPlot3DQuat rotation, bool animate, ImPlot3DCond cond) {
             plot.AnimationTime = CalcAnimationTime(plot.Rotation, plot.RotationAnimationEnd);
         }
         plot.RotationCond = cond;
+        if (ImHasFlag(plot.Flags, ImPlot3DFlags_LockGround))
+            plot.ClampGroundRotation(animate);
     }
 }
 
@@ -1922,6 +1926,16 @@ ImVec2 GetPlotSize() {
     return gp.CurrentPlot->PlotRect.GetSize();
 }
 
+void GetBoxRotation(float& elevation, float& azimuth) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetBoxRotation() needs to be called between BeginPlot() and EndPlot()!");
+    ImPlot3DPlot& plot = *gp.CurrentPlot;
+    SetupLock();
+    plot.Rotation.ToElAz(elevation, azimuth);
+    elevation = elevation * 180.0f / IM_PI;
+    azimuth = azimuth * 180.0f / IM_PI;
+}
+
 ImVec2 GetFramePos() {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetFramePos() needs to be called between BeginPlot() and EndPlot()!");
@@ -2043,6 +2057,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     const bool rotating = ImLengthSqr(rot_drag) > MOUSE_CURSOR_DRAG_THRESHOLD;
     const bool axis_equal = ImHasFlag(plot.Flags, ImPlot3DFlags_Equal);
     const bool ground_only = ImHasFlag(plot.Flags, ImPlot3DFlags_GroundOnly);
+    const bool ground_locked = ImHasFlag(plot.Flags, ImPlot3DFlags_LockGround);
 
     // HOVERING STATE -------------------------------------------------------------------
 
@@ -2256,6 +2271,8 @@ void HandleInput(ImPlot3DPlot& plot) {
                 plot.RotationAnimationEnd = align_up * plot.RotationAnimationEnd;
             }
         }
+        if (ground_locked)
+            plot.ClampGroundRotation(true);
 
         // Calculate animation time
         plot.AnimationTime = CalcAnimationTime(plot.Rotation, plot.RotationAnimationEnd);
@@ -2282,6 +2299,8 @@ void HandleInput(ImPlot3DPlot& plot) {
         // Combine the new rotations with the current rotation
         plot.Rotation = quat_x * plot.Rotation * quat_z;
         plot.Rotation.Normalize();
+        if (ground_locked)
+            plot.ClampGroundRotation();
     }
 
     // ZOOM -------------------------------------------------------------------
@@ -2442,6 +2461,8 @@ void SetupLock() {
         if (plot.AnimationTime < 0.0f)
             plot.AnimationTime = 0.0f;
         plot.Rotation = ImPlot3DQuat::Slerp(plot.Rotation, plot.RotationAnimationEnd, t);
+        if (ImHasFlag(plot.Flags, ImPlot3DFlags_LockGround))
+            plot.ClampGroundRotation();
     }
 
     plot.Initialized = true;
@@ -3277,6 +3298,29 @@ ImPlot3DQuat ImPlot3DQuat::Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2,
 
 float ImPlot3DQuat::Dot(const ImPlot3DQuat& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w; }
 
+void ImPlot3DQuat::ToElAz(float& elevation, float& azimuth) const {
+    // Decompose rotation as R = Rx(alpha) * Rz(azimuth), where alpha = elevation - pi/2.
+    //   m12 = 2 * (y * z - x * w) = -sin(alpha)
+    //   m22 = 1 - 2 * (x * x + y * y) = cos(alpha)
+    //   m00 = 1 - 2 * (y * y + z * z) = cos(azimuth)
+    //   m01 = 2 * (x * y - z * w) = -sin(azimuth)
+    // so alpha = atan2(-m12, m22) and azimuth = atan2(-m01, m00)
+    float alpha = ImAtan2(-2 * (y * z - x * w), 1 - 2 * (x * x + y * y));
+    azimuth = ImAtan2(-2 * (x * y - z * w), 1 - 2 * (y * y + z * z));
+    elevation = alpha + (IM_PI * 0.5f);
+
+    // Normalize angles to be between -π and π
+    if (elevation > IM_PI)
+        elevation -= 2 * IM_PI;
+    if (elevation < -IM_PI)
+        elevation += 2 * IM_PI;
+
+    if (azimuth > IM_PI)
+        azimuth -= 2 * IM_PI;
+    if (azimuth < -IM_PI)
+        azimuth += 2 * IM_PI;
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] ImDrawList3D
 //-----------------------------------------------------------------------------
@@ -3533,6 +3577,17 @@ void ImPlot3DPlot::ApplyEqualAspect(ImAxis3D ref_axis) {
             Axes[i].SetAspect(aspect);
         }
     }
+}
+
+void ImPlot3DPlot::ClampGroundRotation(bool animate) {
+    ImPlot3DQuat* rotation = (!animate) ? &Rotation : &RotationAnimationEnd;
+    const float max_elevation = IM_PI * 0.5f - 0.01f;
+    float elevation = 0.0f;
+    float azimuth = 0.0f;
+    rotation->ToElAz(elevation, azimuth);
+    elevation = ImClamp(elevation, -max_elevation, max_elevation);
+    ImPlot3DQuat clamped = rotation->FromElAz(elevation, azimuth);
+    *rotation = clamped.Normalized();
 }
 
 //-----------------------------------------------------------------------------

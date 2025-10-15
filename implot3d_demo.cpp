@@ -681,6 +681,8 @@ void DemoBoxRotation() {
         // Set the rotation using the specified elevation and azimuth
         if (changed)
             ImPlot3D::SetupBoxRotation(elevation, azimuth, animate, ImPlot3DCond_Always);
+        else
+            ImPlot3D::GetBoxRotation(elevation, azimuth); // Get the current rotation
 
         // Plot axis lines
         ImPlot3D::SetNextLineStyle(ImVec4(0.8f, 0.2f, 0.2f, 1));
@@ -787,6 +789,13 @@ void DemoPlotFlags() {
     ImGui::TextDisabled("(?)");
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Render only the ground plane");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_LockGround);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Keep the ground plane always right side up");
     }
 
     if (ImPlot3D::BeginPlot("Plot Flags Demo", ImVec2(-1, 0), flags)) {

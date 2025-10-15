@@ -726,6 +726,9 @@ struct ImPlot3DPlot {
 
     // Sets the aspect ratio of the plot box to be equal in all dimensions, using the provided axis as reference for scaling
     void ApplyEqualAspect(ImAxis3D ref_axis);
+
+    // Limit the elevation to prevent ground plane flipping
+    void ClampGroundRotation(bool limit_animation = false);
 };
 
 struct ImPlot3DContext {
