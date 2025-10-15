@@ -1968,6 +1968,16 @@ ImVec2 GetPlotSize() {
     return gp.CurrentPlot->PlotRect.GetSize();
 }
 
+void GetPlotScale(float& x, float& y, float& z) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetPlotScale() needs to be called between BeginPlot() and EndPlot()!");
+    ImPlot3DPlot& plot = *gp.CurrentPlot;
+    SetupLock();
+    x = plot.Axes[0].NDCScale;
+    y = plot.Axes[1].NDCScale;
+    z = plot.Axes[2].NDCScale;
+}
+
 void GetBoxRotation(float& elevation, float& azimuth) {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetBoxRotation() needs to be called between BeginPlot() and EndPlot()!");

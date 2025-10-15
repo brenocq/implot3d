@@ -502,6 +502,7 @@ IMPLOT3D_API ImPlot3DPoint PixelsToPlotPlane(double x, double y, ImPlane3D plane
 
 IMPLOT3D_API ImVec2 GetPlotPos();  // Get the current plot position (top-left) in pixels
 IMPLOT3D_API ImVec2 GetPlotSize(); // Get the current plot size in pixels
+IMPLOT3D_API void GetPlotScale(float& x, float& y, float& z); // Get the current plot box scale factors
 IMPLOT3D_API void GetBoxRotation(float& elevation, float& azimuth); // Get the current plot box rotation in degrees
 
 //-----------------------------------------------------------------------------
