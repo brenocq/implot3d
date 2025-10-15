@@ -877,13 +877,13 @@ void RenderTickLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
         // Normalize angle to be between -π and π
         if (angle > IM_PI)
             angle -= 2 * IM_PI;
-        if (angle < -IM_PI)
+        else if (angle < -IM_PI)
             angle += 2 * IM_PI;
 
         // Adjust angle to keep labels upright
         if (angle > IM_PI * 0.5f)
             angle -= IM_PI;
-        if (angle < -IM_PI * 0.5f)
+        else if (angle < -IM_PI * 0.5f)
             angle += IM_PI;
 
         // Loop over ticks
@@ -968,7 +968,7 @@ void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
         // Normalize angle to be between -π and π
         if (angle > IM_PI * 0.5f)
             angle -= IM_PI;
-        if (angle < -IM_PI * 0.5f)
+        else if (angle < -IM_PI * 0.5f)
             angle += IM_PI;
 
         AddTextRotated(draw_list, label_pos_pix, angle, col_ax_txt, label);
@@ -3365,12 +3365,12 @@ void ImPlot3DQuat::ToElAz(float& elevation, float& azimuth) const {
     // Normalize angles to be between -π and π
     if (elevation > IM_PI)
         elevation -= 2 * IM_PI;
-    if (elevation < -IM_PI)
+    else if (elevation < -IM_PI)
         elevation += 2 * IM_PI;
 
     if (azimuth > IM_PI)
         azimuth -= 2 * IM_PI;
-    if (azimuth < -IM_PI)
+    else if (azimuth < -IM_PI)
         azimuth += 2 * IM_PI;
 }
 
@@ -3795,7 +3795,7 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
                         // Adjust angle to keep labels upright
                         if (angle > IM_PI * 0.5f)
                             angle -= IM_PI;
-                        if (angle < -IM_PI * 0.5f)
+                        else if (angle < -IM_PI * 0.5f)
                             angle += IM_PI;
 
                         ImFormatString(buff, IM_ARRAYSIZE(buff), "E%d", e);
