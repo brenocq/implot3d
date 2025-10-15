@@ -673,6 +673,7 @@ struct ImPlot3DPlot {
     // Misc
     bool ContextClick; // True if context button was clicked (to distinguish from double click)
     bool OpenContextThisFrame;
+    ImPlot3DPoint NDCOffset;
 
     ImPlot3DPlot() {
         PreviousFlags = Flags = ImPlot3DFlags_None;
@@ -692,6 +693,7 @@ struct ImPlot3DPlot {
         FitThisFrame = true;
         ContextClick = false;
         OpenContextThisFrame = false;
+        NDCOffset = ImPlot3DPoint(0.0f, 0.0f, 0.0f);
     }
 
     inline void SetTitle(const char* title) {
