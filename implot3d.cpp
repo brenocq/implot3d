@@ -596,12 +596,22 @@ void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const
         hovered_plane = plot.HeldPlaneIdx;
     }
 
-    for (int a = 0; a < 3; a++) {
+    // Skip rendering other planes if a 2D plane/ground plane is active
+    auto DrawPlane = [&](int a) {
         int idx[4]; // Corner indices
         for (int i = 0; i < 4; i++)
             idx[i] = faces[a + 3 * active_faces[a]][i];
         const ImU32 col = ImGui::ColorConvertFloat4ToU32((hovered_plane == a) ? col_bg_hov : col_bg);
         draw_list->AddQuadFilled(corners_pix[idx[0]], corners_pix[idx[1]], corners_pix[idx[2]], corners_pix[idx[3]], col);
+    };
+
+    if (plane_2d != -1) {
+        DrawPlane(plane_2d);
+        return;
+    }
+
+    for (int a = 0; a < 3; a++) {
+        DrawPlane(a);
     }
 }
 
@@ -877,13 +887,13 @@ void RenderTickLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
         // Normalize angle to be between -π and π
         if (angle > IM_PI)
             angle -= 2 * IM_PI;
-        if (angle < -IM_PI)
+        else if (angle < -IM_PI)
             angle += 2 * IM_PI;
 
         // Adjust angle to keep labels upright
         if (angle > IM_PI * 0.5f)
             angle -= IM_PI;
-        if (angle < -IM_PI * 0.5f)
+        else if (angle < -IM_PI * 0.5f)
             angle += IM_PI;
 
         // Loop over ticks
@@ -964,9 +974,11 @@ void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
 
         // Compute label rotation aligned with axis direction
         float angle = atan2f(-axis_screen_dir.y, axis_screen_dir.x) + IM_PI * 0.01f; // For numerical stability
+
+        // Normalize angle to be between -π and π
         if (angle > IM_PI * 0.5f)
             angle -= IM_PI;
-        if (angle < -IM_PI * 0.5f)
+        else if (angle < -IM_PI * 0.5f)
             angle += IM_PI;
 
         AddTextRotated(draw_list, label_pos_pix, angle, col_ax_txt, label);
@@ -1050,7 +1062,7 @@ void ComputeBoxCorners(ImPlot3DPoint* corners, const ImPlot3DPoint& range_min, c
     }
 }
 
-static const float IMPLOT3D_PERSPECTIVE_FOV = 45.0f * (3.1415f / 180.0f);
+static const float IMPLOT3D_PERSPECTIVE_FOV = 45.0f * (IM_PI / 180.0f);
 
 float GetPerspectiveFocalLength() {
     const float focal = 1.0f / tanf(IMPLOT3D_PERSPECTIVE_FOV * 0.5f);
@@ -1667,7 +1679,7 @@ void EndPlot() {
 // [SECTION] Setup
 //-----------------------------------------------------------------------------
 
-static const float ANIMATION_ANGULAR_VELOCITY = 2 * 3.1415f;
+static const float ANIMATION_ANGULAR_VELOCITY = 2 * IM_PI;
 
 float CalcAnimationTime(ImPlot3DQuat q0, ImPlot3DQuat q1) {
     // Compute the angular distance between orientations
@@ -2018,10 +2030,9 @@ ImPlot3DPoint NDCToPlot(const ImPlot3DPoint& point) {
     ImPlot3DPoint plot_point;
     for (int i = 0; i < 3; i++) {
         ImPlot3DAxis& axis = plot.Axes[i];
-        float ndc_range = 0.5f * axis.NDCScale;
-        float ndc_coord = point[i] - plot.NDCOffset[i];
+        float ndc_range = 0.5f;
+        float ndc_coord = (point[i] - plot.NDCOffset[i]) / axis.NDCScale;
         float t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - ndc_coord) : (ndc_coord + ndc_range);
-        t /= axis.NDCScale;
         plot_point[i] = axis.Range.Min + t * (axis.Range.Max - axis.Range.Min);
     }
     return plot_point;
@@ -2203,7 +2214,7 @@ void HandleInput(ImPlot3DPlot& plot) {
 
     // TRANSLATION -------------------------------------------------------------------
 
-    // Handle translation with right mouse button
+    // Handle translation with left mouse button
     if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
@@ -2258,7 +2269,7 @@ void HandleInput(ImPlot3DPlot& plot) {
 
     // ROTATION -------------------------------------------------------------------
 
-    // Handle reset rotation with left mouse double click
+    // Handle reset rotation with right mouse double click
     if (plot.Held && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && !plot.IsRotationLocked()) {
         plot.RotationAnimationEnd = plot.Rotation;
 
@@ -2321,13 +2332,13 @@ void HandleInput(ImPlot3DPlot& plot) {
         plot.AnimationTime = CalcAnimationTime(plot.Rotation, plot.RotationAnimationEnd);
     }
 
-    // Handle rotation with left mouse dragging
+    // Handle rotation with right mouse dragging
     if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Right) && !plot.IsRotationLocked()) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
         // Map delta to rotation angles (in radians)
-        float angle_x = delta.x * (3.1415f / 180.0f);
-        float angle_y = delta.y * (3.1415f / 180.0f);
+        float angle_x = delta.x * (IM_PI / 180.0f);
+        float angle_y = delta.y * (IM_PI / 180.0f);
 
         // Detect if the plot is upside down by checking the transformed up vector
         ImPlot3DPoint up_vector = plot.Rotation * ImPlot3DPoint(0.0f, 0.0f, 1.0f);
@@ -3363,12 +3374,12 @@ void ImPlot3DQuat::ToElAz(float& elevation, float& azimuth) const {
     // Normalize angles to be between -π and π
     if (elevation > IM_PI)
         elevation -= 2 * IM_PI;
-    if (elevation < -IM_PI)
+    else if (elevation < -IM_PI)
         elevation += 2 * IM_PI;
 
     if (azimuth > IM_PI)
         azimuth -= 2 * IM_PI;
-    if (azimuth < -IM_PI)
+    else if (azimuth < -IM_PI)
         azimuth += 2 * IM_PI;
 }
 
@@ -3793,7 +3804,7 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
                         // Adjust angle to keep labels upright
                         if (angle > IM_PI * 0.5f)
                             angle -= IM_PI;
-                        if (angle < -IM_PI * 0.5f)
+                        else if (angle < -IM_PI * 0.5f)
                             angle += IM_PI;
 
                         ImFormatString(buff, IM_ARRAYSIZE(buff), "E%d", e);
