@@ -497,6 +497,24 @@ int GetMouseOverPlane(const ImPlot3DPlot& plot, const bool* active_faces, const 
     if (plane_out)
         *plane_out = -1;
 
+    const bool ground_only = ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_GroundOnly);
+    if (ground_only) {
+        // Only XY plane is active
+        int face_idx = ImPlane3D_XY + 3 * active_faces[ImPlane3D_XY];
+        ImVec2 p0 = corners_pix[faces[face_idx][0]];
+        ImVec2 p1 = corners_pix[faces[face_idx][1]];
+        ImVec2 p2 = corners_pix[faces[face_idx][2]];
+        ImVec2 p3 = corners_pix[faces[face_idx][3]];
+
+        if (ImTriangleContainsPoint(p0, p1, p2, mouse_pos) || ImTriangleContainsPoint(p2, p3, p0, mouse_pos)) {
+            if (plane_out)
+                *plane_out = ImPlane3D_XY;
+            return ImPlane3D_XY;
+        }
+
+        return -1; // Not over the ground plane
+    }
+
     // Check each active face
     for (int a = 0; a < 3; a++) {
         int face_idx = a + 3 * active_faces[a];
@@ -941,7 +959,7 @@ void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
 // Function to compute active faces based on the rotation
 // If the plot is close to 2D, plane_2d is set to the plane index (0 -> YZ, 1 -> XZ, 2 -> XY)
 // plane_2d is set to -1 otherwise
-void ComputeActiveFaces(bool* active_faces, const ImPlot3DQuat& rotation, const ImPlot3DAxis* axes, int* plane_2d = nullptr) {
+void ComputeActiveFaces(bool* active_faces, const ImPlot3DQuat& rotation, const ImPlot3DAxis* axes, int* plane_2d = nullptr, bool ground_only = false) {
     if (plane_2d)
         *plane_2d = -1;
 
@@ -950,6 +968,26 @@ void ComputeActiveFaces(bool* active_faces, const ImPlot3DQuat& rotation, const 
         rotation * ImPlot3DPoint(0.0f, 1.0f, 0.0f),
         rotation * ImPlot3DPoint(0.0f, 0.0f, 1.0f),
     };
+
+    if (ground_only) {
+        *plane_2d = ImPlane3D_XY;
+
+        auto DetermineActiveFace = [&rot_face_n, &axes](const int face_idx) {
+            if (fabs(rot_face_n[face_idx].z) < 0.025) {
+                return rot_face_n[face_idx].x + rot_face_n[face_idx].y < 0.0f;
+            } else {
+                bool is_inverted = ImHasFlag(axes[face_idx].Flags, ImPlot3DAxisFlags_Invert);
+                // Not sure why it is opposite, but the render behavior is consistent with below
+                return is_inverted ? (rot_face_n[face_idx].z < 0.0f) : (rot_face_n[face_idx].z > 0.0f);
+            }
+        };
+
+        active_faces[ImPlane3D_YZ] = DetermineActiveFace(ImPlane3D_YZ);
+        active_faces[ImPlane3D_XZ] = DetermineActiveFace(ImPlane3D_XZ);
+        active_faces[ImPlane3D_XY] = false;
+
+        return;
+    }
 
     int num_deg = 0; // Check number of planes that are degenerate (seen as a line)
     for (int i = 0; i < 3; i++) {
@@ -973,15 +1011,26 @@ void ComputeActiveFaces(bool* active_faces, const ImPlot3DQuat& rotation, const 
 }
 
 // Function to compute the box corners in plot space
-void ComputeBoxCorners(ImPlot3DPoint* corners, const ImPlot3DPoint& range_min, const ImPlot3DPoint& range_max) {
-    corners[0] = ImPlot3DPoint(range_min.x, range_min.y, range_min.z); // 0
-    corners[1] = ImPlot3DPoint(range_max.x, range_min.y, range_min.z); // 1
-    corners[2] = ImPlot3DPoint(range_max.x, range_max.y, range_min.z); // 2
-    corners[3] = ImPlot3DPoint(range_min.x, range_max.y, range_min.z); // 3
-    corners[4] = ImPlot3DPoint(range_min.x, range_min.y, range_max.z); // 4
-    corners[5] = ImPlot3DPoint(range_max.x, range_min.y, range_max.z); // 5
-    corners[6] = ImPlot3DPoint(range_max.x, range_max.y, range_max.z); // 6
-    corners[7] = ImPlot3DPoint(range_min.x, range_max.y, range_max.z); // 7
+void ComputeBoxCorners(ImPlot3DPoint* corners, const ImPlot3DPoint& range_min, const ImPlot3DPoint& range_max, bool ground_only = false) {
+    if (!ground_only) {
+        corners[0] = ImPlot3DPoint(range_min.x, range_min.y, range_min.z); // 0
+        corners[1] = ImPlot3DPoint(range_max.x, range_min.y, range_min.z); // 1
+        corners[2] = ImPlot3DPoint(range_max.x, range_max.y, range_min.z); // 2
+        corners[3] = ImPlot3DPoint(range_min.x, range_max.y, range_min.z); // 3
+        corners[4] = ImPlot3DPoint(range_min.x, range_min.y, range_max.z); // 4
+        corners[5] = ImPlot3DPoint(range_max.x, range_min.y, range_max.z); // 5
+        corners[6] = ImPlot3DPoint(range_max.x, range_max.y, range_max.z); // 6
+        corners[7] = ImPlot3DPoint(range_min.x, range_max.y, range_max.z); // 7
+    } else {
+        corners[0] = ImPlot3DPoint(range_min.x, range_min.y, 0.0f); // 0
+        corners[1] = ImPlot3DPoint(range_max.x, range_min.y, 0.0f); // 1
+        corners[2] = ImPlot3DPoint(range_max.x, range_max.y, 0.0f); // 2
+        corners[3] = ImPlot3DPoint(range_min.x, range_max.y, 0.0f); // 3
+        corners[4] = ImPlot3DPoint(range_min.x, range_min.y, 0.0f); // 4
+        corners[5] = ImPlot3DPoint(range_max.x, range_min.y, 0.0f); // 5
+        corners[6] = ImPlot3DPoint(range_max.x, range_max.y, 0.0f); // 6
+        corners[7] = ImPlot3DPoint(range_min.x, range_max.y, 0.0f); // 7
+    }
 }
 
 // Convert a position in the plot's NDC to pixels
@@ -1026,13 +1075,14 @@ void GetAxesParameters(const ImPlot3DPlot& plot, bool* active_faces, ImVec2* cor
     const ImPlot3DQuat& rotation = plot.Rotation;
     ImPlot3DPoint range_min = plot.RangeMin();
     ImPlot3DPoint range_max = plot.RangeMax();
+    bool ground_only = ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_GroundOnly);
 
     // Compute active faces
-    ComputeActiveFaces(active_faces, rotation, plot.Axes, &plane_2d);
+    ComputeActiveFaces(active_faces, rotation, plot.Axes, &plane_2d, ground_only);
     bool is_2d = plane_2d != -1;
 
     // Compute box corners in plot space
-    ComputeBoxCorners(corners, range_min, range_max);
+    ComputeBoxCorners(corners, range_min, range_max, ground_only);
 
     // Compute box corners in pixel space
     ComputeBoxCornersPix(plot, corners_pix, corners);
@@ -1474,6 +1524,7 @@ void EndPlot() {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "Mismatched BeginPlot()/EndPlot()!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
+    const bool ground_only = ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_GroundOnly);
 
     // Move triangles from 3D draw list to ImGui draw list
     plot.DrawList.SortedMoveToImGuiDrawList();
@@ -1486,11 +1537,24 @@ void EndPlot() {
                 // Perform axis fitting
                 plot.Axes[i].FitThisFrame = false;
                 plot.Axes[i].ApplyFit();
+
+                // Symmetric axis range around 0
+                if (ground_only) {
+                    double limit = ImMax(ImFabs(plot.Axes[i].Range.Min), ImAbs(plot.Axes[i].Range.Max));
+                    plot.Axes[i].SetRange(-limit, limit);
+                }
+
                 // Apply equal aspect constraint
                 const bool axis_equal = ImHasFlag(plot.Flags, ImPlot3DFlags_Equal);
                 if (axis_equal)
                     plot.ApplyEqualAspect(i);
             }
+        }
+
+        // Extend z-axis range for the aspect to be the same both above and below ground plane
+        if (ground_only) {
+            double limit = ImMax(ImFabs(plot.Axes[ImAxis3D_Z].Range.Min), ImAbs(plot.Axes[ImAxis3D_Z].Range.Max));
+            plot.Axes[ImAxis3D_Z].SetRange(-2.0 * limit, 2.0 * limit);
         }
     }
 
@@ -1978,6 +2042,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     const ImVec2 rot_drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
     const bool rotating = ImLengthSqr(rot_drag) > MOUSE_CURSOR_DRAG_THRESHOLD;
     const bool axis_equal = ImHasFlag(plot.Flags, ImPlot3DFlags_Equal);
+    const bool ground_only = ImHasFlag(plot.Flags, ImPlot3DFlags_GroundOnly);
 
     // HOVERING STATE -------------------------------------------------------------------
 
@@ -1987,9 +2052,9 @@ void HandleInput(ImPlot3DPlot& plot) {
     ImPlot3DPoint range_max = plot.RangeMax();
     bool active_faces[3];
     int plane_2d = -1;
-    ComputeActiveFaces(active_faces, rotation, plot.Axes, &plane_2d);
+    ComputeActiveFaces(active_faces, rotation, plot.Axes, &plane_2d, ground_only);
     ImPlot3DPoint corners[8];
-    ComputeBoxCorners(corners, range_min, range_max);
+    ComputeBoxCorners(corners, range_min, range_max, ground_only);
     ImVec2 corners_pix[8];
     ComputeBoxCornersPix(plot, corners_pix, corners);
     int hovered_plane_idx = -1;
