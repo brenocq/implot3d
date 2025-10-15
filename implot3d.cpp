@@ -2319,7 +2319,8 @@ void HandleInput(ImPlot3DPlot& plot) {
         // Create quaternions for the rotations
         ImPlot3DQuat quat_x(angle_y, ImPlot3DPoint(1.0f, 0.0f, 0.0f));
         // Use -Z axis rotation when upside down to fix inverted rotation behavior
-        ImPlot3DPoint z_axis = is_upside_down ? ImPlot3DPoint(0.0f, 0.0f, -1.0f) : ImPlot3DPoint(0.0f, 0.0f, 1.0f);
+        // Unless with ground mode, rotation behavior should stay consistent
+        ImPlot3DPoint z_axis = (is_upside_down && !ground_only) ? ImPlot3DPoint(0.0f, 0.0f, -1.0f) : ImPlot3DPoint(0.0f, 0.0f, 1.0f);
         ImPlot3DQuat quat_z(angle_x, z_axis);
 
         // Combine the new rotations with the current rotation
