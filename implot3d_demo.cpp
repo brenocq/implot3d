@@ -798,6 +798,13 @@ void DemoPlotFlags() {
         ImGui::SetTooltip("Keep the ground plane always right side up");
     }
 
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_Perspective);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Enable perspective projection so distant geometry appears smaller");
+    }
+
     if (ImPlot3D::BeginPlot("Plot Flags Demo", ImVec2(-1, 0), flags)) {
         ImPlot3D::SetupAxes("X-axis", "Y-axis", "Z-axis");
         ImPlot3D::SetupAxesLimits(-5, 5, -5, 5, -5, 5);

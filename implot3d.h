@@ -109,6 +109,7 @@ enum ImPlot3DFlags_ {
     ImPlot3DFlags_Equal = 1 << 5,       // X, Y, and Z axes will be constrained to have the same units/pixel
     ImPlot3DFlags_GroundOnly = 1 << 6,  // Render an infinite ground plane
     ImPlot3DFlags_LockGround = 1 << 7,  // Ground plane will stay right side up
+    ImPlot3DFlags_Perspective = 1 << 8, // Use a perspective projection (default is orthographic)
     ImPlot3DFlags_CanvasOnly = ImPlot3DFlags_NoTitle | ImPlot3DFlags_NoLegend | ImPlot3DFlags_NoMouseText,
 };
 

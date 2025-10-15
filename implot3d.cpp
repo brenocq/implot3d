@@ -1033,10 +1033,29 @@ void ComputeBoxCorners(ImPlot3DPoint* corners, const ImPlot3DPoint& range_min, c
     }
 }
 
+static const float IMPLOT3D_PERSPECTIVE_FOV = 45.0f * (3.1415f / 180.0f);
+
+float GetPerspectiveFocalLength() {
+    const float focal = 1.0f / tanf(IMPLOT3D_PERSPECTIVE_FOV * 0.5f);
+    return focal;
+}
+
 // Convert a position in the plot's NDC to pixels
 ImVec2 NDCToPixels(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
     ImVec2 center = plot.PlotRect.GetCenter();
-    ImPlot3DPoint point_pix = plot.GetViewScale() * (plot.Rotation * point);
+    // Split for view.z in perspective calculation
+    ImPlot3DPoint point_pix;
+    float view_scale = plot.GetViewScale();
+    ImPlot3DPoint view = plot.Rotation * point;
+
+    if (!ImHasFlag(plot.Flags, ImPlot3DFlags_Perspective)) {
+        point_pix = view_scale * view;
+    } else {
+        float focal = GetPerspectiveFocalLength();
+        float perspective = focal / ImMax(focal - view.z, 0.01f);
+        point_pix = perspective * view_scale * view;
+    }
+
     point_pix.y *= -1.0f; // Invert y-axis
     point_pix.x += center.x;
     point_pix.y += center.y;
@@ -1430,6 +1449,8 @@ void ShowPlotContextMenu(ImPlot3DPlot& plot) {
     if ((ImGui::BeginMenu("Settings"))) {
         if (ImGui::MenuItem("Equal", nullptr, ImHasFlag(plot.Flags, ImPlot3DFlags_Equal)))
             ImFlipFlag(plot.Flags, ImPlot3DFlags_Equal);
+        if (ImGui::MenuItem("Perspective", nullptr, ImHasFlag(plot.Flags, ImPlot3DFlags_Perspective)))
+            ImFlipFlag(plot.Flags, ImPlot3DFlags_Perspective);
         ImGui::BeginDisabled(plot.Title.empty());
         if (ImGui::MenuItem("Title", nullptr, plot.HasTitle()))
             ImFlipFlag(plot.Flags, ImPlot3DFlags_NoTitle);
@@ -1992,6 +2013,7 @@ ImPlot3DRay PixelsToNDCRay(const ImVec2& pix) {
     // Calculate zoom factor and plot center
     float zoom = plot.GetViewScale();
     ImVec2 center = plot.PlotRect.GetCenter();
+    float focal = GetPerspectiveFocalLength();
 
     // Undo screen transformations to get back to NDC space
     float x = (pix.x - center.x) / zoom;
@@ -1999,7 +2021,11 @@ ImPlot3DRay PixelsToNDCRay(const ImVec2& pix) {
 
     // Define near and far points in NDC space along the z-axis
     ImPlot3DPoint ndc_near = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, -10.0f);
-    ImPlot3DPoint ndc_far = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, 10.0f);
+    ImPlot3DPoint ndc_far;
+    if (!ImHasFlag(plot.Flags, ImPlot3DFlags_Perspective))
+        ndc_far = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, 10.0f);
+    else
+        ndc_far = plot.Rotation.Inverse() * ImPlot3DPoint(x * 10.0f / focal, y * 10.0f / focal, 10.0f);
 
     // Create the ray in NDC space
     ImPlot3DRay ndc_ray;
