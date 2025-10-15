@@ -932,21 +932,38 @@ void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
         if (idx0 == idx1)
             continue;
 
-        // Position at the end of the axis
-        ImPlot3DPoint label_pos = (PlotToNDC(corners[idx0]) + PlotToNDC(corners[idx1])) * 0.5f;
-        ImPlot3DPoint center_dir = label_pos.Normalized();
-        // Add offset
-        label_pos += center_dir * 0.3f;
+        // Convert axis start and end to screen space (same as tick labels)
+        ImVec2 axis_start_pix = corners_pix[idx0];
+        ImVec2 axis_end_pix = corners_pix[idx1];
 
-        // Convert to pixel coordinates
-        ImVec2 label_pos_pix = NDCToPixels(label_pos);
+        // Screen-space axis direction
+        ImVec2 axis_screen_dir = axis_end_pix - axis_start_pix;
+        float axis_length = ImSqrt(ImLengthSqr(axis_screen_dir));
+        if (axis_length != 0.0f)
+            axis_screen_dir /= axis_length;
+        else
+            axis_screen_dir = ImVec2(1.0f, 0.0f); // Default direction if length is zero
 
-        // Adjust label position and angle
+        // Perpendicular offset direction
+        ImVec2 offset_dir_pix = ImVec2(-axis_screen_dir.y, axis_screen_dir.x);
+
+        // Make sure direction points away from cube center
+        ImVec2 box_center_pix = PlotToPixels(plot.RangeCenter());
+        ImVec2 axis_center_pix = (axis_start_pix + axis_end_pix) * 0.5f;
+        ImVec2 center_to_axis_pix = axis_center_pix - box_center_pix;
+        center_to_axis_pix /= ImSqrt(ImLengthSqr(center_to_axis_pix));
+        if (ImDot(offset_dir_pix, center_to_axis_pix) < 0.0f)
+            offset_dir_pix = -offset_dir_pix;
+
+        // Adjust the offset magnitude
+        float offset_magnitude = 35.0f; // TODO Calculate based on label size
+        ImVec2 offset_pix = offset_dir_pix * offset_magnitude;
+        ImVec2 label_pos_pix = axis_center_pix + offset_pix;
+
         ImU32 col_ax_txt = GetStyleColorU32(ImPlot3DCol_AxisText);
 
-        // Compute text angle
-        ImVec2 screen_delta = corners_pix[idx1] - corners_pix[idx0];
-        float angle = atan2f(-screen_delta.y, screen_delta.x);
+        // Compute label rotation aligned with axis direction
+        float angle = atan2f(-axis_screen_dir.y, axis_screen_dir.x) + IM_PI * 0.01f; // For numerical stability
         if (angle > IM_PI * 0.5f)
             angle -= IM_PI;
         if (angle < -IM_PI * 0.5f)
@@ -1072,7 +1089,8 @@ ImPlot3DPoint PlotToNDC(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
         float t = (point[i] - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
         // Convert point to NDC range [-0.5*NDCScale, 0.5*NDCScale]
         const float ndc_range = 0.5f;
-        ndc_point[i] = (ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range)) * axis.NDCScale;
+        float ndc = (ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range)) * axis.NDCScale;
+        ndc_point[i] = ndc + plot.NDCOffset[i];
     }
     return ndc_point;
 }
@@ -1899,15 +1917,18 @@ ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
     ComputeActiveFaces(active_faces, plot.Rotation, plot.Axes);
 
     // Calculate intersection point with the planes
-    ImPlot3DPoint P = IntersectPlane(active_faces[plane] ? 0.5f * plot.Axes[plane].NDCScale : -0.5f * plot.Axes[plane].NDCScale);
+    float plane_coord = active_faces[plane] ? 0.5f * plot.Axes[plane].NDCScale : -0.5f * plot.Axes[plane].NDCScale;
+    plane_coord += plot.NDCOffset[plane];
+    ImPlot3DPoint P = IntersectPlane(plane_coord);
     if (P.IsNaN())
         return P;
 
     // Helper lambda to check if point P is within the plot box
     auto InRange = [&](const ImPlot3DPoint& P) {
         ImPlot3DPoint box_scale = plot.GetBoxScale();
-        return P.x >= -0.5f * box_scale.x && P.x <= 0.5f * box_scale.x && P.y >= -0.5f * box_scale.y && P.y <= 0.5f * box_scale.y &&
-               P.z >= -0.5f * box_scale.z && P.z <= 0.5f * box_scale.z;
+        ImPlot3DPoint local = P - plot.NDCOffset;
+        return local.x >= -0.5f * box_scale.x && local.x <= 0.5f * box_scale.x && local.y >= -0.5f * box_scale.y && local.y <= 0.5f * box_scale.y &&
+               local.z >= -0.5f * box_scale.z && local.z <= 0.5f * box_scale.z;
     };
 
     // Handle mask (if one of the intersections is out of range, set it to NAN)
@@ -1988,7 +2009,8 @@ ImPlot3DPoint NDCToPlot(const ImPlot3DPoint& point) {
     for (int i = 0; i < 3; i++) {
         ImPlot3DAxis& axis = plot.Axes[i];
         float ndc_range = 0.5f * axis.NDCScale;
-        float t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - point[i]) : (point[i] + ndc_range);
+        float ndc_coord = point[i] - plot.NDCOffset[i];
+        float t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - ndc_coord) : (ndc_coord + ndc_range);
         t /= axis.NDCScale;
         plot_point[i] = axis.Range.Min + t * (axis.Range.Max - axis.Range.Min);
     }
@@ -2154,6 +2176,10 @@ void HandleInput(ImPlot3DPlot& plot) {
         plot.FitThisFrame = true;
         for (int i = 0; i < 3; i++)
             plot.Axes[i].FitThisFrame = plot.Axes[i].Hovered;
+        // Reset box plot or ground back to center
+        plot.NDCOffset = ImPlot3DPoint(0.0f, 0.0f, 0.0f);
+        for (int i = 0; i < 3; i++)
+            plot.Axes[i].NDCScale = 1.0f;
     }
 
     // Handle auto fit
@@ -2161,6 +2187,7 @@ void HandleInput(ImPlot3DPlot& plot) {
         if (plot.Axes[i].IsAutoFitting()) {
             plot.FitThisFrame = true;
             plot.Axes[i].FitThisFrame = true;
+            plot.NDCOffset = ImPlot3DPoint(0.0f, 0.0f, 0.0f);
         }
 
     // TRANSLATION -------------------------------------------------------------------
@@ -2178,35 +2205,14 @@ void HandleInput(ImPlot3DPlot& plot) {
             // Convert delta to NDC space
             float zoom = plot.GetViewScale();
             ImPlot3DPoint delta_NDC = plot.Rotation.Inverse() * (delta_pixels / zoom);
-
-            // Convert delta to plot space
-            ImPlot3DPoint delta_plot = delta_NDC * (plot.RangeMax() - plot.RangeMin()) / plot.GetBoxScale();
-
-            // Adjust delta for inverted axes
-            for (int i = 0; i < 3; i++) {
-                if (ImHasFlag(plot.Axes[i].Flags, ImPlot3DAxisFlags_Invert))
-                    delta_plot[i] *= -1;
-            }
-
-            // Adjust plot range to translate the plot
-            for (int i = 0; i < 3; i++) {
-                if (plot.Axes[i].Hovered) {
-                    bool increasing = delta_plot[i] < 0.0f;
-                    if (delta_plot[i] != 0.0f && !plot.Axes[i].IsPanLocked(increasing)) {
-                        // Update axis range
-                        plot.Axes[i].SetMin(plot.Axes[i].Range.Min - delta_plot[i]);
-                        plot.Axes[i].SetMax(plot.Axes[i].Range.Max - delta_plot[i]);
-                        // Apply equal aspect ratio constraint
-                        if (axis_equal)
-                            plot.ApplyEqualAspect(i);
-                    }
-                    plot.Axes[i].Held = true;
-                }
-                // If no axis was held before (user started translating in this frame), set the held edge/plane indices
-                if (!any_axis_held) {
-                    plot.HeldEdgeIdx = hovered_edge_idx;
-                    plot.HeldPlaneIdx = hovered_plane_idx;
-                }
+            // Update NDC offset instead of axis ranges
+            plot.NDCOffset += delta_NDC;
+            // Hold all axes as only the box plot or ground should be translated
+            for (int i = 0; i < 3; i++)
+                plot.Axes[i].Held = true;
+            if (!any_axis_held) {
+                plot.HeldEdgeIdx = hovered_edge_idx;
+                plot.HeldPlaneIdx = hovered_plane_idx;
             }
         } else if (plot.Axes[0].Hovered || plot.Axes[1].Hovered || plot.Axes[2].Hovered) {
             // Translate along plane/axis
