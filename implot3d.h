@@ -111,6 +111,7 @@ enum ImPlot3DFlags_ {
     ImPlot3DFlags_LockGround = 1 << 7,  // Ground plane will stay right side up
     ImPlot3DFlags_Perspective = 1 << 8, // Use a perspective projection (default is orthographic)
     ImPlot3DFlags_CanvasOnly = ImPlot3DFlags_NoTitle | ImPlot3DFlags_NoLegend | ImPlot3DFlags_NoMouseText,
+    ImPlot3DFlags_WorldMode = ImPlot3DFlags_GroundOnly | ImPlot3DFlags_LockGround | ImPlot3DFlags_Perspective,
 };
 
 // Represents a condition for SetupAxisLimits etc. (same as ImGuiCond, but we only support a subset of those enums)
