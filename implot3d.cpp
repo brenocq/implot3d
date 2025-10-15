@@ -2354,25 +2354,31 @@ void HandleInput(ImPlot3DPlot& plot) {
         ImGui::SetKeyOwner(ImGuiKey_MouseWheelY, plot.ID);
         if (ImGui::IsMouseDown(ImGuiMouseButton_Middle) || IO.MouseWheel != 0.0f) {
             float delta = ImGui::IsMouseDown(ImGuiMouseButton_Middle) ? (-0.01f * IO.MouseDelta.y) : (-0.1f * IO.MouseWheel);
-            float zoom = 1.0f + delta;
             for (int i = 0; i < 3; i++) {
                 ImPlot3DAxis& axis = plot.Axes[i];
                 float size = axis.Range.Max - axis.Range.Min;
                 float new_min, new_max;
                 if (hovered_axis != -1 || hovered_plane != -1) {
-                    // If mouse over the plot box, zoom around the mouse plot position
-                    float new_size = size * zoom;
 
-                    // Calculate offset ratio of the mouse position relative to the axis range
-                    float offset = mouse_pos_plot[i] - axis.Range.Min;
-                    float ratio = offset / size;
+                    if (ground_only && i == ImAxis3D_Z) {
+                        // Zoom in z-axis around the ground center
+                        new_min = axis.Range.Min - delta * 0.5f;
+                        new_max = axis.Range.Max + delta * 0.5f;
+                    } else {
+                        // If mouse over the plot box, zoom around the mouse plot position
+                        float new_size = size * (1.0f + delta);
 
-                    // Adjust the axis range to zoom around the mouse position
-                    new_min = mouse_pos_plot[i] - new_size * ratio;
-                    new_max = mouse_pos_plot[i] + new_size * (1.0f - ratio);
+                        // Calculate offset ratio of the mouse position relative to the axis range
+                        float offset = mouse_pos_plot[i] - axis.Range.Min;
+                        float ratio = offset / size;
+
+                        // Adjust the axis range to zoom around the mouse position
+                        new_min = mouse_pos_plot[i] - new_size * ratio;
+                        new_max = mouse_pos_plot[i] + new_size * (1.0f - ratio);
+                    }
 
                     // Set new range after zoom
-                    if (plot.Axes[i].Hovered) {
+                    if (ground_only || plot.Axes[i].Hovered) {
                         if (!plot.Axes[i].IsInputLocked()) {
                             // Update axis range
                             plot.Axes[i].SetMin(new_min);
