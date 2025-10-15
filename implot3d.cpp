@@ -932,21 +932,38 @@ void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
         if (idx0 == idx1)
             continue;
 
-        // Position at the end of the axis
-        ImPlot3DPoint label_pos = (PlotToNDC(corners[idx0]) + PlotToNDC(corners[idx1])) * 0.5f;
-        ImPlot3DPoint center_dir = label_pos.Normalized();
-        // Add offset
-        label_pos += center_dir * 0.3f;
+        // Convert axis start and end to screen space (same as tick labels)
+        ImVec2 axis_start_pix = corners_pix[idx0];
+        ImVec2 axis_end_pix = corners_pix[idx1];
 
-        // Convert to pixel coordinates
-        ImVec2 label_pos_pix = NDCToPixels(label_pos);
+        // Screen-space axis direction
+        ImVec2 axis_screen_dir = axis_end_pix - axis_start_pix;
+        float axis_length = ImSqrt(ImLengthSqr(axis_screen_dir));
+        if (axis_length != 0.0f)
+            axis_screen_dir /= axis_length;
+        else
+            axis_screen_dir = ImVec2(1.0f, 0.0f); // Default direction if length is zero
 
-        // Adjust label position and angle
+        // Perpendicular offset direction
+        ImVec2 offset_dir_pix = ImVec2(-axis_screen_dir.y, axis_screen_dir.x);
+
+        // Make sure direction points away from cube center
+        ImVec2 box_center_pix = PlotToPixels(plot.RangeCenter());
+        ImVec2 axis_center_pix = (axis_start_pix + axis_end_pix) * 0.5f;
+        ImVec2 center_to_axis_pix = axis_center_pix - box_center_pix;
+        center_to_axis_pix /= ImSqrt(ImLengthSqr(center_to_axis_pix));
+        if (ImDot(offset_dir_pix, center_to_axis_pix) < 0.0f)
+            offset_dir_pix = -offset_dir_pix;
+
+        // Adjust the offset magnitude
+        float offset_magnitude = 35.0f; // TODO Calculate based on label size
+        ImVec2 offset_pix = offset_dir_pix * offset_magnitude;
+        ImVec2 label_pos_pix = axis_center_pix + offset_pix;
+
         ImU32 col_ax_txt = GetStyleColorU32(ImPlot3DCol_AxisText);
 
-        // Compute text angle
-        ImVec2 screen_delta = corners_pix[idx1] - corners_pix[idx0];
-        float angle = atan2f(-screen_delta.y, screen_delta.x);
+        // Compute label rotation aligned with axis direction
+        float angle = atan2f(-axis_screen_dir.y, axis_screen_dir.x) + IM_PI * 0.01f; // For numerical stability
         if (angle > IM_PI * 0.5f)
             angle -= IM_PI;
         if (angle < -IM_PI * 0.5f)
