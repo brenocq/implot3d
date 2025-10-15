@@ -639,10 +639,15 @@ void DemoBoxScale() {
     }
 
     static float scale[3] = {1.0f, 1.0f, 1.0f};
-    ImGui::SliderFloat3("Box Scale", scale, 0.1f, 2.0f, "%.2f");
+    bool changed = false;
+    if (ImGui::SliderFloat3("Box Scale", scale, 0.1f, 2.0f, "%.2f"))
+        changed = true;
 
     if (ImPlot3D::BeginPlot("##BoxScale")) {
-        ImPlot3D::SetupBoxScale(scale[0], scale[1], scale[2]);
+        if (changed)
+            ImPlot3D::SetupBoxScale(scale[0], scale[1], scale[2]);
+        else
+            ImPlot3D::GetPlotScale(scale[0], scale[1], scale[2]);
         ImPlot3D::PlotLine("3D Curve", xs, ys, zs, N);
         ImPlot3D::EndPlot();
     }
