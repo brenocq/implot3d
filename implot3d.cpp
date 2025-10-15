@@ -2030,10 +2030,9 @@ ImPlot3DPoint NDCToPlot(const ImPlot3DPoint& point) {
     ImPlot3DPoint plot_point;
     for (int i = 0; i < 3; i++) {
         ImPlot3DAxis& axis = plot.Axes[i];
-        float ndc_range = 0.5f * axis.NDCScale;
-        float ndc_coord = point[i] - plot.NDCOffset[i];
+        float ndc_range = 0.5f;
+        float ndc_coord = (point[i] - plot.NDCOffset[i]) / axis.NDCScale;
         float t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - ndc_coord) : (ndc_coord + ndc_range);
-        t /= axis.NDCScale;
         plot_point[i] = axis.Range.Min + t * (axis.Range.Max - axis.Range.Min);
     }
     return plot_point;
