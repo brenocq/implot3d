@@ -2188,6 +2188,7 @@ void HandleInput(ImPlot3DPlot& plot) {
             plot.FitThisFrame = true;
             plot.Axes[i].FitThisFrame = true;
             plot.NDCOffset = ImPlot3DPoint(0.0f, 0.0f, 0.0f);
+            plot.Axes[i].NDCScale = 1.0f;
         }
 
     // TRANSLATION -------------------------------------------------------------------
@@ -2359,26 +2360,27 @@ void HandleInput(ImPlot3DPlot& plot) {
                     // Adjust the axis range to zoom around the mouse position
                     new_min = mouse_pos_plot[i] - new_size * ratio;
                     new_max = mouse_pos_plot[i] + new_size * (1.0f - ratio);
-                } else {
-                    // If mouse is not over the plot box, zoom around the plot center
-                    float center = (axis.Range.Min + axis.Range.Max) * 0.5f;
 
-                    // Adjust the axis range to zoom around plot center
-                    new_min = center - zoom * size * 0.5f;
-                    new_max = center + zoom * size * 0.5f;
-                }
-
-                // Set new range after zoom
-                if (plot.Axes[i].Hovered) {
-                    if (!plot.Axes[i].IsInputLocked()) {
-                        // Update axis range
-                        plot.Axes[i].SetMin(new_min);
-                        plot.Axes[i].SetMax(new_max);
-                        // Apply equal aspect ratio constraint
-                        if (axis_equal)
-                            plot.ApplyEqualAspect(i);
+                    // Set new range after zoom
+                    if (plot.Axes[i].Hovered) {
+                        if (!plot.Axes[i].IsInputLocked()) {
+                            // Update axis range
+                            plot.Axes[i].SetMin(new_min);
+                            plot.Axes[i].SetMax(new_max);
+                            // Apply equal aspect ratio constraint
+                            if (axis_equal)
+                                plot.ApplyEqualAspect(i);
+                        }
+                        plot.Axes[i].Held = true;
                     }
-                    plot.Axes[i].Held = true;
+                } else {
+                    // If mouse is not over the plot box, scale the plot box
+                    float t = ImClamp((mouse_pos_plot[i] - axis.Range.Min) / (axis.Range.Max - axis.Range.Min), 0.0f, 1.0f);
+                    float base = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (0.5f - t) : (t - 0.5f);
+                    float old_scale = axis.NDCScale;
+                    float new_scale = ImClamp(old_scale * (1.0f - delta), 0.1f, 100.0f); // keep same zoom behavior
+                    plot.NDCOffset[i] += base * (old_scale - new_scale);
+                    axis.NDCScale = new_scale;
                 }
 
                 // If no axis was held before (user started zoom in this frame), set the held edge/plane indices
