@@ -596,12 +596,22 @@ void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const
         hovered_plane = plot.HeldPlaneIdx;
     }
 
-    for (int a = 0; a < 3; a++) {
+    // Skip rendering other planes if a 2D plane/ground plane is active
+    auto DrawPlane = [&](int a) {
         int idx[4]; // Corner indices
         for (int i = 0; i < 4; i++)
             idx[i] = faces[a + 3 * active_faces[a]][i];
         const ImU32 col = ImGui::ColorConvertFloat4ToU32((hovered_plane == a) ? col_bg_hov : col_bg);
         draw_list->AddQuadFilled(corners_pix[idx[0]], corners_pix[idx[1]], corners_pix[idx[2]], corners_pix[idx[3]], col);
+    };
+
+    if (plane_2d != -1) {
+        DrawPlane(plane_2d);
+        return;
+    }
+
+    for (int a = 0; a < 3; a++) {
+        DrawPlane(a);
     }
 }
 
