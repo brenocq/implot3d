@@ -964,6 +964,8 @@ void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
 
         // Compute label rotation aligned with axis direction
         float angle = atan2f(-axis_screen_dir.y, axis_screen_dir.x) + IM_PI * 0.01f; // For numerical stability
+
+        // Normalize angle to be between -π and π
         if (angle > IM_PI * 0.5f)
             angle -= IM_PI;
         if (angle < -IM_PI * 0.5f)
@@ -2203,7 +2205,7 @@ void HandleInput(ImPlot3DPlot& plot) {
 
     // TRANSLATION -------------------------------------------------------------------
 
-    // Handle translation with right mouse button
+    // Handle translation with left mouse button
     if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
@@ -2258,7 +2260,7 @@ void HandleInput(ImPlot3DPlot& plot) {
 
     // ROTATION -------------------------------------------------------------------
 
-    // Handle reset rotation with left mouse double click
+    // Handle reset rotation with right mouse double click
     if (plot.Held && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && !plot.IsRotationLocked()) {
         plot.RotationAnimationEnd = plot.Rotation;
 
@@ -2321,7 +2323,7 @@ void HandleInput(ImPlot3DPlot& plot) {
         plot.AnimationTime = CalcAnimationTime(plot.Rotation, plot.RotationAnimationEnd);
     }
 
-    // Handle rotation with left mouse dragging
+    // Handle rotation with right mouse dragging
     if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Right) && !plot.IsRotationLocked()) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
