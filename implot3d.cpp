@@ -973,7 +973,7 @@ void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
         ImU32 col_ax_txt = GetStyleColorU32(ImPlot3DCol_AxisText);
 
         // Compute label rotation aligned with axis direction
-        float angle = atan2f(-axis_screen_dir.y, axis_screen_dir.x) + IM_PI * 0.01f; // For numerical stability
+        float angle = atan2f(-axis_screen_dir.y, axis_screen_dir.x) + IM_PI * 0.01f; // Stable the Z-axis label without flipping constantly when near vertical
 
         // Normalize angle to be between -π and π
         if (angle > IM_PI * 0.5f)
@@ -1593,7 +1593,7 @@ void EndPlot() {
 
                 // Symmetric axis range around 0
                 if (ground_only) {
-                    double limit = ImMax(ImFabs(plot.Axes[i].Range.Min), ImAbs(plot.Axes[i].Range.Max));
+                    double limit = ImMax(ImFabs(plot.Axes[i].Range.Min), ImFabs(plot.Axes[i].Range.Max));
                     plot.Axes[i].SetRange(-limit, limit);
                 }
 
@@ -1606,7 +1606,7 @@ void EndPlot() {
 
         // Extend z-axis range for the aspect to be the same both above and below ground plane
         if (ground_only) {
-            double limit = ImMax(ImFabs(plot.Axes[ImAxis3D_Z].Range.Min), ImAbs(plot.Axes[ImAxis3D_Z].Range.Max));
+            double limit = ImMax(ImFabs(plot.Axes[ImAxis3D_Z].Range.Min), ImFabs(plot.Axes[ImAxis3D_Z].Range.Max));
             plot.Axes[ImAxis3D_Z].SetRange(-2.0 * limit, 2.0 * limit);
         }
     }
