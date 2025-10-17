@@ -893,6 +893,134 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
     const double ScaleMax;
 };
 
+template <class _Getter> struct RendererSurfaceFill2 : RendererBase {
+    RendererSurfaceFill2(const _Getter& getter, int x_count, int y_count, ImU32 col, double scale_min, double scale_max)
+        : RendererBase((x_count - 1)* (y_count - 1), 6, 4), Getter(getter), XCount(x_count), YCount(y_count), Col(col), ScaleMin(scale_min), ScaleMax(scale_max)
+    {}
+
+    void Init(ImDrawList3D& draw_list_3d) const {
+        UV = draw_list_3d._SharedData->TexUvWhitePixel;
+
+        // Compute min and max values for the colormap (if not solid fill)
+        const ImPlot3DNextItemData& n = GetItemData();
+        if (n.IsAutoFill) {
+            Min = FLT_MAX;
+            Max = -FLT_MAX;
+            for (int i = 0; i < Getter.Count; i++) {
+                float v = Getter.Value(i);
+                if (isnan(v))
+                    continue;
+                Min = ImMin(Min, v);
+                Max = ImMax(Max, v);
+            }
+        }
+    }
+
+    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
+        int x = prim % (XCount - 1);
+        int y = prim / (XCount - 1);
+
+        ImPlot3DPoint p_plot[4];
+        p_plot[0] = Getter(x + y * XCount);
+        p_plot[1] = Getter(x + 1 + y * XCount);
+        p_plot[2] = Getter(x + 1 + (y + 1) * XCount);
+        p_plot[3] = Getter(x + (y + 1) * XCount);
+
+        float p_value[4];
+        p_value[0] = Getter.Value(x + y * XCount);
+        p_value[1] = Getter.Value(x + 1 + y * XCount);
+        p_value[2] = Getter.Value(x + 1 + (y + 1) * XCount);
+        p_value[3] = Getter.Value(x + (y + 1) * XCount);
+
+        // Check if the coordinates and value of each vertex are valid numbers
+        if (isnan(p_plot[0].x) || isnan(p_plot[0].y) || isnan(p_plot[0].z) || isnan(p_value[0])
+         || isnan(p_plot[1].x) || isnan(p_plot[1].y) || isnan(p_plot[1].z) || isnan(p_value[1])
+         || isnan(p_plot[2].x) || isnan(p_plot[2].y) || isnan(p_plot[2].z) || isnan(p_value[2])
+         || isnan(p_plot[3].x) || isnan(p_plot[3].y) || isnan(p_plot[3].z) || isnan(p_value[3]))
+            return false;
+
+        // Check if the quad is outside the culling box
+        if (!cull_box.Contains(p_plot[0]) && !cull_box.Contains(p_plot[1]) && !cull_box.Contains(p_plot[2]) && !cull_box.Contains(p_plot[3]))
+            return false;
+
+        // Compute colors
+        ImU32 cols[4] = { Col, Col, Col, Col };
+        float alpha = GImPlot3D->NextItemData.FillAlpha;
+        float min = Min;
+        float max = Max;
+        if (ScaleMin != 0.0 || ScaleMax != 0.0) {
+            min = (float)ScaleMin;
+            max = (float)ScaleMax;
+        }
+        for (int i = 0; i < 4; i++) {
+            ImVec4 col = SampleColormap(ImClamp(ImRemap01(p_value[i], min, max), 0.0f, 1.0f));
+            col.w *= alpha;
+            cols[i] = ImGui::ColorConvertFloat4ToU32(col);
+        }
+
+        // Project the quad vertices to screen space
+        ImVec2 p[4];
+        p[0] = PlotToPixels(p_plot[0]);
+        p[1] = PlotToPixels(p_plot[1]);
+        p[2] = PlotToPixels(p_plot[2]);
+        p[3] = PlotToPixels(p_plot[3]);
+
+        // Add vertices for two triangles
+        draw_list_3d._VtxWritePtr[0].pos.x = p[0].x;
+        draw_list_3d._VtxWritePtr[0].pos.y = p[0].y;
+        draw_list_3d._VtxWritePtr[0].uv = UV;
+        draw_list_3d._VtxWritePtr[0].col = cols[0];
+
+        draw_list_3d._VtxWritePtr[1].pos.x = p[1].x;
+        draw_list_3d._VtxWritePtr[1].pos.y = p[1].y;
+        draw_list_3d._VtxWritePtr[1].uv = UV;
+        draw_list_3d._VtxWritePtr[1].col = cols[1];
+
+        draw_list_3d._VtxWritePtr[2].pos.x = p[2].x;
+        draw_list_3d._VtxWritePtr[2].pos.y = p[2].y;
+        draw_list_3d._VtxWritePtr[2].uv = UV;
+        draw_list_3d._VtxWritePtr[2].col = cols[2];
+
+        draw_list_3d._VtxWritePtr[3].pos.x = p[3].x;
+        draw_list_3d._VtxWritePtr[3].pos.y = p[3].y;
+        draw_list_3d._VtxWritePtr[3].uv = UV;
+        draw_list_3d._VtxWritePtr[3].col = cols[3];
+
+        draw_list_3d._VtxWritePtr += 4;
+
+        // Add indices for two triangles
+        draw_list_3d._IdxWritePtr[0] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx);
+        draw_list_3d._IdxWritePtr[1] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 1);
+        draw_list_3d._IdxWritePtr[2] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 2);
+
+        draw_list_3d._IdxWritePtr[3] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx);
+        draw_list_3d._IdxWritePtr[4] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 2);
+        draw_list_3d._IdxWritePtr[5] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 3);
+
+        draw_list_3d._IdxWritePtr += 6;
+
+        // Add depth values for the two triangles
+        draw_list_3d._ZWritePtr[0] = GetPointDepth((p_plot[0] + p_plot[1] + p_plot[2]) / 3.0f);
+        draw_list_3d._ZWritePtr[1] = GetPointDepth((p_plot[0] + p_plot[2] + p_plot[3]) / 3.0f);
+        draw_list_3d._ZWritePtr += 2;
+
+        // Update vertex count
+        draw_list_3d._VtxCurrentIdx += 4;
+
+        return true;
+    }
+
+    const _Getter& Getter;
+    mutable ImVec2 UV;
+    mutable float Min; // Minimum value for the colormap
+    mutable float Max; // Minimum value for the colormap
+    const int XCount;
+    const int YCount;
+    const ImU32 Col;
+    const double ScaleMin;
+    const double ScaleMax;
+};
+
 //-----------------------------------------------------------------------------
 // [SECTION] Indexers
 //-----------------------------------------------------------------------------
@@ -920,6 +1048,21 @@ template <typename T> struct IndexerIdx {
 //-----------------------------------------------------------------------------
 // [SECTION] Getters
 //-----------------------------------------------------------------------------
+
+template <typename _IndexerX, typename _IndexerY, typename _IndexerZ, typename _IndexerV> struct GetterXYZV {
+    GetterXYZV(_IndexerX x, _IndexerY y, _IndexerZ z, _IndexerV v, int count) : IndexerX(x), IndexerY(y), IndexerZ(z), IndexerV(v), Count(count) {}
+    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
+        return ImPlot3DPoint((float)IndexerX(idx), (float)IndexerY(idx), (float)IndexerZ(idx));
+    }
+    template <typename I> IMPLOT3D_INLINE float Value(I idx) const {
+        return (float)IndexerV(idx);
+    }
+    const _IndexerX IndexerX;
+    const _IndexerY IndexerY;
+    const _IndexerZ IndexerZ;
+    const _IndexerV IndexerV;
+    const int Count;
+};
 
 template <typename _IndexerX, typename _IndexerY, typename _IndexerZ> struct GetterXYZ {
     GetterXYZ(_IndexerX x, _IndexerY y, _IndexerZ z, int count) : IndexerX(x), IndexerY(y), IndexerZ(z), Count(count) {}
@@ -1366,6 +1509,50 @@ IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, co
 
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
     template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count,                 \
+                                              double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride);
+CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
+#undef INSTANTIATE_MACRO
+
+template <typename _Getter> void PlotSurfaceEx2(const char* label_id, const _Getter& getter, int x_count, int y_count, double scale_min,
+    double scale_max, ImPlot3DSurfaceFlags flags) {
+    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Fill)) {
+        const ImPlot3DNextItemData& n = GetItemData();
+
+        // Render fill
+        if (getter.Count >= 4 && n.RenderFill && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoFill)) {
+            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
+            RenderPrimitives<RendererSurfaceFill2>(getter, x_count, y_count, col_fill, scale_min, scale_max);
+        }
+
+        // Render lines
+        if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoLines)) {
+            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
+            RenderPrimitives<RendererLineSegments>(GetterSurfaceLines<_Getter>(getter, x_count, y_count), col_line, n.LineWeight);
+        }
+
+        // Render markers
+        if (n.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoMarkers)) {
+            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
+            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
+            RenderMarkers<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+        }
+
+        EndItem();
+    }
+}
+
+IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, const T* vs, int x_count, int y_count,
+    double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride) {
+    int count = x_count * y_count;
+    if (count < 4)
+        return;
+    GetterXYZV<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, offset, stride), IndexerIdx<T>(ys, count, offset, stride),
+        IndexerIdx<T>(zs, count, offset, stride), IndexerIdx<T>(vs, count, offset, stride), count);
+    return PlotSurfaceEx2(label_id, getter, x_count, y_count, scale_min, scale_max, flags);
+}
+
+#define INSTANTIATE_MACRO(T)                                                                                                                         \
+    template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* xs, const T* ys, const T* zs, const T* vs, int x_count, int y_count,                 \
                                               double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
