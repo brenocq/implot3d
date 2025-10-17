@@ -107,7 +107,11 @@ enum ImPlot3DFlags_ {
     ImPlot3DFlags_NoClip = 1 << 3,      // Disable 3D box clipping
     ImPlot3DFlags_NoMenus = 1 << 4,     // The user will not be able to open context menus
     ImPlot3DFlags_Equal = 1 << 5,       // X, Y, and Z axes will be constrained to have the same units/pixel
+    ImPlot3DFlags_GroundOnly = 1 << 6,  // Render an infinite ground plane
+    ImPlot3DFlags_LockGround = 1 << 7,  // Ground plane will stay right side up
+    ImPlot3DFlags_Perspective = 1 << 8, // Use a perspective projection (default is orthographic)
     ImPlot3DFlags_CanvasOnly = ImPlot3DFlags_NoTitle | ImPlot3DFlags_NoLegend | ImPlot3DFlags_NoMouseText,
+    ImPlot3DFlags_WorldMode = ImPlot3DFlags_GroundOnly | ImPlot3DFlags_LockGround | ImPlot3DFlags_Perspective,
 };
 
 // Represents a condition for SetupAxisLimits etc. (same as ImGuiCond, but we only support a subset of those enums)
@@ -498,6 +502,8 @@ IMPLOT3D_API ImPlot3DPoint PixelsToPlotPlane(double x, double y, ImPlane3D plane
 
 IMPLOT3D_API ImVec2 GetPlotPos();  // Get the current plot position (top-left) in pixels
 IMPLOT3D_API ImVec2 GetPlotSize(); // Get the current plot size in pixels
+IMPLOT3D_API void GetPlotScale(float& x, float& y, float& z); // Get the current plot box scale factors
+IMPLOT3D_API void GetBoxRotation(float& elevation, float& azimuth); // Get the current plot box rotation in degrees
 
 //-----------------------------------------------------------------------------
 // [SECTION] Miscellaneous
@@ -793,6 +799,9 @@ struct ImPlot3DQuat {
 
     // Get quaternion dot product
     IMPLOT3D_API float Dot(const ImPlot3DQuat& rhs) const;
+
+    // Get elevation and azimuth angles in radians
+    IMPLOT3D_API void ToElAz(float& elevation, float& azimuth) const;
 
 #ifdef IMPLOT3D_QUAT_CLASS_EXTRA
     IMPLOT3D_QUAT_CLASS_EXTRA // Define additional constructors and implicit cast operators in imconfig.h to convert back and forth between your math

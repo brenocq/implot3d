@@ -639,10 +639,15 @@ void DemoBoxScale() {
     }
 
     static float scale[3] = {1.0f, 1.0f, 1.0f};
-    ImGui::SliderFloat3("Box Scale", scale, 0.1f, 2.0f, "%.2f");
+    bool changed = false;
+    if (ImGui::SliderFloat3("Box Scale", scale, 0.1f, 2.0f, "%.2f"))
+        changed = true;
 
     if (ImPlot3D::BeginPlot("##BoxScale")) {
-        ImPlot3D::SetupBoxScale(scale[0], scale[1], scale[2]);
+        if (changed)
+            ImPlot3D::SetupBoxScale(scale[0], scale[1], scale[2]);
+        else
+            ImPlot3D::GetPlotScale(scale[0], scale[1], scale[2]);
         ImPlot3D::PlotLine("3D Curve", xs, ys, zs, N);
         ImPlot3D::EndPlot();
     }
@@ -681,6 +686,8 @@ void DemoBoxRotation() {
         // Set the rotation using the specified elevation and azimuth
         if (changed)
             ImPlot3D::SetupBoxRotation(elevation, azimuth, animate, ImPlot3DCond_Always);
+        else
+            ImPlot3D::GetBoxRotation(elevation, azimuth); // Get the current rotation
 
         // Plot axis lines
         ImPlot3D::SetNextLineStyle(ImVec4(0.8f, 0.2f, 0.2f, 1));
@@ -780,6 +787,27 @@ void DemoPlotFlags() {
     ImGui::TextDisabled("(?)");
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("X, Y, and Z axes will be constrained to have the same units/pixel");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_GroundOnly);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Render only the ground plane");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_LockGround);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Keep the ground plane always right side up");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_Perspective);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Enable perspective projection so distant geometry appears smaller");
     }
 
     if (ImPlot3D::BeginPlot("Plot Flags Demo", ImVec2(-1, 0), flags)) {

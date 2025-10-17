@@ -497,6 +497,24 @@ int GetMouseOverPlane(const ImPlot3DPlot& plot, const bool* active_faces, const 
     if (plane_out)
         *plane_out = -1;
 
+    const bool ground_only = ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_GroundOnly);
+    if (ground_only) {
+        // Only XY plane is active
+        int face_idx = ImPlane3D_XY + 3 * active_faces[ImPlane3D_XY];
+        ImVec2 p0 = corners_pix[faces[face_idx][0]];
+        ImVec2 p1 = corners_pix[faces[face_idx][1]];
+        ImVec2 p2 = corners_pix[faces[face_idx][2]];
+        ImVec2 p3 = corners_pix[faces[face_idx][3]];
+
+        if (ImTriangleContainsPoint(p0, p1, p2, mouse_pos) || ImTriangleContainsPoint(p2, p3, p0, mouse_pos)) {
+            if (plane_out)
+                *plane_out = ImPlane3D_XY;
+            return ImPlane3D_XY;
+        }
+
+        return -1; // Not over the ground plane
+    }
+
     // Check each active face
     for (int a = 0; a < 3; a++) {
         int face_idx = a + 3 * active_faces[a];
@@ -578,12 +596,22 @@ void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const
         hovered_plane = plot.HeldPlaneIdx;
     }
 
-    for (int a = 0; a < 3; a++) {
+    // Skip rendering other planes if a 2D plane/ground plane is active
+    auto DrawPlane = [&](int a) {
         int idx[4]; // Corner indices
         for (int i = 0; i < 4; i++)
             idx[i] = faces[a + 3 * active_faces[a]][i];
         const ImU32 col = ImGui::ColorConvertFloat4ToU32((hovered_plane == a) ? col_bg_hov : col_bg);
         draw_list->AddQuadFilled(corners_pix[idx[0]], corners_pix[idx[1]], corners_pix[idx[2]], corners_pix[idx[3]], col);
+    };
+
+    if (plane_2d != -1) {
+        DrawPlane(plane_2d);
+        return;
+    }
+
+    for (int a = 0; a < 3; a++) {
+        DrawPlane(a);
     }
 }
 
@@ -859,13 +887,13 @@ void RenderTickLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
         // Normalize angle to be between -π and π
         if (angle > IM_PI)
             angle -= 2 * IM_PI;
-        if (angle < -IM_PI)
+        else if (angle < -IM_PI)
             angle += 2 * IM_PI;
 
         // Adjust angle to keep labels upright
         if (angle > IM_PI * 0.5f)
             angle -= IM_PI;
-        if (angle < -IM_PI * 0.5f)
+        else if (angle < -IM_PI * 0.5f)
             angle += IM_PI;
 
         // Loop over ticks
@@ -914,24 +942,43 @@ void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
         if (idx0 == idx1)
             continue;
 
-        // Position at the end of the axis
-        ImPlot3DPoint label_pos = (PlotToNDC(corners[idx0]) + PlotToNDC(corners[idx1])) * 0.5f;
-        ImPlot3DPoint center_dir = label_pos.Normalized();
-        // Add offset
-        label_pos += center_dir * 0.3f;
+        // Convert axis start and end to screen space (same as tick labels)
+        ImVec2 axis_start_pix = corners_pix[idx0];
+        ImVec2 axis_end_pix = corners_pix[idx1];
 
-        // Convert to pixel coordinates
-        ImVec2 label_pos_pix = NDCToPixels(label_pos);
+        // Screen-space axis direction
+        ImVec2 axis_screen_dir = axis_end_pix - axis_start_pix;
+        float axis_length = ImSqrt(ImLengthSqr(axis_screen_dir));
+        if (axis_length != 0.0f)
+            axis_screen_dir /= axis_length;
+        else
+            axis_screen_dir = ImVec2(1.0f, 0.0f); // Default direction if length is zero
 
-        // Adjust label position and angle
+        // Perpendicular offset direction
+        ImVec2 offset_dir_pix = ImVec2(-axis_screen_dir.y, axis_screen_dir.x);
+
+        // Make sure direction points away from cube center
+        ImVec2 box_center_pix = PlotToPixels(plot.RangeCenter());
+        ImVec2 axis_center_pix = (axis_start_pix + axis_end_pix) * 0.5f;
+        ImVec2 center_to_axis_pix = axis_center_pix - box_center_pix;
+        center_to_axis_pix /= ImSqrt(ImLengthSqr(center_to_axis_pix));
+        if (ImDot(offset_dir_pix, center_to_axis_pix) < 0.0f)
+            offset_dir_pix = -offset_dir_pix;
+
+        // Adjust the offset magnitude
+        float offset_magnitude = 35.0f; // TODO Calculate based on label size
+        ImVec2 offset_pix = offset_dir_pix * offset_magnitude;
+        ImVec2 label_pos_pix = axis_center_pix + offset_pix;
+
         ImU32 col_ax_txt = GetStyleColorU32(ImPlot3DCol_AxisText);
 
-        // Compute text angle
-        ImVec2 screen_delta = corners_pix[idx1] - corners_pix[idx0];
-        float angle = atan2f(-screen_delta.y, screen_delta.x);
+        // Compute label rotation aligned with axis direction
+        float angle = atan2f(-axis_screen_dir.y, axis_screen_dir.x) + IM_PI * 0.01f; // Stable the Z-axis label without flipping constantly when near vertical
+
+        // Normalize angle to be between -π and π
         if (angle > IM_PI * 0.5f)
             angle -= IM_PI;
-        if (angle < -IM_PI * 0.5f)
+        else if (angle < -IM_PI * 0.5f)
             angle += IM_PI;
 
         AddTextRotated(draw_list, label_pos_pix, angle, col_ax_txt, label);
@@ -941,7 +988,7 @@ void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
 // Function to compute active faces based on the rotation
 // If the plot is close to 2D, plane_2d is set to the plane index (0 -> YZ, 1 -> XZ, 2 -> XY)
 // plane_2d is set to -1 otherwise
-void ComputeActiveFaces(bool* active_faces, const ImPlot3DQuat& rotation, const ImPlot3DAxis* axes, int* plane_2d = nullptr) {
+void ComputeActiveFaces(bool* active_faces, const ImPlot3DQuat& rotation, const ImPlot3DAxis* axes, int* plane_2d = nullptr, bool ground_only = false) {
     if (plane_2d)
         *plane_2d = -1;
 
@@ -950,6 +997,26 @@ void ComputeActiveFaces(bool* active_faces, const ImPlot3DQuat& rotation, const 
         rotation * ImPlot3DPoint(0.0f, 1.0f, 0.0f),
         rotation * ImPlot3DPoint(0.0f, 0.0f, 1.0f),
     };
+
+    if (ground_only) {
+        *plane_2d = ImPlane3D_XY;
+
+        auto DetermineActiveFace = [&rot_face_n, &axes](const int face_idx) {
+            if (fabs(rot_face_n[face_idx].z) < 0.025) {
+                return rot_face_n[face_idx].x + rot_face_n[face_idx].y < 0.0f;
+            } else {
+                bool is_inverted = ImHasFlag(axes[face_idx].Flags, ImPlot3DAxisFlags_Invert);
+                // Not sure why it is opposite, but the render behavior is consistent with below
+                return is_inverted ? (rot_face_n[face_idx].z < 0.0f) : (rot_face_n[face_idx].z > 0.0f);
+            }
+        };
+
+        active_faces[ImPlane3D_YZ] = DetermineActiveFace(ImPlane3D_YZ);
+        active_faces[ImPlane3D_XZ] = DetermineActiveFace(ImPlane3D_XZ);
+        active_faces[ImPlane3D_XY] = false;
+
+        return;
+    }
 
     int num_deg = 0; // Check number of planes that are degenerate (seen as a line)
     for (int i = 0; i < 3; i++) {
@@ -973,21 +1040,51 @@ void ComputeActiveFaces(bool* active_faces, const ImPlot3DQuat& rotation, const 
 }
 
 // Function to compute the box corners in plot space
-void ComputeBoxCorners(ImPlot3DPoint* corners, const ImPlot3DPoint& range_min, const ImPlot3DPoint& range_max) {
-    corners[0] = ImPlot3DPoint(range_min.x, range_min.y, range_min.z); // 0
-    corners[1] = ImPlot3DPoint(range_max.x, range_min.y, range_min.z); // 1
-    corners[2] = ImPlot3DPoint(range_max.x, range_max.y, range_min.z); // 2
-    corners[3] = ImPlot3DPoint(range_min.x, range_max.y, range_min.z); // 3
-    corners[4] = ImPlot3DPoint(range_min.x, range_min.y, range_max.z); // 4
-    corners[5] = ImPlot3DPoint(range_max.x, range_min.y, range_max.z); // 5
-    corners[6] = ImPlot3DPoint(range_max.x, range_max.y, range_max.z); // 6
-    corners[7] = ImPlot3DPoint(range_min.x, range_max.y, range_max.z); // 7
+void ComputeBoxCorners(ImPlot3DPoint* corners, const ImPlot3DPoint& range_min, const ImPlot3DPoint& range_max, bool ground_only = false) {
+    if (!ground_only) {
+        corners[0] = ImPlot3DPoint(range_min.x, range_min.y, range_min.z); // 0
+        corners[1] = ImPlot3DPoint(range_max.x, range_min.y, range_min.z); // 1
+        corners[2] = ImPlot3DPoint(range_max.x, range_max.y, range_min.z); // 2
+        corners[3] = ImPlot3DPoint(range_min.x, range_max.y, range_min.z); // 3
+        corners[4] = ImPlot3DPoint(range_min.x, range_min.y, range_max.z); // 4
+        corners[5] = ImPlot3DPoint(range_max.x, range_min.y, range_max.z); // 5
+        corners[6] = ImPlot3DPoint(range_max.x, range_max.y, range_max.z); // 6
+        corners[7] = ImPlot3DPoint(range_min.x, range_max.y, range_max.z); // 7
+    } else {
+        corners[0] = ImPlot3DPoint(range_min.x, range_min.y, 0.0f); // 0
+        corners[1] = ImPlot3DPoint(range_max.x, range_min.y, 0.0f); // 1
+        corners[2] = ImPlot3DPoint(range_max.x, range_max.y, 0.0f); // 2
+        corners[3] = ImPlot3DPoint(range_min.x, range_max.y, 0.0f); // 3
+        corners[4] = ImPlot3DPoint(range_min.x, range_min.y, 0.0f); // 4
+        corners[5] = ImPlot3DPoint(range_max.x, range_min.y, 0.0f); // 5
+        corners[6] = ImPlot3DPoint(range_max.x, range_max.y, 0.0f); // 6
+        corners[7] = ImPlot3DPoint(range_min.x, range_max.y, 0.0f); // 7
+    }
+}
+
+static const float IMPLOT3D_PERSPECTIVE_FOV = 45.0f * (IM_PI / 180.0f);
+
+float GetPerspectiveFocalLength() {
+    const float focal = 1.0f / tanf(IMPLOT3D_PERSPECTIVE_FOV * 0.5f);
+    return focal;
 }
 
 // Convert a position in the plot's NDC to pixels
 ImVec2 NDCToPixels(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
     ImVec2 center = plot.PlotRect.GetCenter();
-    ImPlot3DPoint point_pix = plot.GetViewScale() * (plot.Rotation * point);
+    // Split for view.z in perspective calculation
+    ImPlot3DPoint point_pix;
+    float view_scale = plot.GetViewScale();
+    ImPlot3DPoint view = plot.Rotation * point;
+
+    if (!ImHasFlag(plot.Flags, ImPlot3DFlags_Perspective)) {
+        point_pix = view_scale * view;
+    } else {
+        float focal = GetPerspectiveFocalLength();
+        float perspective = focal / ImMax(focal - view.z, 0.01f);
+        point_pix = perspective * view_scale * view;
+    }
+
     point_pix.y *= -1.0f; // Invert y-axis
     point_pix.x += center.x;
     point_pix.y += center.y;
@@ -1004,7 +1101,8 @@ ImPlot3DPoint PlotToNDC(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
         float t = (point[i] - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
         // Convert point to NDC range [-0.5*NDCScale, 0.5*NDCScale]
         const float ndc_range = 0.5f;
-        ndc_point[i] = (ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range)) * axis.NDCScale;
+        float ndc = (ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range)) * axis.NDCScale;
+        ndc_point[i] = ndc + plot.NDCOffset[i];
     }
     return ndc_point;
 }
@@ -1026,13 +1124,14 @@ void GetAxesParameters(const ImPlot3DPlot& plot, bool* active_faces, ImVec2* cor
     const ImPlot3DQuat& rotation = plot.Rotation;
     ImPlot3DPoint range_min = plot.RangeMin();
     ImPlot3DPoint range_max = plot.RangeMax();
+    bool ground_only = ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_GroundOnly);
 
     // Compute active faces
-    ComputeActiveFaces(active_faces, rotation, plot.Axes, &plane_2d);
+    ComputeActiveFaces(active_faces, rotation, plot.Axes, &plane_2d, ground_only);
     bool is_2d = plane_2d != -1;
 
     // Compute box corners in plot space
-    ComputeBoxCorners(corners, range_min, range_max);
+    ComputeBoxCorners(corners, range_min, range_max, ground_only);
 
     // Compute box corners in pixel space
     ComputeBoxCornersPix(plot, corners_pix, corners);
@@ -1380,6 +1479,8 @@ void ShowPlotContextMenu(ImPlot3DPlot& plot) {
     if ((ImGui::BeginMenu("Settings"))) {
         if (ImGui::MenuItem("Equal", nullptr, ImHasFlag(plot.Flags, ImPlot3DFlags_Equal)))
             ImFlipFlag(plot.Flags, ImPlot3DFlags_Equal);
+        if (ImGui::MenuItem("Perspective", nullptr, ImHasFlag(plot.Flags, ImPlot3DFlags_Perspective)))
+            ImFlipFlag(plot.Flags, ImPlot3DFlags_Perspective);
         ImGui::BeginDisabled(plot.Title.empty());
         if (ImGui::MenuItem("Title", nullptr, plot.HasTitle()))
             ImFlipFlag(plot.Flags, ImPlot3DFlags_NoTitle);
@@ -1388,6 +1489,8 @@ void ShowPlotContextMenu(ImPlot3DPlot& plot) {
             ImFlipFlag(plot.Flags, ImPlot3DFlags_NoClip);
         if (ImGui::MenuItem("Mouse Position", nullptr, !ImHasFlag(plot.Flags, ImPlot3DFlags_NoMouseText)))
             ImFlipFlag(plot.Flags, ImPlot3DFlags_NoMouseText);
+        if (ImGui::MenuItem("Lock Ground", nullptr, ImHasFlag(plot.Flags, ImPlot3DFlags_LockGround)))
+            ImFlipFlag(plot.Flags, ImPlot3DFlags_LockGround);
         ImGui::EndMenu();
     }
 }
@@ -1474,6 +1577,7 @@ void EndPlot() {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "Mismatched BeginPlot()/EndPlot()!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
+    const bool ground_only = ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_GroundOnly);
 
     // Move triangles from 3D draw list to ImGui draw list
     plot.DrawList.SortedMoveToImGuiDrawList();
@@ -1486,11 +1590,24 @@ void EndPlot() {
                 // Perform axis fitting
                 plot.Axes[i].FitThisFrame = false;
                 plot.Axes[i].ApplyFit();
+
+                // Symmetric axis range around 0
+                if (ground_only) {
+                    double limit = ImMax(ImFabs(plot.Axes[i].Range.Min), ImFabs(plot.Axes[i].Range.Max));
+                    plot.Axes[i].SetRange(-limit, limit);
+                }
+
                 // Apply equal aspect constraint
                 const bool axis_equal = ImHasFlag(plot.Flags, ImPlot3DFlags_Equal);
                 if (axis_equal)
                     plot.ApplyEqualAspect(i);
             }
+        }
+
+        // Extend z-axis range for the aspect to be the same both above and below ground plane
+        if (ground_only) {
+            double limit = ImMax(ImFabs(plot.Axes[ImAxis3D_Z].Range.Min), ImFabs(plot.Axes[ImAxis3D_Z].Range.Max));
+            plot.Axes[ImAxis3D_Z].SetRange(-2.0 * limit, 2.0 * limit);
         }
     }
 
@@ -1562,7 +1679,7 @@ void EndPlot() {
 // [SECTION] Setup
 //-----------------------------------------------------------------------------
 
-static const float ANIMATION_ANGULAR_VELOCITY = 2 * 3.1415f;
+static const float ANIMATION_ANGULAR_VELOCITY = 2 * IM_PI;
 
 float CalcAnimationTime(ImPlot3DQuat q0, ImPlot3DQuat q1) {
     // Compute the angular distance between orientations
@@ -1693,6 +1810,8 @@ void SetupBoxRotation(ImPlot3DQuat rotation, bool animate, ImPlot3DCond cond) {
             plot.AnimationTime = CalcAnimationTime(plot.Rotation, plot.RotationAnimationEnd);
         }
         plot.RotationCond = cond;
+        if (ImHasFlag(plot.Flags, ImPlot3DFlags_LockGround))
+            plot.ClampGroundRotation(animate);
     }
 }
 
@@ -1810,15 +1929,18 @@ ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
     ComputeActiveFaces(active_faces, plot.Rotation, plot.Axes);
 
     // Calculate intersection point with the planes
-    ImPlot3DPoint P = IntersectPlane(active_faces[plane] ? 0.5f * plot.Axes[plane].NDCScale : -0.5f * plot.Axes[plane].NDCScale);
+    float plane_coord = active_faces[plane] ? 0.5f * plot.Axes[plane].NDCScale : -0.5f * plot.Axes[plane].NDCScale;
+    plane_coord += plot.NDCOffset[plane];
+    ImPlot3DPoint P = IntersectPlane(plane_coord);
     if (P.IsNaN())
         return P;
 
     // Helper lambda to check if point P is within the plot box
     auto InRange = [&](const ImPlot3DPoint& P) {
         ImPlot3DPoint box_scale = plot.GetBoxScale();
-        return P.x >= -0.5f * box_scale.x && P.x <= 0.5f * box_scale.x && P.y >= -0.5f * box_scale.y && P.y <= 0.5f * box_scale.y &&
-               P.z >= -0.5f * box_scale.z && P.z <= 0.5f * box_scale.z;
+        ImPlot3DPoint local = P - plot.NDCOffset;
+        return local.x >= -0.5f * box_scale.x && local.x <= 0.5f * box_scale.x && local.y >= -0.5f * box_scale.y && local.y <= 0.5f * box_scale.y &&
+               local.z >= -0.5f * box_scale.z && local.z <= 0.5f * box_scale.z;
     };
 
     // Handle mask (if one of the intersections is out of range, set it to NAN)
@@ -1858,6 +1980,26 @@ ImVec2 GetPlotSize() {
     return gp.CurrentPlot->PlotRect.GetSize();
 }
 
+void GetPlotScale(float& x, float& y, float& z) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetPlotScale() needs to be called between BeginPlot() and EndPlot()!");
+    ImPlot3DPlot& plot = *gp.CurrentPlot;
+    SetupLock();
+    x = plot.Axes[0].NDCScale;
+    y = plot.Axes[1].NDCScale;
+    z = plot.Axes[2].NDCScale;
+}
+
+void GetBoxRotation(float& elevation, float& azimuth) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetBoxRotation() needs to be called between BeginPlot() and EndPlot()!");
+    ImPlot3DPlot& plot = *gp.CurrentPlot;
+    SetupLock();
+    plot.Rotation.ToElAz(elevation, azimuth);
+    elevation = elevation * 180.0f / IM_PI;
+    azimuth = azimuth * 180.0f / IM_PI;
+}
+
 ImVec2 GetFramePos() {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetFramePos() needs to be called between BeginPlot() and EndPlot()!");
@@ -1888,9 +2030,9 @@ ImPlot3DPoint NDCToPlot(const ImPlot3DPoint& point) {
     ImPlot3DPoint plot_point;
     for (int i = 0; i < 3; i++) {
         ImPlot3DAxis& axis = plot.Axes[i];
-        float ndc_range = 0.5f * axis.NDCScale;
-        float t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - point[i]) : (point[i] + ndc_range);
-        t /= axis.NDCScale;
+        float ndc_range = 0.5f;
+        float ndc_coord = (point[i] - plot.NDCOffset[i]) / axis.NDCScale;
+        float t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - ndc_coord) : (ndc_coord + ndc_range);
         plot_point[i] = axis.Range.Min + t * (axis.Range.Max - axis.Range.Min);
     }
     return plot_point;
@@ -1914,6 +2056,7 @@ ImPlot3DRay PixelsToNDCRay(const ImVec2& pix) {
     // Calculate zoom factor and plot center
     float zoom = plot.GetViewScale();
     ImVec2 center = plot.PlotRect.GetCenter();
+    float focal = GetPerspectiveFocalLength();
 
     // Undo screen transformations to get back to NDC space
     float x = (pix.x - center.x) / zoom;
@@ -1921,7 +2064,11 @@ ImPlot3DRay PixelsToNDCRay(const ImVec2& pix) {
 
     // Define near and far points in NDC space along the z-axis
     ImPlot3DPoint ndc_near = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, -10.0f);
-    ImPlot3DPoint ndc_far = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, 10.0f);
+    ImPlot3DPoint ndc_far;
+    if (!ImHasFlag(plot.Flags, ImPlot3DFlags_Perspective))
+        ndc_far = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, 10.0f);
+    else
+        ndc_far = plot.Rotation.Inverse() * ImPlot3DPoint(x * 10.0f / focal, y * 10.0f / focal, 10.0f);
 
     // Create the ray in NDC space
     ImPlot3DRay ndc_ray;
@@ -1978,6 +2125,8 @@ void HandleInput(ImPlot3DPlot& plot) {
     const ImVec2 rot_drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
     const bool rotating = ImLengthSqr(rot_drag) > MOUSE_CURSOR_DRAG_THRESHOLD;
     const bool axis_equal = ImHasFlag(plot.Flags, ImPlot3DFlags_Equal);
+    const bool ground_only = ImHasFlag(plot.Flags, ImPlot3DFlags_GroundOnly);
+    const bool ground_locked = ImHasFlag(plot.Flags, ImPlot3DFlags_LockGround);
 
     // HOVERING STATE -------------------------------------------------------------------
 
@@ -1987,9 +2136,9 @@ void HandleInput(ImPlot3DPlot& plot) {
     ImPlot3DPoint range_max = plot.RangeMax();
     bool active_faces[3];
     int plane_2d = -1;
-    ComputeActiveFaces(active_faces, rotation, plot.Axes, &plane_2d);
+    ComputeActiveFaces(active_faces, rotation, plot.Axes, &plane_2d, ground_only);
     ImPlot3DPoint corners[8];
-    ComputeBoxCorners(corners, range_min, range_max);
+    ComputeBoxCorners(corners, range_min, range_max, ground_only);
     ImVec2 corners_pix[8];
     ComputeBoxCornersPix(plot, corners_pix, corners);
     int hovered_plane_idx = -1;
@@ -2048,6 +2197,10 @@ void HandleInput(ImPlot3DPlot& plot) {
         plot.FitThisFrame = true;
         for (int i = 0; i < 3; i++)
             plot.Axes[i].FitThisFrame = plot.Axes[i].Hovered;
+        // Reset box plot or ground back to center
+        plot.NDCOffset = ImPlot3DPoint(0.0f, 0.0f, 0.0f);
+        for (int i = 0; i < 3; i++)
+            plot.Axes[i].NDCScale = 1.0f;
     }
 
     // Handle auto fit
@@ -2055,11 +2208,13 @@ void HandleInput(ImPlot3DPlot& plot) {
         if (plot.Axes[i].IsAutoFitting()) {
             plot.FitThisFrame = true;
             plot.Axes[i].FitThisFrame = true;
+            plot.NDCOffset = ImPlot3DPoint(0.0f, 0.0f, 0.0f);
+            plot.Axes[i].NDCScale = 1.0f;
         }
 
     // TRANSLATION -------------------------------------------------------------------
 
-    // Handle translation with right mouse button
+    // Handle translation with left mouse button
     if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
@@ -2072,35 +2227,14 @@ void HandleInput(ImPlot3DPlot& plot) {
             // Convert delta to NDC space
             float zoom = plot.GetViewScale();
             ImPlot3DPoint delta_NDC = plot.Rotation.Inverse() * (delta_pixels / zoom);
-
-            // Convert delta to plot space
-            ImPlot3DPoint delta_plot = delta_NDC * (plot.RangeMax() - plot.RangeMin()) / plot.GetBoxScale();
-
-            // Adjust delta for inverted axes
-            for (int i = 0; i < 3; i++) {
-                if (ImHasFlag(plot.Axes[i].Flags, ImPlot3DAxisFlags_Invert))
-                    delta_plot[i] *= -1;
-            }
-
-            // Adjust plot range to translate the plot
-            for (int i = 0; i < 3; i++) {
-                if (plot.Axes[i].Hovered) {
-                    bool increasing = delta_plot[i] < 0.0f;
-                    if (delta_plot[i] != 0.0f && !plot.Axes[i].IsPanLocked(increasing)) {
-                        // Update axis range
-                        plot.Axes[i].SetMin(plot.Axes[i].Range.Min - delta_plot[i]);
-                        plot.Axes[i].SetMax(plot.Axes[i].Range.Max - delta_plot[i]);
-                        // Apply equal aspect ratio constraint
-                        if (axis_equal)
-                            plot.ApplyEqualAspect(i);
-                    }
-                    plot.Axes[i].Held = true;
-                }
-                // If no axis was held before (user started translating in this frame), set the held edge/plane indices
-                if (!any_axis_held) {
-                    plot.HeldEdgeIdx = hovered_edge_idx;
-                    plot.HeldPlaneIdx = hovered_plane_idx;
-                }
+            // Update NDC offset instead of axis ranges
+            plot.NDCOffset += delta_NDC;
+            // Hold all axes as only the box plot or ground should be translated
+            for (int i = 0; i < 3; i++)
+                plot.Axes[i].Held = true;
+            if (!any_axis_held) {
+                plot.HeldEdgeIdx = hovered_edge_idx;
+                plot.HeldPlaneIdx = hovered_plane_idx;
             }
         } else if (plot.Axes[0].Hovered || plot.Axes[1].Hovered || plot.Axes[2].Hovered) {
             // Translate along plane/axis
@@ -2135,7 +2269,7 @@ void HandleInput(ImPlot3DPlot& plot) {
 
     // ROTATION -------------------------------------------------------------------
 
-    // Handle reset rotation with left mouse double click
+    // Handle reset rotation with right mouse double click
     if (plot.Held && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && !plot.IsRotationLocked()) {
         plot.RotationAnimationEnd = plot.Rotation;
 
@@ -2191,18 +2325,20 @@ void HandleInput(ImPlot3DPlot& plot) {
                 plot.RotationAnimationEnd = align_up * plot.RotationAnimationEnd;
             }
         }
+        if (ground_locked)
+            plot.ClampGroundRotation(true);
 
         // Calculate animation time
         plot.AnimationTime = CalcAnimationTime(plot.Rotation, plot.RotationAnimationEnd);
     }
 
-    // Handle rotation with left mouse dragging
+    // Handle rotation with right mouse dragging
     if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Right) && !plot.IsRotationLocked()) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
         // Map delta to rotation angles (in radians)
-        float angle_x = delta.x * (3.1415f / 180.0f);
-        float angle_y = delta.y * (3.1415f / 180.0f);
+        float angle_x = delta.x * (IM_PI / 180.0f);
+        float angle_y = delta.y * (IM_PI / 180.0f);
 
         // Detect if the plot is upside down by checking the transformed up vector
         ImPlot3DPoint up_vector = plot.Rotation * ImPlot3DPoint(0.0f, 0.0f, 1.0f);
@@ -2211,12 +2347,15 @@ void HandleInput(ImPlot3DPlot& plot) {
         // Create quaternions for the rotations
         ImPlot3DQuat quat_x(angle_y, ImPlot3DPoint(1.0f, 0.0f, 0.0f));
         // Use -Z axis rotation when upside down to fix inverted rotation behavior
-        ImPlot3DPoint z_axis = is_upside_down ? ImPlot3DPoint(0.0f, 0.0f, -1.0f) : ImPlot3DPoint(0.0f, 0.0f, 1.0f);
+        // Unless with ground mode, rotation behavior should stay consistent
+        ImPlot3DPoint z_axis = (is_upside_down && !ground_only) ? ImPlot3DPoint(0.0f, 0.0f, -1.0f) : ImPlot3DPoint(0.0f, 0.0f, 1.0f);
         ImPlot3DQuat quat_z(angle_x, z_axis);
 
         // Combine the new rotations with the current rotation
         plot.Rotation = quat_x * plot.Rotation * quat_z;
         plot.Rotation.Normalize();
+        if (ground_locked)
+            plot.ClampGroundRotation();
     }
 
     // ZOOM -------------------------------------------------------------------
@@ -2226,42 +2365,49 @@ void HandleInput(ImPlot3DPlot& plot) {
         ImGui::SetKeyOwner(ImGuiKey_MouseWheelY, plot.ID);
         if (ImGui::IsMouseDown(ImGuiMouseButton_Middle) || IO.MouseWheel != 0.0f) {
             float delta = ImGui::IsMouseDown(ImGuiMouseButton_Middle) ? (-0.01f * IO.MouseDelta.y) : (-0.1f * IO.MouseWheel);
-            float zoom = 1.0f + delta;
             for (int i = 0; i < 3; i++) {
                 ImPlot3DAxis& axis = plot.Axes[i];
                 float size = axis.Range.Max - axis.Range.Min;
                 float new_min, new_max;
                 if (hovered_axis != -1 || hovered_plane != -1) {
-                    // If mouse over the plot box, zoom around the mouse plot position
-                    float new_size = size * zoom;
 
-                    // Calculate offset ratio of the mouse position relative to the axis range
-                    float offset = mouse_pos_plot[i] - axis.Range.Min;
-                    float ratio = offset / size;
+                    if (ground_only && i == ImAxis3D_Z) {
+                        // Zoom in z-axis around the ground center
+                        new_min = axis.Range.Min - delta * 0.5f;
+                        new_max = axis.Range.Max + delta * 0.5f;
+                    } else {
+                        // If mouse over the plot box, zoom around the mouse plot position
+                        float new_size = size * (1.0f + delta);
 
-                    // Adjust the axis range to zoom around the mouse position
-                    new_min = mouse_pos_plot[i] - new_size * ratio;
-                    new_max = mouse_pos_plot[i] + new_size * (1.0f - ratio);
-                } else {
-                    // If mouse is not over the plot box, zoom around the plot center
-                    float center = (axis.Range.Min + axis.Range.Max) * 0.5f;
+                        // Calculate offset ratio of the mouse position relative to the axis range
+                        float offset = mouse_pos_plot[i] - axis.Range.Min;
+                        float ratio = offset / size;
 
-                    // Adjust the axis range to zoom around plot center
-                    new_min = center - zoom * size * 0.5f;
-                    new_max = center + zoom * size * 0.5f;
-                }
-
-                // Set new range after zoom
-                if (plot.Axes[i].Hovered) {
-                    if (!plot.Axes[i].IsInputLocked()) {
-                        // Update axis range
-                        plot.Axes[i].SetMin(new_min);
-                        plot.Axes[i].SetMax(new_max);
-                        // Apply equal aspect ratio constraint
-                        if (axis_equal)
-                            plot.ApplyEqualAspect(i);
+                        // Adjust the axis range to zoom around the mouse position
+                        new_min = mouse_pos_plot[i] - new_size * ratio;
+                        new_max = mouse_pos_plot[i] + new_size * (1.0f - ratio);
                     }
-                    plot.Axes[i].Held = true;
+
+                    // Set new range after zoom
+                    if (ground_only || plot.Axes[i].Hovered) {
+                        if (!plot.Axes[i].IsInputLocked()) {
+                            // Update axis range
+                            plot.Axes[i].SetMin(new_min);
+                            plot.Axes[i].SetMax(new_max);
+                            // Apply equal aspect ratio constraint
+                            if (axis_equal)
+                                plot.ApplyEqualAspect(i);
+                        }
+                        plot.Axes[i].Held = true;
+                    }
+                } else {
+                    // If mouse is not over the plot box, scale the plot box
+                    float t = ImClamp((mouse_pos_plot[i] - axis.Range.Min) / (axis.Range.Max - axis.Range.Min), 0.0f, 1.0f);
+                    float base = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (0.5f - t) : (t - 0.5f);
+                    float old_scale = axis.NDCScale;
+                    float new_scale = ImClamp(old_scale * (1.0f - delta), 0.1f, 100.0f); // keep same zoom behavior
+                    plot.NDCOffset[i] += base * (old_scale - new_scale);
+                    axis.NDCScale = new_scale;
                 }
 
                 // If no axis was held before (user started zoom in this frame), set the held edge/plane indices
@@ -2377,6 +2523,8 @@ void SetupLock() {
         if (plot.AnimationTime < 0.0f)
             plot.AnimationTime = 0.0f;
         plot.Rotation = ImPlot3DQuat::Slerp(plot.Rotation, plot.RotationAnimationEnd, t);
+        if (ImHasFlag(plot.Flags, ImPlot3DFlags_LockGround))
+            plot.ClampGroundRotation();
     }
 
     plot.Initialized = true;
@@ -3212,6 +3360,29 @@ ImPlot3DQuat ImPlot3DQuat::Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2,
 
 float ImPlot3DQuat::Dot(const ImPlot3DQuat& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w; }
 
+void ImPlot3DQuat::ToElAz(float& elevation, float& azimuth) const {
+    // Decompose rotation as R = Rx(alpha) * Rz(azimuth), where alpha = elevation - pi/2.
+    //   m12 = 2 * (y * z - x * w) = -sin(alpha)
+    //   m22 = 1 - 2 * (x * x + y * y) = cos(alpha)
+    //   m00 = 1 - 2 * (y * y + z * z) = cos(azimuth)
+    //   m01 = 2 * (x * y - z * w) = -sin(azimuth)
+    // so alpha = atan2(-m12, m22) and azimuth = atan2(-m01, m00)
+    float alpha = ImAtan2(-2 * (y * z - x * w), 1 - 2 * (x * x + y * y));
+    azimuth = ImAtan2(-2 * (x * y - z * w), 1 - 2 * (y * y + z * z));
+    elevation = alpha + (IM_PI * 0.5f);
+
+    // Normalize angles to be between -π and π
+    if (elevation > IM_PI)
+        elevation -= 2 * IM_PI;
+    else if (elevation < -IM_PI)
+        elevation += 2 * IM_PI;
+
+    if (azimuth > IM_PI)
+        azimuth -= 2 * IM_PI;
+    else if (azimuth < -IM_PI)
+        azimuth += 2 * IM_PI;
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] ImDrawList3D
 //-----------------------------------------------------------------------------
@@ -3470,6 +3641,17 @@ void ImPlot3DPlot::ApplyEqualAspect(ImAxis3D ref_axis) {
     }
 }
 
+void ImPlot3DPlot::ClampGroundRotation(bool animate) {
+    ImPlot3DQuat* rotation = (!animate) ? &Rotation : &RotationAnimationEnd;
+    const float max_elevation = IM_PI * 0.5f - 0.01f;
+    float elevation = 0.0f;
+    float azimuth = 0.0f;
+    rotation->ToElAz(elevation, azimuth);
+    elevation = ImClamp(elevation, -max_elevation, max_elevation);
+    ImPlot3DQuat clamped = rotation->FromElAz(elevation, azimuth);
+    *rotation = clamped.Normalized();
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] ImPlot3DStyle
 //-----------------------------------------------------------------------------
@@ -3622,7 +3804,7 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
                         // Adjust angle to keep labels upright
                         if (angle > IM_PI * 0.5f)
                             angle -= IM_PI;
-                        if (angle < -IM_PI * 0.5f)
+                        else if (angle < -IM_PI * 0.5f)
                             angle += IM_PI;
 
                         ImFormatString(buff, IM_ARRAYSIZE(buff), "E%d", e);

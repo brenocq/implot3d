@@ -673,6 +673,7 @@ struct ImPlot3DPlot {
     // Misc
     bool ContextClick; // True if context button was clicked (to distinguish from double click)
     bool OpenContextThisFrame;
+    ImPlot3DPoint NDCOffset;
 
     ImPlot3DPlot() {
         PreviousFlags = Flags = ImPlot3DFlags_None;
@@ -692,6 +693,7 @@ struct ImPlot3DPlot {
         FitThisFrame = true;
         ContextClick = false;
         OpenContextThisFrame = false;
+        NDCOffset = ImPlot3DPoint(0.0f, 0.0f, 0.0f);
     }
 
     inline void SetTitle(const char* title) {
@@ -726,6 +728,9 @@ struct ImPlot3DPlot {
 
     // Sets the aspect ratio of the plot box to be equal in all dimensions, using the provided axis as reference for scaling
     void ApplyEqualAspect(ImAxis3D ref_axis);
+
+    // Limit the elevation to prevent ground plane flipping
+    void ClampGroundRotation(bool limit_animation = false);
 };
 
 struct ImPlot3DContext {
