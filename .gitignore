@@ -39,3 +39,6 @@ xcuserdata
 ## JetBrains IDE artifacts
 .idea
 cmake-build-*
+
+## clangd
+compile_flags.txt
