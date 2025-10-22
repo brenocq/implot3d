@@ -129,11 +129,11 @@ struct ImDrawList3D {
 
     ImVector<ImDrawIdx> IdxBuffer;  // Index buffer
     ImVector<ImDrawVert> VtxBuffer; // Vertex buffer
-    ImVector<float> ZBuffer;        // Z buffer. Depth value for each triangle
+    ImVector<double> ZBuffer;       // Z buffer. Depth value for each triangle
     unsigned int _VtxCurrentIdx;    // [Internal] current vertex index
     ImDrawVert* _VtxWritePtr; // [Internal] point within VtxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
     ImDrawIdx* _IdxWritePtr;  // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    float* _ZWritePtr;        // [Internal] point within ZBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    double* _ZWritePtr;       // [Internal] point within ZBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
     ImDrawListFlags _Flags;   // [Internal] draw list flags
     ImVector<ImTextureBufferItem> _TextureBuffer; // [Internal] buffer for SetTexture/ResetTexture
     ImDrawListSharedData* _SharedData;            // [Internal] shared draw list data
@@ -634,7 +634,7 @@ struct ImPlot3DAxis {
     bool HasTickLabels() const;
     bool HasTickMarks() const;
     bool IsAutoFitting() const;
-    void ExtendFit(float value);
+    void ExtendFit(double value);
     void ApplyFit();
 };
 

@@ -219,48 +219,55 @@ void DemoTrianglePlots() {
 }
 
 void DemoSortingPrecision() {
-    ImGui::TextWrapped("This demo shows triangle sorting issues with large Z values. "
-                       "Multiple colored planes are stacked with small spacing to trigger floating-point precision errors.");
+    ImGui::TextWrapped("This demo shows triangle sorting precision with large Z values. "
+                       "Multiple colored planes are stacked with small spacing. With double precision, "
+                       "the sorting should work correctly even with very large Z offsets.");
 
-    static float z_offset = 100000.0f;
-    ImGui::SliderFloat("Z Offset", &z_offset, 0.0f, 10000000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
+    static double z_offset = 70000.0;
+    float z_offset_f = (float)z_offset;
+    if (ImGui::SliderFloat("Z Offset", &z_offset_f, 0.0f, 10000000.0f, "%.0f", ImGuiSliderFlags_Logarithmic)) {
+        z_offset = z_offset_f;
+    }
 
     static int num_planes = 5;
     ImGui::SliderInt("Number of Planes", &num_planes, 2, 10);
 
-    static float plane_spacing = 0.01f;
-    ImGui::SliderFloat("Plane Spacing", &plane_spacing, 0.001f, 0.1f, "%.4f", ImGuiSliderFlags_Logarithmic);
+    static double plane_spacing = 0.005;
+    float plane_spacing_f = (float)plane_spacing;
+    if (ImGui::SliderFloat("Plane Spacing", &plane_spacing_f, 0.001f, 0.1f, "%.4f", ImGuiSliderFlags_Logarithmic)) {
+        plane_spacing = plane_spacing_f;
+    }
 
-    static float t = 0.0f;
-    t += ImGui::GetIO().DeltaTime * 0.5f; // Slow animation
+    static double t = 0.0;
+    t += ImGui::GetIO().DeltaTime * 0.5; // Slow animation
 
     // Each plane is a square made of 8 triangles (fan pattern from center)
     // Max 10 planes * 8 triangles * 3 vertices = 240 vertices
     constexpr int MAX_PLANES = 10;
     constexpr int TRIANGLES_PER_PLANE = 8;
     constexpr int VERTICES_PER_TRIANGLE = 3;
-    static float xs[MAX_PLANES * TRIANGLES_PER_PLANE * VERTICES_PER_TRIANGLE];
-    static float ys[MAX_PLANES * TRIANGLES_PER_PLANE * VERTICES_PER_TRIANGLE];
-    static float zs[MAX_PLANES * TRIANGLES_PER_PLANE * VERTICES_PER_TRIANGLE];
+    static double xs[MAX_PLANES * TRIANGLES_PER_PLANE * VERTICES_PER_TRIANGLE];
+    static double ys[MAX_PLANES * TRIANGLES_PER_PLANE * VERTICES_PER_TRIANGLE];
+    static double zs[MAX_PLANES * TRIANGLES_PER_PLANE * VERTICES_PER_TRIANGLE];
 
-    float plane_size = 0.6f;
+    double plane_size = 0.6;
 
     // Generate stacked planes
     for (int plane = 0; plane < num_planes; plane++) {
-        float z_base = z_offset + plane * plane_spacing;
+        double z_base = z_offset + plane * plane_spacing;
         // Add slight oscillation to each plane
-        float z_oscillation = ImSin(t + plane * 0.3f) * 0.001f;
+        double z_oscillation = ImSin(t + plane * 0.3) * 0.001;
 
         // Create 8 triangles in a fan pattern from center
         for (int tri = 0; tri < TRIANGLES_PER_PLANE; tri++) {
             int idx = (plane * TRIANGLES_PER_PLANE + tri) * VERTICES_PER_TRIANGLE;
 
-            float angle1 = (tri * 2.0f * 3.14159f / TRIANGLES_PER_PLANE);
-            float angle2 = ((tri + 1) * 2.0f * 3.14159f / TRIANGLES_PER_PLANE);
+            double angle1 = (tri * 2.0 * 3.14159 / TRIANGLES_PER_PLANE);
+            double angle2 = ((tri + 1) * 2.0 * 3.14159 / TRIANGLES_PER_PLANE);
 
             // Center vertex
-            xs[idx] = 0.0f;
-            ys[idx] = 0.0f;
+            xs[idx] = 0.0;
+            ys[idx] = 0.0;
             zs[idx] = z_base + z_oscillation;
 
             // First edge vertex
@@ -282,8 +289,8 @@ void DemoSortingPrecision() {
     CHECKBOX_FLAG(flags, ImPlot3DTriangleFlags_NoMarkers);
 
     if (ImPlot3D::BeginPlot("Triangle Sorting Precision Test", ImVec2(-1, 0), ImPlot3DFlags_None)) {
-        float z_range = num_planes * plane_spacing + 0.1f;
-        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, z_offset - 0.05f, z_offset + z_range, ImPlot3DCond_Always);
+        double z_range = num_planes * plane_spacing + 0.1;
+        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, z_offset - 0.05, z_offset + z_range, ImPlot3DCond_Always);
 
         // Colors for each plane
         ImVec4 colors[MAX_PLANES] = {
@@ -565,9 +572,18 @@ void DemoImagePlots() {
 
     // Image 1 Controls
     if (ImGui::TreeNodeEx("Image 1 Controls: Center + Axes")) {
-        ImGui::SliderFloat3("Center", &center1.x, -2, 2, "%.1f");
-        ImGui::SliderFloat3("Axis U", &axis_u1.x, -2, 2, "%.1f");
-        ImGui::SliderFloat3("Axis V", &axis_v1.x, -2, 2, "%.1f");
+        float center1_f[3] = {(float)center1.x, (float)center1.y, (float)center1.z};
+        if (ImGui::SliderFloat3("Center", center1_f, -2, 2, "%.1f")) {
+            center1 = ImPlot3DPoint(center1_f[0], center1_f[1], center1_f[2]);
+        }
+        float axis_u1_f[3] = {(float)axis_u1.x, (float)axis_u1.y, (float)axis_u1.z};
+        if (ImGui::SliderFloat3("Axis U", axis_u1_f, -2, 2, "%.1f")) {
+            axis_u1 = ImPlot3DPoint(axis_u1_f[0], axis_u1_f[1], axis_u1_f[2]);
+        }
+        float axis_v1_f[3] = {(float)axis_v1.x, (float)axis_v1.y, (float)axis_v1.z};
+        if (ImGui::SliderFloat3("Axis V", axis_v1_f, -2, 2, "%.1f")) {
+            axis_v1 = ImPlot3DPoint(axis_v1_f[0], axis_v1_f[1], axis_v1_f[2]);
+        }
         ImGui::SliderFloat2("UV0", &uv0_1.x, 0, 1, "%.2f");
         ImGui::SliderFloat2("UV1", &uv1_1.x, 0, 1, "%.2f");
         ImGui::ColorEdit4("Tint", &tint1.x);
@@ -577,10 +593,22 @@ void DemoImagePlots() {
 
     // Image 2 Controls
     if (ImGui::TreeNodeEx("Image 2 Controls: Full Quad")) {
-        ImGui::SliderFloat3("P0", &p0.x, -2, 2, "%.1f");
-        ImGui::SliderFloat3("P1", &p1.x, -2, 2, "%.1f");
-        ImGui::SliderFloat3("P2", &p2.x, -2, 2, "%.1f");
-        ImGui::SliderFloat3("P3", &p3.x, -2, 2, "%.1f");
+        float p0_f[3] = {(float)p0.x, (float)p0.y, (float)p0.z};
+        if (ImGui::SliderFloat3("P0", p0_f, -2, 2, "%.1f")) {
+            p0 = ImPlot3DPoint(p0_f[0], p0_f[1], p0_f[2]);
+        }
+        float p1_f[3] = {(float)p1.x, (float)p1.y, (float)p1.z};
+        if (ImGui::SliderFloat3("P1", p1_f, -2, 2, "%.1f")) {
+            p1 = ImPlot3DPoint(p1_f[0], p1_f[1], p1_f[2]);
+        }
+        float p2_f[3] = {(float)p2.x, (float)p2.y, (float)p2.z};
+        if (ImGui::SliderFloat3("P2", p2_f, -2, 2, "%.1f")) {
+            p2 = ImPlot3DPoint(p2_f[0], p2_f[1], p2_f[2]);
+        }
+        float p3_f[3] = {(float)p3.x, (float)p3.y, (float)p3.z};
+        if (ImGui::SliderFloat3("P3", p3_f, -2, 2, "%.1f")) {
+            p3 = ImPlot3DPoint(p3_f[0], p3_f[1], p3_f[2]);
+        }
 
         ImGui::SliderFloat2("UV0", &uv0.x, 0, 1, "%.2f");
         ImGui::SliderFloat2("UV1", &uv1.x, 0, 1, "%.2f");

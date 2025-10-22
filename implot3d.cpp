@@ -41,6 +41,30 @@
 // [SECTION] ImPlot3DStyle
 // [SECTION] Metrics
 
+/*
+API BREAKING CHANGES
+====================
+Occasionally introducing changes that are breaking the API. We try to make the breakage minor and easy to fix.
+Below is a change-log of API breaking changes only. If you are using one of the functions listed, expect to have to fix some code.
+When you are not sure about an old symbol or function name, try using the Search/Find function of your IDE to look for comments or references in all
+implot3d files. You can read releases logs https://github.com/brenocq/implot3d/releases for more details.
+
+- 2025/10/22 (0.3) - **IMPORTANT** All coordinate types migrated from float to double precision to fix triangle sorting precision issues with large
+values:
+                       - ImPlot3DPoint members (x, y, z): float -> double
+                       - ImPlot3DRange members (Min, Max): float -> double
+                       - ImPlot3DQuat members (x, y, z, w): float -> double
+                       - ImDrawList3D::ZBuffer: ImVector<float> -> ImVector<double>
+                       - GetPointDepth() return type: float -> double
+                     This change affects the public API. Users passing float arrays to plotting functions should be aware:
+                       - Float arrays are still accepted (templates handle conversion automatically)
+                       - Internal storage and calculations now use double precision
+                       - This provides ~15-17 decimal digits of precision vs ~6-7 with float
+                       - Fixes sorting artifacts when using large coordinate values (e.g., Z > 100000)
+                     No code changes required for most users. Advanced users directly using ImPlot3DPoint, ImPlot3DRange, or ImPlot3DQuat
+                     may need to update code that assumes float precision.
+*/
+
 //-----------------------------------------------------------------------------
 // [SECTION] Includes
 //-----------------------------------------------------------------------------
@@ -1590,8 +1614,8 @@ static const float ANIMATION_ANGULAR_VELOCITY = 2 * 3.1415f;
 
 float CalcAnimationTime(ImPlot3DQuat q0, ImPlot3DQuat q1) {
     // Compute the angular distance between orientations
-    float dot_product = ImClamp(q0.Dot(q1), -1.0f, 1.0f);
-    float angle = 2.0f * acosf(fabsf(dot_product));
+    double dot_product = ImClamp(q0.Dot(q1), -1.0, 1.0);
+    float angle = 2.0f * acosf(fabsf((float)dot_product));
 
     // Calculate animation time for constant the angular velocity
     return angle / ANIMATION_ANGULAR_VELOCITY;
@@ -2967,21 +2991,21 @@ const ImPlot3DNextItemData& GetItemData() { return GImPlot3D->NextItemData; }
 // [SECTION] ImPlot3DPoint
 //-----------------------------------------------------------------------------
 
-ImPlot3DPoint ImPlot3DPoint::operator*(float rhs) const { return ImPlot3DPoint(x * rhs, y * rhs, z * rhs); }
-ImPlot3DPoint ImPlot3DPoint::operator/(float rhs) const { return ImPlot3DPoint(x / rhs, y / rhs, z / rhs); }
+ImPlot3DPoint ImPlot3DPoint::operator*(double rhs) const { return ImPlot3DPoint(x * rhs, y * rhs, z * rhs); }
+ImPlot3DPoint ImPlot3DPoint::operator/(double rhs) const { return ImPlot3DPoint(x / rhs, y / rhs, z / rhs); }
 ImPlot3DPoint ImPlot3DPoint::operator+(const ImPlot3DPoint& rhs) const { return ImPlot3DPoint(x + rhs.x, y + rhs.y, z + rhs.z); }
 ImPlot3DPoint ImPlot3DPoint::operator-(const ImPlot3DPoint& rhs) const { return ImPlot3DPoint(x - rhs.x, y - rhs.y, z - rhs.z); }
 ImPlot3DPoint ImPlot3DPoint::operator*(const ImPlot3DPoint& rhs) const { return ImPlot3DPoint(x * rhs.x, y * rhs.y, z * rhs.z); }
 ImPlot3DPoint ImPlot3DPoint::operator/(const ImPlot3DPoint& rhs) const { return ImPlot3DPoint(x / rhs.x, y / rhs.y, z / rhs.z); }
 ImPlot3DPoint ImPlot3DPoint::operator-() const { return ImPlot3DPoint(-x, -y, -z); }
 
-ImPlot3DPoint& ImPlot3DPoint::operator*=(float rhs) {
+ImPlot3DPoint& ImPlot3DPoint::operator*=(double rhs) {
     x *= rhs;
     y *= rhs;
     z *= rhs;
     return *this;
 }
-ImPlot3DPoint& ImPlot3DPoint::operator/=(float rhs) {
+ImPlot3DPoint& ImPlot3DPoint::operator/=(double rhs) {
     x /= rhs;
     y /= rhs;
     z /= rhs;
@@ -3015,29 +3039,29 @@ ImPlot3DPoint& ImPlot3DPoint::operator/=(const ImPlot3DPoint& rhs) {
 bool ImPlot3DPoint::operator==(const ImPlot3DPoint& rhs) const { return x == rhs.x && y == rhs.y && z == rhs.z; }
 bool ImPlot3DPoint::operator!=(const ImPlot3DPoint& rhs) const { return !(*this == rhs); }
 
-float ImPlot3DPoint::Dot(const ImPlot3DPoint& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z; }
+double ImPlot3DPoint::Dot(const ImPlot3DPoint& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z; }
 
 ImPlot3DPoint ImPlot3DPoint::Cross(const ImPlot3DPoint& rhs) const {
     return ImPlot3DPoint(y * rhs.z - z * rhs.y, z * rhs.x - x * rhs.z, x * rhs.y - y * rhs.x);
 }
 
-float ImPlot3DPoint::Length() const { return ImSqrt(x * x + y * y + z * z); }
+double ImPlot3DPoint::Length() const { return ImSqrt(x * x + y * y + z * z); }
 
-float ImPlot3DPoint::LengthSquared() const { return x * x + y * y + z * z; }
+double ImPlot3DPoint::LengthSquared() const { return x * x + y * y + z * z; }
 
 void ImPlot3DPoint::Normalize() {
-    float l = Length();
+    double l = Length();
     x /= l;
     y /= l;
     z /= l;
 }
 
 ImPlot3DPoint ImPlot3DPoint::Normalized() const {
-    float l = Length();
+    double l = Length();
     return ImPlot3DPoint(x / l, y / l, z / l);
 }
 
-ImPlot3DPoint operator*(float lhs, const ImPlot3DPoint& rhs) { return ImPlot3DPoint(lhs * rhs.x, lhs * rhs.y, lhs * rhs.z); }
+ImPlot3DPoint operator*(double lhs, const ImPlot3DPoint& rhs) { return ImPlot3DPoint(lhs * rhs.x, lhs * rhs.y, lhs * rhs.z); }
 
 bool ImPlot3DPoint::IsNaN() const { return ImPlot3D::ImNan(x) || ImPlot3D::ImNan(y) || ImPlot3D::ImNan(z); }
 
@@ -3124,20 +3148,20 @@ bool ImPlot3DBox::ClipLineSegment(const ImPlot3DPoint& p0, const ImPlot3DPoint& 
 // [SECTION] ImPlot3DRange
 //-----------------------------------------------------------------------------
 
-void ImPlot3DRange::Expand(float value) {
+void ImPlot3DRange::Expand(double value) {
     Min = ImMin(Min, value);
     Max = ImMax(Max, value);
 }
 
-bool ImPlot3DRange::Contains(float value) const { return value >= Min && value <= Max; }
+bool ImPlot3DRange::Contains(double value) const { return value >= Min && value <= Max; }
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImPlot3DQuat
 //-----------------------------------------------------------------------------
 
-ImPlot3DQuat::ImPlot3DQuat(float _angle, const ImPlot3DPoint& _axis) {
-    float half_angle = _angle * 0.5f;
-    float s = ImSin(half_angle);
+ImPlot3DQuat::ImPlot3DQuat(double _angle, const ImPlot3DPoint& _axis) {
+    double half_angle = _angle * 0.5;
+    double s = ImSin(half_angle);
     x = s * _axis.x;
     y = s * _axis.y;
     z = s * _axis.z;
@@ -3148,42 +3172,42 @@ ImPlot3DQuat ImPlot3DQuat::FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3
     ImPlot3DQuat q;
 
     // Compute the dot product and lengths of the vectors
-    float dot = v0.Dot(v1);
-    float length_v0 = v0.Length();
-    float length_v1 = v1.Length();
+    double dot = v0.Dot(v1);
+    double length_v0 = v0.Length();
+    double length_v1 = v1.Length();
 
     // Normalize the dot product
-    float normalized_dot = dot / (length_v0 * length_v1);
+    double normalized_dot = dot / (length_v0 * length_v1);
 
     // Handle edge cases: if vectors are very close or identical
-    const float epsilon = 1e-6f;
-    if (ImFabs(normalized_dot - 1.0f) < epsilon) {
+    const double epsilon = 1e-6;
+    if (ImFabs(normalized_dot - 1.0) < epsilon) {
         // v0 and v1 are nearly identical; return an identity quaternion
-        q.x = 0.0f;
-        q.y = 0.0f;
-        q.z = 0.0f;
-        q.w = 1.0f;
+        q.x = 0.0;
+        q.y = 0.0;
+        q.z = 0.0;
+        q.w = 1.0;
         return q;
     }
 
     // Handle edge case: if vectors are opposite
-    if (ImFabs(normalized_dot + 1.0f) < epsilon) {
+    if (ImFabs(normalized_dot + 1.0) < epsilon) {
         // v0 and v1 are opposite; choose an arbitrary orthogonal axis
-        ImPlot3DPoint arbitrary_axis = ImFabs(v0.x) > ImFabs(v0.z) ? ImPlot3DPoint(-v0.y, v0.x, 0.0f) : ImPlot3DPoint(0.0f, -v0.z, v0.y);
+        ImPlot3DPoint arbitrary_axis = ImFabs(v0.x) > ImFabs(v0.z) ? ImPlot3DPoint(-v0.y, v0.x, 0.0) : ImPlot3DPoint(0.0, -v0.z, v0.y);
         arbitrary_axis.Normalize();
         q.x = arbitrary_axis.x;
         q.y = arbitrary_axis.y;
         q.z = arbitrary_axis.z;
-        q.w = 0.0f;
+        q.w = 0.0;
         return q;
     }
 
     // General case
     ImPlot3DPoint axis = v0.Cross(v1);
     axis.Normalize();
-    float angle = ImAcos(normalized_dot);
-    float half_angle = angle * 0.5f;
-    float s = ImSin(half_angle);
+    double angle = ImAcos(normalized_dot);
+    double half_angle = angle * 0.5;
+    double s = ImSin(half_angle);
     q.x = s * axis.x;
     q.y = s * axis.y;
     q.z = s * axis.z;
@@ -3192,27 +3216,27 @@ ImPlot3DQuat ImPlot3DQuat::FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3
     return q;
 }
 
-ImPlot3DQuat ImPlot3DQuat::FromElAz(float elevation, float azimuth) {
+ImPlot3DQuat ImPlot3DQuat::FromElAz(double elevation, double azimuth) {
     // Create quaternions for azimuth and elevation
-    ImPlot3DQuat azimuth_quat(azimuth, ImPlot3DPoint(0.0f, 0.0f, 1.0f));     // Rotate around Z-axis
-    ImPlot3DQuat elevation_quat(elevation, ImPlot3DPoint(1.0f, 0.0f, 0.0f)); // Rotate around X-axis
-    ImPlot3DQuat zero_quat(-IM_PI / 2, ImPlot3DPoint(1.0f, 0.0f, 0.0f));     // Rotate to zero azimuth/elevation orientation
+    ImPlot3DQuat azimuth_quat(azimuth, ImPlot3DPoint(0.0, 0.0, 1.0));     // Rotate around Z-axis
+    ImPlot3DQuat elevation_quat(elevation, ImPlot3DPoint(1.0, 0.0, 0.0)); // Rotate around X-axis
+    ImPlot3DQuat zero_quat(-IM_PI / 2, ImPlot3DPoint(1.0, 0.0, 0.0));     // Rotate to zero azimuth/elevation orientation
 
     // Combine rotations
     return elevation_quat * zero_quat * azimuth_quat;
 }
 
-float ImPlot3DQuat::Length() const { return ImSqrt(x * x + y * y + z * z + w * w); }
+double ImPlot3DQuat::Length() const { return ImSqrt(x * x + y * y + z * z + w * w); }
 
 ImPlot3DQuat ImPlot3DQuat::Normalized() const {
-    float l = Length();
+    double l = Length();
     return ImPlot3DQuat(x / l, y / l, z / l, w / l);
 }
 
 ImPlot3DQuat ImPlot3DQuat::Conjugate() const { return ImPlot3DQuat(-x, -y, -z, w); }
 
 ImPlot3DQuat ImPlot3DQuat::Inverse() const {
-    float l_squared = x * x + y * y + z * z + w * w;
+    double l_squared = x * x + y * y + z * z + w * w;
     return ImPlot3DQuat(-x / l_squared, -y / l_squared, -z / l_squared, w / l_squared);
 }
 
@@ -3222,7 +3246,7 @@ ImPlot3DQuat ImPlot3DQuat::operator*(const ImPlot3DQuat& rhs) const {
 }
 
 ImPlot3DQuat& ImPlot3DQuat::Normalize() {
-    float l = Length();
+    double l = Length();
     x /= l;
     y /= l;
     z /= l;
@@ -3239,46 +3263,46 @@ ImPlot3DPoint ImPlot3DQuat::operator*(const ImPlot3DPoint& point) const {
     ImPlot3DPoint uuv = qv.Cross(uv);   // uuv = qv x uv
 
     // Compute the rotated vector
-    return point + (uv * w * 2.0f) + (uuv * 2.0f);
+    return point + (uv * w * 2.0) + (uuv * 2.0);
 }
 
 bool ImPlot3DQuat::operator==(const ImPlot3DQuat& rhs) const { return x == rhs.x && y == rhs.y && z == rhs.z && w == rhs.w; }
 
 bool ImPlot3DQuat::operator!=(const ImPlot3DQuat& rhs) const { return !(*this == rhs); }
 
-ImPlot3DQuat ImPlot3DQuat::Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2, float t) {
+ImPlot3DQuat ImPlot3DQuat::Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2, double t) {
     // Clamp t to [0, 1]
-    t = ImClamp(t, 0.0f, 1.0f);
+    t = ImClamp(t, 0.0, 1.0);
 
     // Compute the dot product (cosine of the angle between quaternions)
-    float dot = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
+    double dot = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
 
     // If the dot product is negative, negate one quaternion to take the shorter path
     ImPlot3DQuat q2_ = q2;
-    if (dot < 0.0f) {
+    if (dot < 0.0) {
         q2_ = ImPlot3DQuat(-q2.x, -q2.y, -q2.z, -q2.w);
         dot = -dot;
     }
 
     // If the quaternions are very close, use linear interpolation to avoid numerical instability
-    if (dot > 0.9995f) {
+    if (dot > 0.9995) {
         return ImPlot3DQuat(q1.x + t * (q2_.x - q1.x), q1.y + t * (q2_.y - q1.y), q1.z + t * (q2_.z - q1.z), q1.w + t * (q2_.w - q1.w)).Normalized();
     }
 
     // Compute the angle and the interpolation factors
-    float theta_0 = ImAcos(dot);        // Angle between input quaternions
-    float theta = theta_0 * t;          // Interpolated angle
-    float sin_theta = ImSin(theta);     // Sine of interpolated angle
-    float sin_theta_0 = ImSin(theta_0); // Sine of original angle
+    double theta_0 = ImAcos(dot);        // Angle between input quaternions
+    double theta = theta_0 * t;          // Interpolated angle
+    double sin_theta = ImSin(theta);     // Sine of interpolated angle
+    double sin_theta_0 = ImSin(theta_0); // Sine of original angle
 
-    float s1 = ImCos(theta) - dot * sin_theta / sin_theta_0;
-    float s2 = sin_theta / sin_theta_0;
+    double s1 = ImCos(theta) - dot * sin_theta / sin_theta_0;
+    double s2 = sin_theta / sin_theta_0;
 
     // Interpolate and return the result
     return ImPlot3DQuat(s1 * q1.x + s2 * q2_.x, s1 * q1.y + s2 * q2_.y, s1 * q1.z + s2 * q2_.z, s1 * q1.w + s2 * q2_.w);
 }
 
-float ImPlot3DQuat::Dot(const ImPlot3DQuat& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w; }
+double ImPlot3DQuat::Dot(const ImPlot3DQuat& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w; }
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImDrawList3D
@@ -3354,7 +3378,7 @@ void ImDrawList3D::SortedMoveToImGuiDrawList() {
 
     // Build an array of (z, tri_idx)
     struct TriRef {
-        float z;
+        double z;
         int tri_idx;
     };
     TriRef* tris = (TriRef*)IM_ALLOC(sizeof(TriRef) * tri_count);
@@ -3365,8 +3389,8 @@ void ImDrawList3D::SortedMoveToImGuiDrawList() {
 
     // Sort by z (distance from viewer)
     ImQsort(tris, (size_t)tri_count, sizeof(TriRef), [](const void* a, const void* b) {
-        float za = ((const TriRef*)a)->z;
-        float zb = ((const TriRef*)b)->z;
+        double za = ((const TriRef*)a)->z;
+        double zb = ((const TriRef*)b)->z;
         return (za < zb) ? -1 : (za > zb) ? 1 : 0;
     });
 
@@ -3478,7 +3502,7 @@ bool ImPlot3DAxis::HasTickLabels() const { return !ImPlot3D::ImHasFlag(Flags, Im
 bool ImPlot3DAxis::HasTickMarks() const { return !ImPlot3D::ImHasFlag(Flags, ImPlot3DAxisFlags_NoTickMarks); }
 bool ImPlot3DAxis::IsAutoFitting() const { return ImPlot3D::ImHasFlag(Flags, ImPlot3DAxisFlags_AutoFit); }
 
-void ImPlot3DAxis::ExtendFit(float value) {
+void ImPlot3DAxis::ExtendFit(double value) {
     FitExtents.Min = ImMin(FitExtents.Min, value);
     FitExtents.Max = ImMax(FitExtents.Max, value);
 }
