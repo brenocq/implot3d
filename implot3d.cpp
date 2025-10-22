@@ -2499,7 +2499,13 @@ void HandleInput(ImPlot3DPlot& plot) {
         ImGui::SetKeyOwner(ImGuiKey_MouseWheelY, plot.ID);
         if (ImGui::IsMouseDown(ImGuiMouseButton_Middle) || IO.MouseWheel != 0.0f) {
             float delta = ImGui::IsMouseDown(ImGuiMouseButton_Middle) ? (-0.01f * IO.MouseDelta.y) : (-0.1f * IO.MouseWheel);
-            float zoom_factor = 1.0f + delta;
+            float zoom_rate = delta; // Positive = zoom in, negative = zoom out
+
+            // For transforms like log scale, we use the approach from ImPlot:
+            // Transform reference points with zoom expansion/contraction applied in pixel/NDC space,
+            // which properly handles non-linear scales.
+
+            const bool zoom_around_mouse = (hovered_axis != -1 || hovered_plane != -1);
 
             // Zoom all hovered axes independently
             ImAxis3D ref_axis = ImAxis3D_X;
@@ -2508,22 +2514,59 @@ void HandleInput(ImPlot3DPlot& plot) {
                     continue;
 
                 ImPlot3DAxis& axis = plot.Axes[i];
-                double size = axis.Range.Max - axis.Range.Min;
-                double new_size = size * zoom_factor;
 
-                const bool zoom_around_mouse = (hovered_axis != -1 || hovered_plane != -1);
-                if (zoom_around_mouse) {
-                    // Zoom around the mouse plot position
-                    double offset = mouse_pos_plot[i] - axis.Range.Min;
-                    double ratio = offset / size;
-                    axis.SetMin(mouse_pos_plot[i] - new_size * ratio);
-                    axis.SetMax(mouse_pos_plot[i] + new_size * (1.0f - ratio));
+                // Create reference points on the interaction plane at range extremes
+                ImPlot3DPoint p_min = mouse_pos_plot;
+                ImPlot3DPoint p_max = mouse_pos_plot;
+                p_min[i] = axis.Range.Min;
+                p_max[i] = axis.Range.Max;
+
+                // Transform to pixels
+                ImVec2 pix_min = PlotToPixels(plot, p_min);
+                ImVec2 pix_max = PlotToPixels(plot, p_max);
+
+                // Compute the pixel distance from mouse to each endpoint
+                ImVec2 mouse_pix = PlotToPixels(plot, mouse_pos_plot);
+                float dist_min =
+                    ImSqrt((pix_min.x - mouse_pix.x) * (pix_min.x - mouse_pix.x) + (pix_min.y - mouse_pix.y) * (pix_min.y - mouse_pix.y));
+                float dist_max =
+                    ImSqrt((pix_max.x - mouse_pix.x) * (pix_max.x - mouse_pix.x) + (pix_max.y - mouse_pix.y) * (pix_max.y - mouse_pix.y));
+
+                if (zoom_around_mouse && (dist_min > 0 || dist_max > 0)) {
+                    // Zoom around mouse: expand/contract distances from mouse position
+                    // Direction vectors from mouse to endpoints
+                    ImVec2 dir_min = ImVec2(pix_min.x - mouse_pix.x, pix_min.y - mouse_pix.y);
+                    ImVec2 dir_max = ImVec2(pix_max.x - mouse_pix.x, pix_max.y - mouse_pix.y);
+
+                    // Apply zoom by scaling the distances
+                    // Note: zoom_rate is negative when zooming in (MouseWheel > 0), so we add it
+                    pix_min.x = mouse_pix.x + dir_min.x * (1.0f + zoom_rate);
+                    pix_min.y = mouse_pix.y + dir_min.y * (1.0f + zoom_rate);
+                    pix_max.x = mouse_pix.x + dir_max.x * (1.0f + zoom_rate);
+                    pix_max.y = mouse_pix.y + dir_max.y * (1.0f + zoom_rate);
                 } else {
                     // Zoom around center
-                    double center = (axis.Range.Min + axis.Range.Max) * 0.5;
-                    axis.SetMin(center - new_size * 0.5f);
-                    axis.SetMax(center + new_size * 0.5f);
+                    ImVec2 center_pix = ImVec2((pix_min.x + pix_max.x) * 0.5f, (pix_min.y + pix_max.y) * 0.5f);
+                    ImVec2 dir_min = ImVec2(pix_min.x - center_pix.x, pix_min.y - center_pix.y);
+                    ImVec2 dir_max = ImVec2(pix_max.x - center_pix.x, pix_max.y - center_pix.y);
+
+                    pix_min.x = center_pix.x + dir_min.x * (1.0f + zoom_rate);
+                    pix_min.y = center_pix.y + dir_min.y * (1.0f + zoom_rate);
+                    pix_max.x = center_pix.x + dir_max.x * (1.0f + zoom_rate);
+                    pix_max.y = center_pix.y + dir_max.y * (1.0f + zoom_rate);
                 }
+
+                // Project back to plot space via the plane
+                ImPlot3DPoint new_p_min = PixelsToPlotPlane(pix_min, mouse_plane, false);
+                ImPlot3DPoint new_p_max = PixelsToPlotPlane(pix_max, mouse_plane, false);
+
+                // Extract the new range for this axis
+                double new_min = new_p_min[i];
+                double new_max = new_p_max[i];
+
+                // Update the range
+                axis.SetMin(new_min);
+                axis.SetMax(new_max);
                 axis.Held = true;
 
                 // Use a hovered axis as reference
