@@ -163,46 +163,7 @@ Yes! ImPlot3D can be used with various languages through the following bindings:
 - **Lua**: [LuaJIT-ImGui](https://github.com/sonoro1234/LuaJIT-ImGui)
 
 ## 🤝 Contributing
-ImPlot3D is growing quickly, and I would love more people to get involved in this project. Whether you have ideas to share, bugs to report, or features to implement, your contributions are welcome!
-
-### How to Contribute
-1. **Propose Ideas and Discuss Features:**
-   - Explore the [next features roadmap](https://github.com/brenocq/implot3d/issues?q=is%3Aissue%20state%3Aopen%20sort%3Aupdated-desc).
-   - Leave comments to help refine ideas and guide development.
-   - Have any feature requests? Create a [feature request issue](https://github.com/brenocq/implot3d/issues/new?template=feature_request.md).
-
-2. **Report Bugs:**
-   - Found a bug? [Open a bug report issue](https://github.com/brenocq/implot3d/issues/new?template=bug_report.md). Include details, reproduction steps, and any relevant screenshots or logs.
-
-3. **Implement Features:**
-   - Indicate your intent to work on a feature by commenting in the relevant issue or starting a [new feature request](https://github.com/brenocq/implot3d/issues/new?template=feature_request.md) if it doesn't exist. This helps avoid duplicated efforts and allows maintainers to provide guidance.
-   - Fork the repository and branch off `main`.
-   - Implement your feature following the project’s coding standards.
-   - [Open a pull request](https://github.com/brenocq/implot3d/compare) targeting the `main` branch.
-
-### Code Style and Commit Messages
-- **Code Formatting:** Use `clang-format` to ensure consistency. Many editors can apply `clang-format` automatically when saving.
-- **Commit Messages:** Follow the [Conventional Commits](https://www.conventionalcommits.org/) style to maintain a clear and informative history:
-  - `feat`: New features.
-  - `fix`: Bug fixes.
-  - `refactor`: Refactoring without changing functionality.
-  - `docs`: Documentation updates.
-  - `style`: Code style changes.
-  - `test`: Adding or modifying tests.
-  - `chore`: Maintenance tasks.
-  - `merge`: Merging branches or pull requests.
-
-Here are some examples of commit messages:
-- `feat: add support for plotting 3D scatter plots`
-- `fix: correct rendering issue with large datasets`
-- `docs: update installation instructions`
-- `style: apply clang-format to codebase`
-- `refactor: restructure internal data handling for performance`
-- `test: add unit tests for plot data validation`
-- `chore: update ImGui dependency to latest version`
-- `merge: feature-scatter-plot into develop`
-- `merge: remote origin/fix-rendering into local main`
-- `merge: pull request #42 from feature-new-plot-type`
+ImPlot3D is a rapidly growing project and we welcome all contributions. Whether you want to share ideas, report bugs, or implement new features, your contribution is welcome! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) file to get started.
 
 ## 📄 License
 This project is licensed under the MIT License - check [LICENSE](LICENSE) for details.

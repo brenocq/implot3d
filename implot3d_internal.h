@@ -452,11 +452,13 @@ struct ImPlot3DTicker {
 
 // Holds axis information
 struct ImPlot3DAxis {
+    // Flags
     ImPlot3DAxisFlags Flags;
     ImPlot3DAxisFlags PreviousFlags;
+    // Range
     ImPlot3DRange Range;
     ImPlot3DCond RangeCond;
-    ImPlot3DScale Scale;
+    // Label
     ImGuiTextBuffer Label;
     // Ticks
     ImPlot3DTicker Ticker;
@@ -465,10 +467,12 @@ struct ImPlot3DAxis {
     ImPlot3DLocator Locator;
     bool ShowDefaultTicks;
     // Scale
+    ImPlot3DScale Scale;
     ImPlot3DTransform TransformForward; // Custom axis forward transform
     ImPlot3DTransform TransformInverse; // Custom axis inverse transform
     void* TransformData;                // Custom transform data set by the user
     ImPlot3DRange ScaledRange;          // Cached scaled range values
+    float NDCScale;
     // Fit data
     bool FitThisFrame;
     ImPlot3DRange FitExtents;
@@ -490,6 +494,7 @@ struct ImPlot3DAxis {
         Scale = ImPlot3DScale_Linear;
         TransformForward = TransformInverse = nullptr;
         TransformData = nullptr;
+        NDCScale = 1.0f;
         // Ticks
         Formatter = nullptr;
         FormatterData = nullptr;
@@ -652,6 +657,27 @@ struct ImPlot3DAxis {
 
     inline const char* GetLabel() const { return Label.Buf.Data; }
 
+    inline float NDCSize() const {
+        // By default, the axis span from NDC -0.5 to 0.5, so size is 1.0
+        // If NDCScale is applied, the size is scaled accordingly
+        return NDCScale;
+    }
+
+    inline void SetAspect(double units_per_ndc_unit) {
+        double new_size = units_per_ndc_unit * NDCSize();
+        double delta = (new_size - Range.Size()) * 0.5;
+        if (IsLocked())
+            return;
+        else if (IsLockedMin() && !IsLockedMax())
+            SetRange(Range.Min, Range.Max + 2 * delta);
+        else if (!IsLockedMin() && IsLockedMax())
+            SetRange(Range.Min - 2 * delta, Range.Max);
+        else
+            SetRange(Range.Min - delta, Range.Max + delta);
+    }
+
+    double GetAspect() const { return Range.Size() / NDCSize(); }
+
     bool HasLabel() const;
     bool HasGridLines() const;
     bool HasTickLabels() const;
@@ -677,8 +703,7 @@ struct ImPlot3DPlot {
     ImPlot3DQuat InitialRotation; // Initial rotation quaternion
     ImPlot3DQuat Rotation;        // Current rotation quaternion
     ImPlot3DCond RotationCond;
-    ImPlot3DAxis Axes[3];   // X, Y, Z axes
-    ImPlot3DPoint BoxScale; // Scale factor for plot box X, Y, Z axes
+    ImPlot3DAxis Axes[3]; // X, Y, Z axes
     // Animation
     float AnimationTime;               // Remaining animation time
     ImPlot3DQuat RotationAnimationEnd; // End rotation for animation
@@ -686,8 +711,9 @@ struct ImPlot3DPlot {
     bool SetupLocked;
     bool Hovered;
     bool Held;
-    int HeldEdgeIdx;  // Index of the edge being held
-    int HeldPlaneIdx; // Index of the plane being held
+    int HeldEdgeIdx;                // Index of the edge being held
+    int HeldPlaneIdx;               // Index of the plane being held
+    ImPlot3DPoint DragRotationAxis; // Axis of rotation for the duration of a drag
     // Fit data
     bool FitThisFrame;
     // Items
@@ -707,13 +733,13 @@ struct ImPlot3DPlot {
         RotationCond = ImPlot3DCond_None;
         for (int i = 0; i < 3; i++)
             Axes[i] = ImPlot3DAxis();
-        BoxScale = ImPlot3DPoint(1.0f, 1.0f, 1.0f);
         AnimationTime = 0.0f;
         RotationAnimationEnd = Rotation;
         SetupLocked = false;
         Hovered = Held = false;
         HeldEdgeIdx = -1;
         HeldPlaneIdx = -1;
+        DragRotationAxis = ImPlot3DPoint(0.0f, 0.0f, 0.0f);
         FitThisFrame = true;
         ContextClick = false;
         OpenContextThisFrame = false;
@@ -728,12 +754,30 @@ struct ImPlot3DPlot {
     inline const char* GetTitle() const { return Title.Buf.Data; }
     inline bool IsRotationLocked() const { return RotationCond == ImPlot3DCond_Always; }
 
+    // Extends the fit range of all three axes to include the provided point
     void ExtendFit(const ImPlot3DPoint& point);
+
+    // Returns the minimum of the range in all three dimensions
     ImPlot3DPoint RangeMin() const;
+
+    // Returns the maximum of the range in all three dimensions
     ImPlot3DPoint RangeMax() const;
+
+    // Returns the point at the center of the range in all three dimensions
     ImPlot3DPoint RangeCenter() const;
+
+    // Sets the range of all three axes
     void SetRange(const ImPlot3DPoint& min, const ImPlot3DPoint& max);
-    float GetBoxZoom() const;
+
+    // Returns the scale of the plot view (constant to convert from NDC coordinates to pixels coordinates)
+    float GetViewScale() const;
+
+    // Returns the scale of the plot box in each dimension
+    ImPlot3DPoint GetBoxScale() const;
+
+    // Applies equal aspect ratio constraint using the specified axis as reference.
+    // Other axes are adjusted to match the reference axis's aspect ratio (units per NDC unit).
+    void ApplyEqualAspect(ImAxis3D ref_axis);
 };
 
 struct ImPlot3DContext {
@@ -775,6 +819,12 @@ IMPLOT3D_API bool IsColorAuto(ImPlot3DCol idx);
 IMPLOT3D_API ImVec4 GetAutoColor(ImPlot3DCol idx);
 IMPLOT3D_API const char* GetStyleColorName(ImPlot3DCol idx);
 
+// Returns white or black text given background color
+static inline ImU32 CalcTextColor(const ImVec4& bg) {
+    return (bg.x * 0.299f + bg.y * 0.587f + bg.z * 0.114f) > 0.5f ? IM_COL32_BLACK : IM_COL32_WHITE;
+}
+static inline ImU32 CalcTextColor(ImU32 bg) { return CalcTextColor(ImGui::ColorConvertU32ToFloat4(bg)); }
+
 // Get styling data for next item (call between BeginItem/EndItem)
 IMPLOT3D_API const ImPlot3DNextItemData& GetItemData();
 
@@ -783,6 +833,10 @@ IMPLOT3D_API ImU32 GetColormapColorU32(int idx, ImPlot3DColormap cmap);
 
 // Returns the next unused colormap color and advances the colormap. Can be used to skip colors if desired
 IMPLOT3D_API ImU32 NextColormapColorU32();
+
+// Render a colormap bar
+IMPLOT3D_API void RenderColorBar(const ImU32* colors, int size, ImDrawList& DrawList, const ImRect& bounds, bool vert, bool reversed,
+                                 bool continuous);
 
 //-----------------------------------------------------------------------------
 // [SECTION] Item Utils

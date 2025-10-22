@@ -107,6 +107,7 @@ enum ImPlot3DFlags_ {
     ImPlot3DFlags_NoMouseText = 1 << 2, // Hide mouse position in plot coordinates
     ImPlot3DFlags_NoClip = 1 << 3,      // Disable 3D box clipping
     ImPlot3DFlags_NoMenus = 1 << 4,     // The user will not be able to open context menus
+    ImPlot3DFlags_Equal = 1 << 5,       // X, Y, and Z axes will be constrained to have the same units/pixel
     ImPlot3DFlags_CanvasOnly = ImPlot3DFlags_NoTitle | ImPlot3DFlags_NoLegend | ImPlot3DFlags_NoMouseText,
 };
 
@@ -153,6 +154,7 @@ enum ImPlot3DStyleVar_ {
     ImPlot3DStyleVar_PlotMinSize,     // ImVec2, minimum size plot frame can be when shrunk
     ImPlot3DStyleVar_PlotPadding,     // ImVec2, padding between widget frame and plot area, labels, or outside legends (i.e. main padding)
     ImPlot3DStyleVar_LabelPadding,    // ImVec2, padding between axes labels, tick labels, and plot edge
+    ImPlot3DStyleVar_ViewScaleFactor, // float, scale factor for 3D view, you can use it to make the whole plot larger or smaller
     // Legend style
     ImPlot3DStyleVar_LegendPadding,      // ImVec2, legend padding from plot edges
     ImPlot3DStyleVar_LegendInnerPadding, // ImVec2, legend inner padding from legend edges
@@ -623,6 +625,9 @@ IMPLOT3D_API void ShowAllDemos();
 // Shows ImPlot3D style editor block (not a window)
 IMPLOT3D_API void ShowStyleEditor(ImPlot3DStyle* ref = nullptr);
 
+// Shows ImPlot3D metrics/debug information window.
+IMPLOT3D_API void ShowMetricsWindow(bool* p_popen = nullptr);
+
 } // namespace ImPlot3D
 
 //-----------------------------------------------------------------------------
@@ -828,6 +833,7 @@ struct ImPlot3DStyle {
     ImVec2 PlotMinSize;
     ImVec2 PlotPadding;
     ImVec2 LabelPadding;
+    float ViewScaleFactor;
     // Legend style
     ImVec2 LegendPadding;      // Legend padding from plot edges
     ImVec2 LegendInnerPadding; // Legend inner padding from legend edges

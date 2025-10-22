@@ -369,7 +369,7 @@ void DemoSurfacePlots() {
     // Begin the plot
     if (selected_fill == 1)
         ImPlot3D::PushColormap(colormaps[sel_colormap]);
-    if (ImPlot3D::BeginPlot("Surface Plots", ImVec2(-1, 400), ImPlot3DFlags_NoClip)) {
+    if (ImPlot3D::BeginPlot("Surface Plots", ImVec2(-1, 0), ImPlot3DFlags_NoClip)) {
         ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1.5, 1.5);
 
         // Set fill style
@@ -519,7 +519,7 @@ void DemoRealtimePlots() {
     static float t = 0.0f;
     static float last_t = -1.0f;
 
-    if (ImPlot3D::BeginPlot("Scrolling Plot", ImVec2(-1, 400))) {
+    if (ImPlot3D::BeginPlot("Scrolling Plot")) {
         // Pool mouse data every 10 ms
         t += ImGui::GetIO().DeltaTime;
         if (t - last_t > 0.01f) {
@@ -774,6 +774,80 @@ void DemoAxisConstraints() {
     }
 }
 
+void DemoPlotFlags() {
+    static ImPlot3DFlags flags = ImPlot3DFlags_None;
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoTitle);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide plot title");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoLegend);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide plot legend");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoMouseText);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide mouse position in plot coordinates");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoClip);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Disable 3D box clipping");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoMenus);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("The user will not be able to open context menus");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_Equal);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("X, Y, and Z axes will be constrained to have the same units/pixel");
+    }
+
+    if (ImPlot3D::BeginPlot("Plot Flags Demo", ImVec2(-1, 0), flags)) {
+        ImPlot3D::SetupAxes("X-axis", "Y-axis", "Z-axis");
+        ImPlot3D::SetupAxesLimits(-10, 10, -10, 10, -5, 5);
+
+        // Generate some sample data for demonstration
+        static float x[100], y[100], z[100];
+        static bool first = true;
+        if (first) {
+            for (int i = 0; i < 100; i++) {
+                float t = i * 0.1f;
+                x[i] = 3.0f * cosf(t);
+                y[i] = 3.0f * sinf(t);
+                z[i] = t - 5.0f;
+            }
+            first = false;
+        }
+
+        ImPlot3D::PlotLine("Helix", x, y, z, 100);
+
+        // Add some scatter points to show equal scaling effect
+        float scatter_x[8] = {-10, 10, -10, 10, -10, 10, -10, 10};
+        float scatter_y[8] = {-10, -10, 10, 10, -10, -10, 10, 10};
+        float scatter_z[8] = {-5, -5, -5, -5, 5, 5, 5, 5};
+        ImPlot3D::PlotScatter("Cube corners", scatter_x, scatter_y, scatter_z, 8);
+
+        ImPlot3D::EndPlot();
+    }
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Custom
 //-----------------------------------------------------------------------------
@@ -905,6 +979,8 @@ void ShowAllDemos() {
     ImGui::Spacing();
     if (ImGui::BeginTabBar("ImPlot3DDemoTabs")) {
         if (ImGui::BeginTabItem("Plots")) {
+            // Plot Types
+            ImGui::SeparatorText("Plot Types");
             DemoHeader("Line Plots", DemoLinePlots);
             DemoHeader("Scatter Plots", DemoScatterPlots);
             DemoHeader("Triangle Plots", DemoTrianglePlots);
@@ -913,6 +989,10 @@ void ShowAllDemos() {
             DemoHeader("Mesh Plots", DemoMeshPlots);
             DemoHeader("Realtime Plots", DemoRealtimePlots);
             DemoHeader("Image Plots", DemoImagePlots);
+
+            // Plot Options
+            ImGui::SeparatorText("Plot Options");
+            DemoHeader("Plot Flags", DemoPlotFlags);
             DemoHeader("Markers and Text", DemoMarkersAndText);
             DemoHeader("NaN Values", DemoNaNValues);
             ImGui::EndTabItem();
@@ -940,17 +1020,19 @@ void ShowAllDemos() {
 }
 
 void ShowDemoWindow(bool* p_open) {
+    static bool show_implot3d_metrics = false;
     static bool show_implot3d_style_editor = false;
     static bool show_imgui_metrics = false;
     static bool show_imgui_style_editor = false;
     static bool show_imgui_demo = false;
 
+    if (show_implot3d_metrics)
+        ImPlot3D::ShowMetricsWindow(&show_implot3d_metrics);
     if (show_implot3d_style_editor) {
         ImGui::Begin("Style Editor (ImPlot3D)", &show_implot3d_style_editor);
         ImPlot3D::ShowStyleEditor();
         ImGui::End();
     }
-
     if (show_imgui_style_editor) {
         ImGui::Begin("Style Editor (ImGui)", &show_imgui_style_editor);
         ImGui::ShowStyleEditor();
@@ -966,6 +1048,7 @@ void ShowDemoWindow(bool* p_open) {
     ImGui::Begin("ImPlot3D Demo", p_open, ImGuiWindowFlags_MenuBar);
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("Tools")) {
+            ImGui::MenuItem("Metrics", nullptr, &show_implot3d_metrics);
             ImGui::MenuItem("Style Editor", nullptr, &show_implot3d_style_editor);
             ImGui::Separator();
             ImGui::MenuItem("ImGui Metrics", nullptr, &show_imgui_metrics);
@@ -996,45 +1079,6 @@ bool ShowStyleSelector(const char* label) {
     }
     return false;
 }
-
-void RenderColorBar(const ImU32* colors, int size, ImDrawList& DrawList, const ImRect& bounds, bool vert, bool reversed, bool continuous) {
-    const int n = continuous ? size - 1 : size;
-    ImU32 col1, col2;
-    if (vert) {
-        const float step = bounds.GetHeight() / n;
-        ImRect rect(bounds.Min.x, bounds.Min.y, bounds.Max.x, bounds.Min.y + step);
-        for (int i = 0; i < n; i++) {
-            if (reversed) {
-                col1 = colors[size - i - 1];
-                col2 = continuous ? colors[size - i - 2] : col1;
-            } else {
-                col1 = colors[i];
-                col2 = continuous ? colors[i + 1] : col1;
-            }
-            DrawList.AddRectFilledMultiColor(rect.Min, rect.Max, col1, col1, col2, col2);
-            rect.TranslateY(step);
-        }
-    } else {
-        const float step = bounds.GetWidth() / n;
-        ImRect rect(bounds.Min.x, bounds.Min.y, bounds.Min.x + step, bounds.Max.y);
-        for (int i = 0; i < n; i++) {
-            if (reversed) {
-                col1 = colors[size - i - 1];
-                col2 = continuous ? colors[size - i - 2] : col1;
-            } else {
-                col1 = colors[i];
-                col2 = continuous ? colors[i + 1] : col1;
-            }
-            DrawList.AddRectFilledMultiColor(rect.Min, rect.Max, col1, col2, col2, col1);
-            rect.TranslateX(step);
-        }
-    }
-}
-
-static inline ImU32 CalcTextColor(const ImVec4& bg) {
-    return (bg.x * 0.299f + bg.y * 0.587f + bg.z * 0.114f) > 0.5f ? IM_COL32_BLACK : IM_COL32_WHITE;
-}
-static inline ImU32 CalcTextColor(ImU32 bg) { return CalcTextColor(ImGui::ColorConvertU32ToFloat4(bg)); }
 
 bool ColormapButton(const char* label, const ImVec2& size_arg, ImPlot3DColormap cmap) {
     ImGuiContext& G = *GImGui;
@@ -1125,6 +1169,7 @@ void ShowStyleEditor(ImPlot3DStyle* ref) {
             ImGui::SliderFloat2("PlotMinSize", (float*)&style.PlotMinSize, 0.0f, 300, "%.0f");
             ImGui::SliderFloat2("PlotPadding", (float*)&style.PlotPadding, 0.0f, 20.0f, "%.0f");
             ImGui::SliderFloat2("LabelPadding", (float*)&style.LabelPadding, 0.0f, 20.0f, "%.0f");
+            ImGui::SliderFloat("ViewScaleFactor", (float*)&style.ViewScaleFactor, 0.1f, 2.0f, "%.2f");
             ImGui::Text("Legend Styling");
             ImGui::SliderFloat2("LegendPadding", (float*)&style.LegendPadding, 0.0f, 20.0f, "%.0f");
             ImGui::SliderFloat2("LegendInnerPadding", (float*)&style.LegendInnerPadding, 0.0f, 10.0f, "%.0f");

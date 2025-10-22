@@ -276,12 +276,25 @@ def parse_issue_from_data(issue_data: Dict[str, Any]) -> Issue:
     linked_pr = None
     linked_pr_state = None
     for item in timeline_items:
-        subject = item.get('subject')
-        linked_pr = subject.get('number')
+        pr_info = item.get('subject', item.get('source', {}))
+
+        # If this is a cross-referenced PR, we check if it Fixes/Closes this issue
+        if 'source' in item:
+            # Ignore empty cross-references
+            if not 'body' in pr_info:
+                continue
+            # Skip if the PR does not reference this issue
+            issue_number = issue_data['number']
+            keywords_to_check = [f'fixes #{issue_number}', f'closes #{issue_number}']
+            if not any(keyword in pr_info.get('body', '').lower() for keyword in keywords_to_check):
+                continue
+
+        # Get linked PR info
+        linked_pr = pr_info.get('number')
         linked_pr_state = PrState.OPEN
-        if subject.get('state') == 'MERGED':
+        if pr_info.get('state') == 'MERGED':
             linked_pr_state = PrState.MERGED
-        elif subject.get('state') == 'CLOSED':
+        elif pr_info.get('state') == 'CLOSED':
             linked_pr_state = PrState.CLOSED
 
     #--- Parse tasks ---#
@@ -440,7 +453,7 @@ def fetch_top_issues(count: int) -> List[Issue]:
                 }}
               }}
               # Get linked PRs
-              timelineItems(itemTypes: [CONNECTED_EVENT], first: 10) {{
+              timelineItems(itemTypes: [CONNECTED_EVENT, CROSS_REFERENCED_EVENT], first: 10) {{
                 nodes {{
                   ... on ConnectedEvent {{
                     subject {{
@@ -450,6 +463,20 @@ def fetch_top_issues(count: int) -> List[Issue]:
                         url
                         state
                         merged
+                        author {{
+                          login
+                        }}
+                      }}
+                    }}
+                  }}
+                  ... on CrossReferencedEvent {{
+                    source {{
+                      ... on PullRequest {{
+                        number
+                        title
+                        url
+                        state
+                        body # Parse body to make sure it was referenced with Fixes/Closes keyword
                         author {{
                           login
                         }}
