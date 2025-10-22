@@ -1016,7 +1016,7 @@ ImVec2 NDCToPixels(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
     point_pix.x += center.x;
     point_pix.y += center.y;
 
-    return {point_pix.x, point_pix.y};
+    return ImVec2((float)point_pix.x, (float)point_pix.y);
 }
 
 // Convert a position in the plot's coordinate system to the plot's normalized device coordinate system (NDC)
@@ -2264,10 +2264,10 @@ void HandleInput(ImPlot3DPlot& plot) {
                 };
 
                 AxisAlignment candidates[] = {
-                    {x_axis, x_axis.Dot(up)},
-                    {y_axis, y_axis.Dot(up)},
-                    {neg_x_axis, neg_x_axis.Dot(up)},
-                    {neg_y_axis, neg_y_axis.Dot(up)},
+                    {x_axis, (float)x_axis.Dot(up)},
+                    {y_axis, (float)y_axis.Dot(up)},
+                    {neg_x_axis, (float)neg_x_axis.Dot(up)},
+                    {neg_y_axis, (float)neg_y_axis.Dot(up)},
                 };
 
                 // Find the candidate with the maximum dot product
