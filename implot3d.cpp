@@ -55,14 +55,14 @@ values:
                        - ImPlot3DRange members (Min, Max): float -> double
                        - ImPlot3DQuat members (x, y, z, w): float -> double
                        - ImDrawList3D::ZBuffer: ImVector<float> -> ImVector<double>
-                       - GetPointDepth() return type: float -> double
+                       - ImDrawList3D::_ZWritePtr: float* -> double*
                      This change affects the public API. Users passing float arrays to plotting functions should be aware:
                        - Float arrays are still accepted (templates handle conversion automatically)
                        - Internal storage and calculations now use double precision
                        - This provides ~15-17 decimal digits of precision vs ~6-7 with float
-                       - Fixes sorting artifacts when using large coordinate values (e.g., Z > 100000)
                      No code changes required for most users. Advanced users directly using ImPlot3DPoint, ImPlot3DRange, or ImPlot3DQuat
                      may need to update code that assumes float precision.
+- 2025/07/21 (0.3) - Renamed ImPlot3DPlot::GetBoxZoom() -> ImPlot3DPlot::GetViewScale() (internal API only).
 */
 
 //-----------------------------------------------------------------------------
