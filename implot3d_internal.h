@@ -613,15 +613,21 @@ struct ImPlot3DAxis {
     }
 
     inline double PlotToNDC(double plt) const {
-        if (TransformForward != nullptr)
-            plt = TransformForward(plt, TransformData);
-        return (plt - ScaledRange.Min) / (ScaledRange.Max - ScaledRange.Min);
+        if (TransformForward != nullptr) {
+            double s = TransformForward(plt, TransformData);
+            double t = (s - ScaledRange.Min) / (ScaledRange.Max - ScaledRange.Min);
+            plt = Range.Min + Range.Size() * t;
+        }
+        return (plt - Range.Min) / (Range.Max - Range.Min);
     }
 
     inline double NDCToPlot(double ndc) const {
-        double plt = ScaledRange.Min + ndc * (ScaledRange.Max - ScaledRange.Min);
-        if (TransformInverse != nullptr)
-            plt = TransformInverse(plt, TransformData);
+        double plt = Range.Min + ndc * (Range.Max - Range.Min);
+        if (TransformInverse != nullptr) {
+            double t = (plt - Range.Min) / Range.Size();
+            double s = t * (ScaledRange.Max - ScaledRange.Min) + ScaledRange.Min;
+            plt = TransformInverse(s, TransformData);
+        }
         return plt;
     }
 

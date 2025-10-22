@@ -1028,11 +1028,19 @@ ImVec2 NDCToPixels(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
 ImPlot3DPoint PlotToNDC(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
     ImPlot3DPoint ndc_point;
     for (int i = 0; i < 3; i++) {
-        ImPlot3DAxis& axis = plot.Axes[i];
-        double t = axis.PlotToNDC(point[i]);
-        t *= axis.NDCScale;
-        double ndc_range = 0.5f * axis.NDCScale;
-        ndc_point[i] = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range);
+        const ImPlot3DAxis& axis = plot.Axes[i];
+        // Apply forward transform if needed, then normalize to [0, 1]
+        double plt = point[i];
+        double t;
+        if (axis.TransformForward != nullptr) {
+            double s = axis.TransformForward(plt, axis.TransformData);
+            t = (s - axis.ScaledRange.Min) / (axis.ScaledRange.Max - axis.ScaledRange.Min);
+        } else {
+            t = (plt - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
+        }
+        // Convert point to NDC range [-0.5*NDCScale, 0.5*NDCScale]
+        const double ndc_range = 0.5;
+        ndc_point[i] = (ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range)) * axis.NDCScale;
     }
     return ndc_point;
 }
@@ -1770,7 +1778,7 @@ void SetupAxisTicks(ImAxis3D idx, double v_min, double v_max, int n_ticks, const
 void SetupAxisScale(ImAxis3D idx, ImPlot3DScale scale) {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
-                        "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
+                         "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     ImPlot3DAxis& axis = plot.Axes[idx];
     axis.Scale = scale;
@@ -2333,26 +2341,58 @@ void HandleInput(ImPlot3DPlot& plot) {
             }
         } else if (plot.Axes[0].Hovered || plot.Axes[1].Hovered || plot.Axes[2].Hovered) {
             // Translate along plane/axis
+            //
+            // For transforms like log scale, we use the approach from ImPlot:
+            // Transform reference points with the mouse delta applied, which properly handles non-linear scales.
+            // The key: use points that lie on the interaction plane, not arbitrary box corners.
 
-            // Mouse delta in pixels
             ImVec2 mouse_delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
-            ImPlot3DPoint mouse_delta_plot = PixelsToPlotPlane(mouse_pos + mouse_delta, mouse_plane, false);
-            ImPlot3DPoint delta_plot = mouse_delta_plot - mouse_pos_plot;
+            // Create reference points on the interaction plane at the axis range extremes
+            // We use the current mouse position as a template, then vary each axis independently
+            ImPlot3DPoint ref_base = mouse_pos_plot;
 
-            // Apply translation to the selected axes
             for (int i = 0; i < 3; i++) {
                 if (plot.Axes[i].Hovered) {
-                    bool increasing = delta_plot[i] < 0.0f;
-                    if (delta_plot[i] != 0.0f && !plot.Axes[i].IsPanLocked(increasing)) {
-                        // Update axis range
-                        plot.Axes[i].SetMin(plot.Axes[i].Range.Min - delta_plot[i]);
-                        plot.Axes[i].SetMax(plot.Axes[i].Range.Max - delta_plot[i]);
+                    ImPlot3DAxis& axis = plot.Axes[i];
+
+                    // Create two reference points on the interaction plane:
+                    // - One at the minimum of this axis
+                    // - One at the maximum of this axis
+                    // Keep other coordinates the same (on the plane)
+                    ImPlot3DPoint p_min = ref_base;
+                    ImPlot3DPoint p_max = ref_base;
+                    p_min[i] = axis.Range.Min;
+                    p_max[i] = axis.Range.Max;
+
+                    // Transform to pixels, apply mouse delta, transform back
+                    ImVec2 pix_min = PlotToPixels(plot, p_min);
+                    ImVec2 pix_max = PlotToPixels(plot, p_max);
+
+                    pix_min.x -= mouse_delta.x;
+                    pix_min.y -= mouse_delta.y;
+                    pix_max.x -= mouse_delta.x;
+                    pix_max.y -= mouse_delta.y;
+
+                    // Project back to plot space via the interaction plane
+                    ImPlot3DPoint new_p_min = PixelsToPlotPlane(pix_min, mouse_plane, false);
+                    ImPlot3DPoint new_p_max = PixelsToPlotPlane(pix_max, mouse_plane, false);
+
+                    // Extract the new range for this axis
+                    double new_min = new_p_min[i];
+                    double new_max = new_p_max[i];
+
+                    // Check if we should update
+                    bool increasing = (new_min < axis.Range.Min);
+                    if ((new_min != axis.Range.Min || new_max != axis.Range.Max) && !axis.IsPanLocked(increasing)) {
+                        axis.SetMin(new_min);
+                        axis.SetMax(new_max);
+
                         // Apply equal aspect ratio constraint
                         if (axis_equal)
                             plot.ApplyEqualAspect(i);
                     }
-                    plot.Axes[i].Held = true;
+                    axis.Held = true;
                 }
                 if (!any_axis_held) {
                     plot.HeldEdgeIdx = hovered_edge_idx;
@@ -3671,8 +3711,12 @@ bool ImPlot3DAxis::HasTickMarks() const { return !ImPlot3D::ImHasFlag(Flags, ImP
 bool ImPlot3DAxis::IsAutoFitting() const { return ImPlot3D::ImHasFlag(Flags, ImPlot3DAxisFlags_AutoFit); }
 
 void ImPlot3DAxis::ExtendFit(double value) {
-    FitExtents.Min = ImMin(FitExtents.Min, value);
-    FitExtents.Max = ImMax(FitExtents.Max, value);
+    // Only extend fit with values that are within the constraint range
+    // This is critical for log scale where negative/zero values should be ignored
+    if (!ImPlot3D::ImNanOrInf(value) && value >= ConstraintRange.Min && value <= ConstraintRange.Max) {
+        FitExtents.Min = ImMin(FitExtents.Min, value);
+        FitExtents.Max = ImMax(FitExtents.Max, value);
+    }
 }
 
 void ImPlot3DAxis::ApplyFit() {
