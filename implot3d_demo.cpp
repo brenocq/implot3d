@@ -218,6 +218,104 @@ void DemoTrianglePlots() {
     }
 }
 
+void DemoSortingPrecision() {
+    ImGui::TextWrapped("This demo shows triangle sorting issues with large Z values. "
+                       "Multiple colored planes are stacked with small spacing to trigger floating-point precision errors.");
+
+    static float z_offset = 100000.0f;
+    ImGui::SliderFloat("Z Offset", &z_offset, 0.0f, 10000000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
+
+    static int num_planes = 5;
+    ImGui::SliderInt("Number of Planes", &num_planes, 2, 10);
+
+    static float plane_spacing = 0.01f;
+    ImGui::SliderFloat("Plane Spacing", &plane_spacing, 0.001f, 0.1f, "%.4f", ImGuiSliderFlags_Logarithmic);
+
+    static float t = 0.0f;
+    t += ImGui::GetIO().DeltaTime * 0.5f; // Slow animation
+
+    // Each plane is a square made of 8 triangles (fan pattern from center)
+    // Max 10 planes * 8 triangles * 3 vertices = 240 vertices
+    constexpr int MAX_PLANES = 10;
+    constexpr int TRIANGLES_PER_PLANE = 8;
+    constexpr int VERTICES_PER_TRIANGLE = 3;
+    static float xs[MAX_PLANES * TRIANGLES_PER_PLANE * VERTICES_PER_TRIANGLE];
+    static float ys[MAX_PLANES * TRIANGLES_PER_PLANE * VERTICES_PER_TRIANGLE];
+    static float zs[MAX_PLANES * TRIANGLES_PER_PLANE * VERTICES_PER_TRIANGLE];
+
+    float plane_size = 0.6f;
+
+    // Generate stacked planes
+    for (int plane = 0; plane < num_planes; plane++) {
+        float z_base = z_offset + plane * plane_spacing;
+        // Add slight oscillation to each plane
+        float z_oscillation = ImSin(t + plane * 0.3f) * 0.001f;
+
+        // Create 8 triangles in a fan pattern from center
+        for (int tri = 0; tri < TRIANGLES_PER_PLANE; tri++) {
+            int idx = (plane * TRIANGLES_PER_PLANE + tri) * VERTICES_PER_TRIANGLE;
+
+            float angle1 = (tri * 2.0f * 3.14159f / TRIANGLES_PER_PLANE);
+            float angle2 = ((tri + 1) * 2.0f * 3.14159f / TRIANGLES_PER_PLANE);
+
+            // Center vertex
+            xs[idx] = 0.0f;
+            ys[idx] = 0.0f;
+            zs[idx] = z_base + z_oscillation;
+
+            // First edge vertex
+            xs[idx + 1] = plane_size * ImCos(angle1);
+            ys[idx + 1] = plane_size * ImSin(angle1);
+            zs[idx + 1] = z_base + z_oscillation;
+
+            // Second edge vertex
+            xs[idx + 2] = plane_size * ImCos(angle2);
+            ys[idx + 2] = plane_size * ImSin(angle2);
+            zs[idx + 2] = z_base + z_oscillation;
+        }
+    }
+
+    // Triangle flags
+    static ImPlot3DTriangleFlags flags = ImPlot3DTriangleFlags_None;
+    CHECKBOX_FLAG(flags, ImPlot3DTriangleFlags_NoLines);
+    CHECKBOX_FLAG(flags, ImPlot3DTriangleFlags_NoFill);
+    CHECKBOX_FLAG(flags, ImPlot3DTriangleFlags_NoMarkers);
+
+    if (ImPlot3D::BeginPlot("Triangle Sorting Precision Test", ImVec2(-1, 0), ImPlot3DFlags_None)) {
+        float z_range = num_planes * plane_spacing + 0.1f;
+        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, z_offset - 0.05f, z_offset + z_range, ImPlot3DCond_Always);
+
+        // Colors for each plane
+        ImVec4 colors[MAX_PLANES] = {
+            ImVec4(1.0f, 0.0f, 0.0f, 0.8f),  // Red
+            ImVec4(0.0f, 1.0f, 0.0f, 0.8f),  // Green
+            ImVec4(0.0f, 0.0f, 1.0f, 0.8f),  // Blue
+            ImVec4(1.0f, 1.0f, 0.0f, 0.8f),  // Yellow
+            ImVec4(1.0f, 0.0f, 1.0f, 0.8f),  // Magenta
+            ImVec4(0.0f, 1.0f, 1.0f, 0.8f),  // Cyan
+            ImVec4(1.0f, 0.5f, 0.0f, 0.8f),  // Orange
+            ImVec4(0.5f, 0.0f, 1.0f, 0.8f),  // Purple
+            ImVec4(1.0f, 0.75f, 0.8f, 0.8f), // Pink
+            ImVec4(0.5f, 1.0f, 0.0f, 0.8f)   // Lime
+        };
+
+        // Plot each plane
+        for (int plane = 0; plane < num_planes; plane++) {
+            int start_idx = plane * TRIANGLES_PER_PLANE * VERTICES_PER_TRIANGLE;
+            int vertex_count = TRIANGLES_PER_PLANE * VERTICES_PER_TRIANGLE;
+
+            ImPlot3D::SetNextFillStyle(colors[plane]);
+            ImPlot3D::SetNextLineStyle(ImVec4(0, 0, 0, 1), 1);
+
+            char label[32];
+            snprintf(label, sizeof(label), "Plane %d", plane);
+            ImPlot3D::PlotTriangle(label, &xs[start_idx], &ys[start_idx], &zs[start_idx], vertex_count, flags);
+        }
+
+        ImPlot3D::EndPlot();
+    }
+}
+
 void DemoQuadPlots() {
     static float xs[6 * 4], ys[6 * 4], zs[6 * 4];
 
@@ -952,6 +1050,7 @@ void ShowAllDemos() {
             DemoHeader("Mesh Plots", DemoMeshPlots);
             DemoHeader("Realtime Plots", DemoRealtimePlots);
             DemoHeader("Image Plots", DemoImagePlots);
+            DemoHeader("Sorting Precision", DemoSortingPrecision);
 
             // Plot Options
             ImGui::SeparatorText("Plot Options");
