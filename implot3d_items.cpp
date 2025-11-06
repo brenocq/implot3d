@@ -42,6 +42,8 @@
 #include "implot3d.h"
 #include "implot3d_internal.h"
 
+#include <cmath>
+
 #ifndef IMGUI_DISABLE
 
 //-----------------------------------------------------------------------------
@@ -301,6 +303,13 @@ void SetNextMarkerStyle(ImPlot3DMarker marker, float size, const ImVec4& fill, f
     n.MarkerSize = size;
     n.Colors[ImPlot3DCol_MarkerOutline] = outline;
     n.MarkerWeight = weight;
+}
+
+
+void SetNextItemZDepth(float z_depth) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    ImPlot3DNextItemData& n = gp.NextItemData;
+    n.ZBuffer = z_depth;
 }
 
 //-----------------------------------------------------------------------------
@@ -872,8 +881,15 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
         draw_list_3d._IdxWritePtr += 6;
 
         // Add depth values for the two triangles
-        draw_list_3d._ZWritePtr[0] = GetPointDepth((p_plot[0] + p_plot[1] + p_plot[2]) / 3.0f);
-        draw_list_3d._ZWritePtr[1] = GetPointDepth((p_plot[0] + p_plot[2] + p_plot[3]) / 3.0f);
+        if (std::isnan(n.ZBuffer)) {
+            draw_list_3d._ZWritePtr[0] = GetPointDepth((p_plot[0] + p_plot[1] + p_plot[2]) / 3.0f);
+            draw_list_3d._ZWritePtr[1] = GetPointDepth((p_plot[0] + p_plot[2] + p_plot[3]) / 3.0f);
+        }
+        else {
+            draw_list_3d._ZWritePtr[0] = n.ZBuffer;
+            draw_list_3d._ZWritePtr[1] = n.ZBuffer;
+        }
+
         draw_list_3d._ZWritePtr += 2;
 
         // Update vertex count

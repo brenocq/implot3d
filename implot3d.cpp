@@ -347,6 +347,12 @@ void RenderLegend() {
     const ImGuiIO& IO = ImGui::GetIO();
 
     ImPlot3DLegend& legend = plot.Items.Legend;
+
+    if (legend.Font != nullptr) {
+        ImGui::PushFont(legend.Font);
+    }
+
+
     const bool legend_horz = ImPlot3D::ImHasFlag(legend.Flags, ImPlot3DLegendFlags_Horizontal);
     const ImVec2 legend_size = CalcLegendSize(plot.Items, gp.Style.LegendInnerPadding, gp.Style.LegendSpacing, !legend_horz);
     const ImVec2 legend_pos = GetLocationPos(plot.PlotRect, legend_size, legend.Location, gp.Style.LegendPadding);
@@ -363,7 +369,34 @@ void RenderLegend() {
 
     // Render legends
     ShowLegendEntries(plot.Items, legend.Rect, legend.Hovered, gp.Style.LegendInnerPadding, gp.Style.LegendSpacing, !legend_horz, *draw_list);
+
+    if (legend.Font != nullptr) {
+        ImGui::PopFont();
+    }
 }
+
+
+bool BeginLegendPopup(const char* label_id, ImGuiMouseButton mouse_button) {
+    auto& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentItems != nullptr, "BeginLegendPopup() needs to be called within an itemized context!");
+    SetupLock();
+    ImGuiWindow* window = GImGui->CurrentWindow;
+    if (window->SkipItems)
+        return false;
+    auto item = RegisterOrGetItem(label_id, ImPlot3DItemFlags_None, nullptr);
+    auto id = item->ID;
+    if (ImGui::IsMouseReleased(mouse_button) && item && item->LegendHovered) {
+        ImGui::OpenPopupEx(id);
+    }
+    return ImGui::BeginPopupEx(id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings);
+}
+
+
+void EndLegendPopup() {
+    SetupLock();
+    ImGui::EndPopup();
+}
+
 
 //-----------------------------------------------------------------------------
 // [SECTION] Mouse Position Utils
@@ -1392,6 +1425,40 @@ void ShowPlotContextMenu(ImPlot3DPlot& plot) {
     }
 }
 
+//
+// Axis Utils
+//
+
+// Round a value to a given precision
+static inline double RoundTo(double val, int prec) { double p = pow(10,(double)prec); return floor(val*p+0.5)/p; }
+// Returns the precision required for a order of magnitude.
+static inline int OrderToPrecision(int order) { return order > 0 ? 0 : 1 - order; }
+// Computes order of magnitude of double.
+static inline int OrderOfMagnitude(double val) { return val == 0 ? 0 : (int)(floor(log10(fabs(val)))); }
+// Returns a floating point precision to use given a value
+static inline int Precision(double val) { return OrderToPrecision(OrderOfMagnitude(val)); }
+
+static inline int AxisPrecision(const ImPlot3DAxis& axis) {
+    const double range = axis.Ticker.TickCount() > 1 ? (axis.Ticker.Ticks[1].PlotPos - axis.Ticker.Ticks[0].PlotPos) : axis.Range.Size();
+    return Precision(range);
+}
+
+
+static inline double RoundAxisValue(const ImPlot3DAxis& axis, double value) {
+    return RoundTo(value, AxisPrecision(axis));
+}
+
+void LabelAxisValue(const ImPlot3DAxis& axis, double value, char* buff, int size, bool round) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    // TODO: We shouldn't explicitly check that the axis is Time here. Ideally,
+    // Formatter_Time would handle the formatting for us, but the code below
+    // needs additional arguments which are not currently available in ImPlotFormatter
+    if (round)
+        value = RoundAxisValue(axis, value);
+    axis.Formatter(value, buff, size, axis.FormatterData);
+}
+
+
 //-----------------------------------------------------------------------------
 // [SECTION] Begin/End Plot
 //-----------------------------------------------------------------------------
@@ -1404,6 +1471,8 @@ bool BeginPlot(const char* title_id, const ImVec2& size, ImPlot3DFlags flags) {
     // Get window
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
+
+    gp.Annotations.Reset();
 
     // Skip if needed
     if (window->SkipItems)
@@ -1523,6 +1592,55 @@ void EndPlot() {
 
     // Pop plot rect clipping
     ImGui::PopClipRect();
+
+
+    // render annotations
+    if (gp.Annotations.Size > 0u) {
+        ImGuiContext &G       = *GImGui;
+        auto Window  = G.CurrentWindow;
+        auto& DrawList = *Window->DrawList;
+
+        PushPlotClipRect();
+        for (int i = 0; i < gp.Annotations.Size; ++i) {
+            const char* txt = gp.Annotations.GetText(i);
+            ImPlot3DAnnotation& an = gp.Annotations.Annotations[i];
+            const ImVec2 txt_size = ImGui::CalcTextSize(txt);
+            const ImVec2 size = txt_size + gp.Style.AnnotationPadding * 2;
+            ImVec2 pos = an.Pos;
+            if (an.Offset.x == 0)
+                pos.x -= size.x / 2;
+            else if (an.Offset.x > 0)
+                pos.x += an.Offset.x;
+            else
+                pos.x -= size.x - an.Offset.x;
+            if (an.Offset.y == 0)
+                pos.y -= size.y / 2;
+            else if (an.Offset.y > 0)
+                pos.y += an.Offset.y;
+            else
+                pos.y -= size.y - an.Offset.y;
+            if (an.Clamp)
+                pos = ClampLabelPos(pos, size, plot.PlotRect.Min, plot.PlotRect.Max);
+            ImRect rect(pos, pos + size);
+            if (an.Offset.x != 0 || an.Offset.y != 0) {
+                ImVec2 corners[4] = {rect.GetTL(), rect.GetTR(), rect.GetBR(), rect.GetBL()};
+                int min_corner = 0;
+                float min_len = FLT_MAX;
+                for (int c = 0; c < 4; ++c) {
+                    float len = ImLengthSqr(an.Pos - corners[c]);
+                    if (len < min_len) {
+                        min_corner = c;
+                        min_len = len;
+                    }
+                }
+                DrawList.AddLine(an.Pos, corners[min_corner], an.ColorBg);
+            }
+            DrawList.AddRectFilled(rect.Min, rect.Max, an.ColorBg);
+            DrawList.AddText(pos + gp.Style.AnnotationPadding, an.ColorFg, txt);
+        }
+        PopPlotClipRect();
+    }
+
 
     // Reset legend hover
     plot.Items.Legend.Hovered = false;
@@ -1763,6 +1881,16 @@ void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags flags) {
     legend.PreviousFlags = flags;
 }
 
+void SetupLegendFont(ImFont* Font)
+{
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
+                         "SetupLegend() needs to be called after BeginPlot() and before any setup locking functions (e.g. PlotX)!");
+    IM_ASSERT_USER_ERROR(gp.CurrentItems != nullptr, "SetupLegend() needs to be called within an itemized context!");
+    ImPlot3DLegend& legend = gp.CurrentItems->Legend;
+    legend.Font = Font;
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Plot Utils
 //-----------------------------------------------------------------------------
@@ -1974,6 +2102,44 @@ ImPlot3DRay NDCRayToPlotRay(const ImPlot3DRay& ray) {
     plot_ray.Direction = plot_direction;
 
     return plot_ray;
+}
+
+
+//-----------------------------------------------------------------------------
+// [SECTION] Plot Tools
+//-----------------------------------------------------------------------------
+
+void Annotation(double x, double y, double z, const ImVec4& col, const ImVec2& offset, bool clamp, bool round) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "Annotation() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    char x_buff[IMPLOT3D_LABEL_MAX_SIZE];
+    char y_buff[IMPLOT3D_LABEL_MAX_SIZE];
+    char z_buff[IMPLOT3D_LABEL_MAX_SIZE];
+    ImPlot3DAxis& x_axis = gp.CurrentPlot->Axes[0];
+    ImPlot3DAxis& y_axis = gp.CurrentPlot->Axes[1];
+    ImPlot3DAxis& z_axis = gp.CurrentPlot->Axes[2];
+    LabelAxisValue(x_axis, x, x_buff, sizeof(x_buff), round);
+    LabelAxisValue(y_axis, y, y_buff, sizeof(y_buff), round);
+    LabelAxisValue(z_axis, z, z_buff, sizeof(z_buff), round);
+    Annotation(x,y,z,col,offset,clamp,"%s, %s, &s",x_buff,y_buff,z_buff);
+}
+
+void AnnotationV(double x, double y, double z, const ImVec4& col, const ImVec2& offset, bool clamp, const char* fmt, va_list args) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "Annotation() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    ImVec2 pos = PlotToPixels(ImPlot3DPoint(x,y,z));
+    ImU32  bg  = ImGui::GetColorU32(col);
+    ImU32  fg  = col.w == 0 ? GetStyleColorU32(ImPlot3DCol_InlayText) : CalcTextColor(col);
+    gp.Annotations.AppendV(pos, offset, bg, fg, clamp, fmt, args);
+}
+
+void Annotation(double x, double y, double z, const ImVec4& col, const ImVec2& offset, bool clamp, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    AnnotationV(x,y,z,col,offset,clamp,fmt,args);
+    va_end(args);
 }
 
 //-----------------------------------------------------------------------------
@@ -2465,6 +2631,21 @@ void SetupLock() {
 
 ImDrawList* GetPlotDrawList() { return ImGui::GetWindowDrawList(); }
 
+void PushPlotClipRect(float expand) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "PushPlotClipRect() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    ImRect rect = gp.CurrentPlot->PlotRect;
+    rect.Expand(expand);
+    ImGui::PushClipRect(rect.Min, rect.Max, true);
+}
+
+void PopPlotClipRect() {
+    SetupLock();
+    ImGui::PopClipRect();
+}
+
+
 //-----------------------------------------------------------------------------
 // [SECTION] Styles
 //-----------------------------------------------------------------------------
@@ -2920,6 +3101,7 @@ void ResetContext(ImPlot3DContext* ctx) {
     ctx->CurrentItem = nullptr;
     ctx->NextItemData.Reset();
     ctx->Style = ImPlot3DStyle();
+    ctx->Annotations.Reset();
 }
 
 //-----------------------------------------------------------------------------
