@@ -737,6 +737,8 @@ struct ImPlot3DPlot {
     bool ContextClick; // True if context button was clicked (to distinguish from double click)
     bool OpenContextThisFrame;
 
+    ImVec2 StretchViewScale;
+
     ImPlot3DPlot() {
         PreviousFlags = Flags = ImPlot3DFlags_None;
         JustCreated = true;
@@ -756,6 +758,7 @@ struct ImPlot3DPlot {
         FitThisFrame = true;
         ContextClick = false;
         OpenContextThisFrame = false;
+        StretchViewScale = ImVec2(1.0f, 1.0f);
     }
 
     inline void SetTitle(const char* title) {
@@ -785,12 +788,17 @@ struct ImPlot3DPlot {
     // Returns the scale of the plot view (constant to convert from NDC coordinates to pixels coordinates)
     float GetViewScale() const;
 
+    ImVec2 GetViewStretchScale() const;
+
     // Returns the scale of the plot box in each dimension
     ImPlot3DPoint GetBoxScale() const;
 
     // Applies equal aspect ratio constraint using the specified axis as reference.
     // Other axes are adjusted to match the reference axis's aspect ratio (units per NDC unit).
     void ApplyEqualAspect(ImAxis3D ref_axis);
+
+
+    void AutoScaleBox();
 };
 
 struct ImPlot3DContext {
