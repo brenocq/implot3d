@@ -25,9 +25,10 @@ If you encounter a bug, please help us by reporting it.
 If you're ready to write some code, we'd love your help.
 
 1.  **Indicate Your Intent**: To avoid duplicated effort, please comment on the relevant issue or create a new one to let the community know you plan to work on it.
-2.  **Fork and Branch**: Fork the repository and create a new branch from `main` for your changes.
+2.  **Fork**: Fork the repository.
 3.  **Implement**: Write your code, following the project's standards outlined below.
 4.  **Open a Pull Request**: Submit a [pull request](https://github.com/brenocq/implot3d/compare) targeting the `main` branch.
+    - Note: Make sure to include a demo in `implot3d_demo.cpp` if you are adding a new feature.
 
 -----
 
