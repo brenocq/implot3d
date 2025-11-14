@@ -27,6 +27,7 @@
 // [SECTION] Locator
 
 #pragma once
+#include <limits>
 
 #ifndef IMPLOT3D_VERSION
 #include "implot3d.h"
@@ -34,6 +35,7 @@
 
 #ifndef IMGUI_DISABLE
 #include "imgui_internal.h"
+
 
 //-----------------------------------------------------------------------------
 // [SECTION] Constants
@@ -181,6 +183,7 @@ struct ImPlot3DNextItemData {
     bool IsAutoFill;
     bool IsAutoLine;
     bool Hidden;
+    float ZBuffer;
 
     ImPlot3DNextItemData() { Reset(); }
 
@@ -199,6 +202,7 @@ struct ImPlot3DNextItemData {
         IsAutoFill = true;
         IsAutoLine = true;
         Hidden = false;
+        ZBuffer = std::numeric_limits<float>::quiet_NaN();
     }
 };
 
@@ -309,6 +313,63 @@ struct ImPlot3DColormapData {
     }
 };
 
+
+// Interior plot label/annotation
+struct ImPlot3DAnnotation {
+    ImVec2 Pos;
+    ImVec2 Offset;
+    ImU32  ColorBg;
+    ImU32  ColorFg;
+    int    TextOffset;
+    bool   Clamp;
+    ImPlot3DAnnotation() {
+        ColorBg = ColorFg = 0;
+        TextOffset = 0;
+        Clamp = false;
+    }
+};
+
+// Collection of plot labels
+struct ImPlot3DAnnotationCollection {
+
+    ImVector<ImPlot3DAnnotation> Annotations;
+    ImGuiTextBuffer            TextBuffer;
+    int                        Size;
+
+    ImPlot3DAnnotationCollection() { Reset(); }
+
+    void AppendV(const ImVec2& pos, const ImVec2& off, ImU32 bg, ImU32 fg, bool clamp, const char* fmt,  va_list args) IM_FMTLIST(7) {
+        ImPlot3DAnnotation an;
+        an.Pos = pos; an.Offset = off;
+        an.ColorBg = bg; an.ColorFg = fg;
+        an.TextOffset = TextBuffer.size();
+        an.Clamp = clamp;
+        Annotations.push_back(an);
+        TextBuffer.appendfv(fmt, args);
+        const char nul[] = "";
+        TextBuffer.append(nul,nul+1);
+        Size++;
+    }
+
+    void Append(const ImVec2& pos, const ImVec2& off, ImU32 bg, ImU32 fg, bool clamp, const char* fmt,  ...) IM_FMTARGS(7) {
+        va_list args;
+        va_start(args, fmt);
+        AppendV(pos, off, bg, fg, clamp, fmt, args);
+        va_end(args);
+    }
+
+    const char* GetText(int idx) {
+        return TextBuffer.Buf.Data + Annotations[idx].TextOffset;
+    }
+
+    void Reset() {
+        Annotations.shrink(0);
+        TextBuffer.Buf.shrink(0);
+        Size = 0;
+    }
+};
+
+
 // State information for plot items
 struct ImPlot3DItem {
     ImGuiID ID;
@@ -338,6 +399,7 @@ struct ImPlot3DLegend {
     ImVector<int> Indices;
     ImGuiTextBuffer Labels;
     ImRect Rect;
+    ImFont* Font{nullptr};
     bool Hovered;
     bool Held;
 
@@ -675,6 +737,8 @@ struct ImPlot3DPlot {
     bool ContextClick; // True if context button was clicked (to distinguish from double click)
     bool OpenContextThisFrame;
 
+    ImVec2 StretchViewScale;
+
     ImPlot3DPlot() {
         PreviousFlags = Flags = ImPlot3DFlags_None;
         JustCreated = true;
@@ -694,6 +758,7 @@ struct ImPlot3DPlot {
         FitThisFrame = true;
         ContextClick = false;
         OpenContextThisFrame = false;
+        StretchViewScale = ImVec2(1.0f, 1.0f);
     }
 
     inline void SetTitle(const char* title) {
@@ -723,12 +788,17 @@ struct ImPlot3DPlot {
     // Returns the scale of the plot view (constant to convert from NDC coordinates to pixels coordinates)
     float GetViewScale() const;
 
+    ImVec2 GetViewStretchScale() const;
+
     // Returns the scale of the plot box in each dimension
     ImPlot3DPoint GetBoxScale() const;
 
     // Applies equal aspect ratio constraint using the specified axis as reference.
     // Other axes are adjusted to match the reference axis's aspect ratio (units per NDC unit).
     void ApplyEqualAspect(ImAxis3D ref_axis);
+
+
+    void AutoScaleBox();
 };
 
 struct ImPlot3DContext {
@@ -742,6 +812,7 @@ struct ImPlot3DContext {
     ImVector<ImGuiStyleMod> StyleModifiers;
     ImVector<ImPlot3DColormap> ColormapModifiers;
     ImPlot3DColormapData ColormapData;
+    ImPlot3DAnnotationCollection Annotations;
 };
 
 //-----------------------------------------------------------------------------
@@ -788,6 +859,15 @@ IMPLOT3D_API ImU32 NextColormapColorU32();
 // Render a colormap bar
 IMPLOT3D_API void RenderColorBar(const ImU32* colors, int size, ImDrawList& DrawList, const ImRect& bounds, bool vert, bool reversed,
                                  bool continuous);
+
+// Clamps a label position so that it fits a rect defined by Min/Max
+static inline ImVec2 ClampLabelPos(ImVec2 pos, const ImVec2& size, const ImVec2& Min, const ImVec2& Max) {
+    if (pos.x < Min.x)              pos.x = Min.x;
+    if (pos.y < Min.y)              pos.y = Min.y;
+    if ((pos.x + size.x) > Max.x)   pos.x = Max.x - size.x;
+    if ((pos.y + size.y) > Max.y)   pos.y = Max.y - size.y;
+    return pos;
+}
 
 //-----------------------------------------------------------------------------
 // [SECTION] Item Utils

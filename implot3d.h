@@ -107,6 +107,8 @@ enum ImPlot3DFlags_ {
     ImPlot3DFlags_NoClip = 1 << 3,      // Disable 3D box clipping
     ImPlot3DFlags_NoMenus = 1 << 4,     // The user will not be able to open context menus
     ImPlot3DFlags_Equal = 1 << 5,       // X, Y, and Z axes will be constrained to have the same units/pixel
+    ImPlot3DFlags_AutoScaleBox = 1 << 6,
+    ImPlot3DFlags_StretchBox = 1 << 7,
     ImPlot3DFlags_CanvasOnly = ImPlot3DFlags_NoTitle | ImPlot3DFlags_NoLegend | ImPlot3DFlags_NoMouseText,
 };
 
@@ -254,6 +256,7 @@ enum ImPlot3DLegendFlags_ {
     ImPlot3DLegendFlags_NoHighlightItem = 1 << 1, // Plot items will not be highlighted when their legend entry is hovered
     ImPlot3DLegendFlags_Horizontal = 1 << 2,      // Legend entries will be displayed horizontally
 };
+
 
 // Used to position legend on a plot
 enum ImPlot3DLocation_ {
@@ -434,6 +437,14 @@ IMPLOT3D_API void SetupBoxScale(float x, float y, float z);
 
 IMPLOT3D_API void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags flags = 0);
 
+IMPLOT3D_API void SetupLegendFont(ImFont* Font);
+
+// Begin a popup for a legend entry.
+IMPLOT3D_API bool BeginLegendPopup(const char* label_id, ImGuiMouseButton mouse_button=1);
+// End a popup for a legend entry.
+IMPLOT3D_API void EndLegendPopup();
+
+
 //-----------------------------------------------------------------------------
 // [SECTION] Plot Items
 //-----------------------------------------------------------------------------
@@ -486,6 +497,15 @@ IMPLOT3D_API void PlotText(const char* text, float x, float y, float z, float an
 // [SECTION] Plot Utils
 //-----------------------------------------------------------------------------
 
+// Shows an annotation callout at a chosen point. Clamping keeps annotations in the plot area. Annotations are always rendered on top.
+IMPLOT3D_API void Annotation(double x, double y, double z, const ImVec4& col, const ImVec2& pix_offset, bool clamp, bool round = false);
+IMPLOT3D_API void Annotation(double x, double y, double z, const ImVec4& col, const ImVec2& pix_offset, bool clamp, const char* fmt, ...)           IM_FMTARGS(6);
+IMPLOT3D_API void AnnotationV(double x, double y, double z, const ImVec4& col, const ImVec2& pix_offset, bool clamp, const char* fmt, va_list args) IM_FMTLIST(6);
+
+//-----------------------------------------------------------------------------
+// [SECTION] Plot Utils
+//-----------------------------------------------------------------------------
+
 // Convert a position in the current plot's coordinate system to pixels
 IMPLOT3D_API ImVec2 PlotToPixels(const ImPlot3DPoint& point);
 IMPLOT3D_API ImVec2 PlotToPixels(double x, double y, double z);
@@ -504,7 +524,9 @@ IMPLOT3D_API ImVec2 GetPlotSize(); // Get the current plot size in pixels
 //-----------------------------------------------------------------------------
 
 IMPLOT3D_API ImDrawList* GetPlotDrawList();
-
+// Push clip rect for rendering to current plot area. The rect can be expanded or contracted by #expand pixels. Call between Begin/EndPlot.
+IMPLOT3D_API void PushPlotClipRect(float expand=0);
+IMPLOT3D_API void PopPlotClipRect();
 //-----------------------------------------------------------------------------
 // [SECTION] Styles
 //-----------------------------------------------------------------------------
@@ -541,6 +563,9 @@ IMPLOT3D_API void SetNextFillStyle(const ImVec4& col = IMPLOT3D_AUTO_COL, float 
 // Set the marker style for the next item only
 IMPLOT3D_API void SetNextMarkerStyle(ImPlot3DMarker marker = IMPLOT3D_AUTO, float size = IMPLOT3D_AUTO, const ImVec4& fill = IMPLOT3D_AUTO_COL,
                                      float weight = IMPLOT3D_AUTO, const ImVec4& outline = IMPLOT3D_AUTO_COL);
+
+// Sets a constant ZDepth value for the next item
+IMPLOT3D_API void SetNextItemZDepth(float z_depth);
 
 // Get color
 IMPLOT3D_API ImVec4 GetStyleColorVec4(ImPlot3DCol idx);
@@ -817,6 +842,7 @@ struct ImPlot3DStyle {
     ImVec2 PlotPadding;
     ImVec2 LabelPadding;
     float ViewScaleFactor;
+    ImVec2 AnnotationPadding;
     // Legend style
     ImVec2 LegendPadding;      // Legend padding from plot edges
     ImVec2 LegendInnerPadding; // Legend inner padding from legend edges

@@ -67,6 +67,9 @@
     IM_ASSERT_USER_ERROR(GImPlot3D != nullptr, "No current context. Did you call ImPlot3D::CreateContext() or ImPlot3D::SetCurrentContext()?")
 #define IMPLOT3D_CHECK_PLOT() IM_ASSERT_USER_ERROR(GImPlot3D->CurrentPlot != nullptr, "No active plot. Did you call ImPlot3D::BeginPlot()?")
 
+
+#define IMPLOT3D_TICK_OFFSET 20.0f
+
 //-----------------------------------------------------------------------------
 // [SECTION] Context
 //-----------------------------------------------------------------------------
@@ -347,6 +350,12 @@ void RenderLegend() {
     const ImGuiIO& IO = ImGui::GetIO();
 
     ImPlot3DLegend& legend = plot.Items.Legend;
+
+    if (legend.Font != nullptr) {
+        ImGui::PushFont(legend.Font);
+    }
+
+
     const bool legend_horz = ImPlot3D::ImHasFlag(legend.Flags, ImPlot3DLegendFlags_Horizontal);
     const ImVec2 legend_size = CalcLegendSize(plot.Items, gp.Style.LegendInnerPadding, gp.Style.LegendSpacing, !legend_horz);
     const ImVec2 legend_pos = GetLocationPos(plot.PlotRect, legend_size, legend.Location, gp.Style.LegendPadding);
@@ -363,7 +372,34 @@ void RenderLegend() {
 
     // Render legends
     ShowLegendEntries(plot.Items, legend.Rect, legend.Hovered, gp.Style.LegendInnerPadding, gp.Style.LegendSpacing, !legend_horz, *draw_list);
+
+    if (legend.Font != nullptr) {
+        ImGui::PopFont();
+    }
 }
+
+
+bool BeginLegendPopup(const char* label_id, ImGuiMouseButton mouse_button) {
+    auto& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentItems != nullptr, "BeginLegendPopup() needs to be called within an itemized context!");
+    SetupLock();
+    ImGuiWindow* window = GImGui->CurrentWindow;
+    if (window->SkipItems)
+        return false;
+    auto item = RegisterOrGetItem(label_id, ImPlot3DItemFlags_None, nullptr);
+    auto id = item->ID;
+    if (ImGui::IsMouseReleased(mouse_button) && item && item->LegendHovered) {
+        ImGui::OpenPopupEx(id);
+    }
+    return ImGui::BeginPopupEx(id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings);
+}
+
+
+void EndLegendPopup() {
+    SetupLock();
+    ImGui::EndPopup();
+}
+
 
 //-----------------------------------------------------------------------------
 // [SECTION] Mouse Position Utils
@@ -797,6 +833,17 @@ void RenderTickMarks(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPl
             ImVec2 T1_screen = NDCToPixels(T1_ndc);
             ImVec2 T2_screen = NDCToPixels(T2_ndc);
 
+            // change ticks measures to fixed pixels
+            const float major_size_px = 16.0f;
+            const float minor_size_px = 8.0f;
+            const float size_tick_px = tick.Major ? major_size_px : minor_size_px;
+            ImVec2 T0_screen = (T1_screen + T2_screen) * 0.5f;
+            ImVec2 dT0_screen = T2_screen - T1_screen;
+            dT0_screen *= size_tick_px / ImSqrt(ImLengthSqr(dT0_screen));
+
+            T1_screen = T0_screen - dT0_screen * 0.5f;
+            T2_screen = T0_screen + dT0_screen * 0.5f;
+
             draw_list->AddLine(T1_screen, T2_screen, col_tick);
         }
     }
@@ -850,7 +897,7 @@ void RenderTickLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
             offset_dir_pix = -offset_dir_pix;
 
         // Adjust the offset magnitude
-        float offset_magnitude = 20.0f; // TODO Calculate based on label size
+        float offset_magnitude = IMPLOT3D_TICK_OFFSET; // TODO Calculate based on label size
         ImVec2 offset_pix = offset_dir_pix * offset_magnitude;
 
         // Compute angle perpendicular to axis in screen space
@@ -918,10 +965,26 @@ void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
         ImPlot3DPoint label_pos = (PlotToNDC(corners[idx0]) + PlotToNDC(corners[idx1])) * 0.5f;
         ImPlot3DPoint center_dir = label_pos.Normalized();
         // Add offset
-        label_pos += center_dir * 0.3f;
+        //label_pos += center_dir * 0.3f;
 
         // Convert to pixel coordinates
         ImVec2 label_pos_pix = NDCToPixels(label_pos);
+        ImVec2 center_pos_pix = NDCToPixels(ImPlot3DPoint(0.0f, 0.0f, 0.0f));
+        ImVec2 delta_pix = (label_pos_pix - center_pos_pix);
+        float delta_invlen = 1.0f / ImSqrt(ImLengthSqr(delta_pix));
+
+        // We need to compute the margin with the ticks. To do so,
+        // we compute the largest tick and apply an extra margin
+        float ticks_length_pix = 0.0f;
+        for (auto tick = 0u; tick < axis.Ticker.TickCount(); ++tick) {
+            ticks_length_pix = ImMax(axis.Ticker.Ticks[tick].LabelSize.x, ticks_length_pix);
+        }
+
+        float label_height = ImGui::CalcTextSize(axis.GetLabel()).y;
+
+        delta_pix.x *= (IMPLOT3D_TICK_OFFSET + ticks_length_pix + 0.5f * label_height) * delta_invlen;
+        delta_pix.y *= (IMPLOT3D_TICK_OFFSET + ticks_length_pix + 0.5f * label_height) * delta_invlen;
+        label_pos_pix += delta_pix;
 
         // Adjust label position and angle
         ImU32 col_ax_txt = GetStyleColorU32(ImPlot3DCol_AxisText);
@@ -987,8 +1050,14 @@ void ComputeBoxCorners(ImPlot3DPoint* corners, const ImPlot3DPoint& range_min, c
 // Convert a position in the plot's NDC to pixels
 ImVec2 NDCToPixels(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
     ImVec2 center = plot.PlotRect.GetCenter();
+    ImVec2 stretchScale = plot.GetViewStretchScale();
+
     ImPlot3DPoint point_pix = plot.GetViewScale() * (plot.Rotation * point);
     point_pix.y *= -1.0f; // Invert y-axis
+
+    point_pix.x *= stretchScale.x;
+    point_pix.y *= stretchScale.y;
+
     point_pix.x += center.x;
     point_pix.y += center.y;
 
@@ -1177,13 +1246,29 @@ double NiceNum(double x, bool round) {
 }
 
 void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data) {
+
+
+    auto choose_minor_divisions = [](double interval) {
+        double p10 = pow(10.0, floor(log10(interval)));
+        double lead = interval / p10; // ~1, ~2, or ~5
+        int nMinor;
+        if (fabs(lead - 1.0) < 1e-9)
+            nMinor = 5; // 1*10^k -> minor step = 0.2*10^k
+        else if (fabs(lead - 2.0) < 1e-9)
+            nMinor = 4; // 2*10^k -> 0.5*10^k
+        else            /* ~5 */
+            nMinor = 5; // 5*10^k -> 1*10^k
+        return nMinor;
+    };
+
+
     if (range.Min == range.Max)
         return;
-    const int nMinor = ImMin(ImMax(1, (int)IM_ROUND(pixels / 30.0f)), 5);
     const int nMajor = ImMax(2, (int)IM_ROUND(pixels / 80.0f));
     const int max_ticks_labels = 7;
     const double nice_range = NiceNum(range.Size() * 0.99, false);
     const double interval = NiceNum(nice_range / (nMajor - 1), true);
+    const int nMinor = choose_minor_divisions(interval);
     const double graphmin = floor(range.Min / interval) * interval;
     const double graphmax = ceil(range.Max / interval) * interval;
     bool first_major_set = false;
@@ -1358,13 +1443,28 @@ void ShowPlotContextMenu(ImPlot3DPlot& plot) {
 
     if ((ImGui::BeginMenu("Box"))) {
         ImGui::PushItemWidth(75);
+
+        ImGui::CheckboxFlags("Stretch To Fill", (unsigned int*)&plot.Flags, ImPlot3DFlags_StretchBox);
+
+        if (ImGui::CheckboxFlags("Auto Scale", (unsigned int*)&plot.Flags, ImPlot3DFlags_AutoScaleBox)) {
+            if (!ImHasFlag(plot.Flags, ImPlot3DFlags_AutoScaleBox)) {
+                plot.Axes[0].NDCScale = 1.0f;
+                plot.Axes[1].NDCScale = 1.0f;
+                plot.Axes[2].NDCScale = 1.0f;
+            }
+        }
+
+
         float temp_scale[3] = {plot.Axes[0].NDCScale, plot.Axes[1].NDCScale, plot.Axes[2].NDCScale};
-        if (ImGui::DragFloat("Scale X", &temp_scale[0], 0.01f, 0.1f, 3.0f))
-            plot.Axes[0].NDCScale = ImMax(temp_scale[0], 0.01f);
-        if (ImGui::DragFloat("Scale Y", &temp_scale[1], 0.01f, 0.1f, 3.0f))
-            plot.Axes[1].NDCScale = ImMax(temp_scale[1], 0.01f);
-        if (ImGui::DragFloat("Scale Z", &temp_scale[2], 0.01f, 0.1f, 3.0f))
-            plot.Axes[2].NDCScale = ImMax(temp_scale[2], 0.01f);
+        if (!ImHasFlag(plot.Flags, ImPlot3DFlags_AutoScaleBox)) {
+            if (ImGui::DragFloat("Scale X", &temp_scale[0], 0.01f, 0.1f, 3.0f))
+                plot.Axes[0].NDCScale = ImMax(temp_scale[0], 0.01f);
+            if (ImGui::DragFloat("Scale Y", &temp_scale[1], 0.01f, 0.1f, 3.0f))
+                plot.Axes[1].NDCScale = ImMax(temp_scale[1], 0.01f);
+            if (ImGui::DragFloat("Scale Z", &temp_scale[2], 0.01f, 0.1f, 3.0f))
+                plot.Axes[2].NDCScale = ImMax(temp_scale[2], 0.01f);
+        }
+
         ImGui::PopItemWidth();
         ImGui::EndMenu();
     }
@@ -1392,6 +1492,40 @@ void ShowPlotContextMenu(ImPlot3DPlot& plot) {
     }
 }
 
+//
+// Axis Utils
+//
+
+// Round a value to a given precision
+static inline double RoundTo(double val, int prec) { double p = pow(10,(double)prec); return floor(val*p+0.5)/p; }
+// Returns the precision required for a order of magnitude.
+static inline int OrderToPrecision(int order) { return order > 0 ? 0 : 1 - order; }
+// Computes order of magnitude of double.
+static inline int OrderOfMagnitude(double val) { return val == 0 ? 0 : (int)(floor(log10(fabs(val)))); }
+// Returns a floating point precision to use given a value
+static inline int Precision(double val) { return OrderToPrecision(OrderOfMagnitude(val)); }
+
+static inline int AxisPrecision(const ImPlot3DAxis& axis) {
+    const double range = axis.Ticker.TickCount() > 1 ? (axis.Ticker.Ticks[1].PlotPos - axis.Ticker.Ticks[0].PlotPos) : axis.Range.Size();
+    return Precision(range);
+}
+
+
+static inline double RoundAxisValue(const ImPlot3DAxis& axis, double value) {
+    return RoundTo(value, AxisPrecision(axis));
+}
+
+void LabelAxisValue(const ImPlot3DAxis& axis, double value, char* buff, int size, bool round) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    // TODO: We shouldn't explicitly check that the axis is Time here. Ideally,
+    // Formatter_Time would handle the formatting for us, but the code below
+    // needs additional arguments which are not currently available in ImPlotFormatter
+    if (round)
+        value = RoundAxisValue(axis, value);
+    axis.Formatter(value, buff, size, axis.FormatterData);
+}
+
+
 //-----------------------------------------------------------------------------
 // [SECTION] Begin/End Plot
 //-----------------------------------------------------------------------------
@@ -1404,6 +1538,8 @@ bool BeginPlot(const char* title_id, const ImVec2& size, ImPlot3DFlags flags) {
     // Get window
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
+
+    gp.Annotations.Reset();
 
     // Skip if needed
     if (window->SkipItems)
@@ -1523,6 +1659,55 @@ void EndPlot() {
 
     // Pop plot rect clipping
     ImGui::PopClipRect();
+
+
+    // render annotations
+    if (gp.Annotations.Size > 0u) {
+        ImGuiContext &G       = *GImGui;
+        auto Window  = G.CurrentWindow;
+        auto& DrawList = *Window->DrawList;
+
+        PushPlotClipRect();
+        for (int i = 0; i < gp.Annotations.Size; ++i) {
+            const char* txt = gp.Annotations.GetText(i);
+            ImPlot3DAnnotation& an = gp.Annotations.Annotations[i];
+            const ImVec2 txt_size = ImGui::CalcTextSize(txt);
+            const ImVec2 size = txt_size + gp.Style.AnnotationPadding * 2;
+            ImVec2 pos = an.Pos;
+            if (an.Offset.x == 0)
+                pos.x -= size.x / 2;
+            else if (an.Offset.x > 0)
+                pos.x += an.Offset.x;
+            else
+                pos.x -= size.x - an.Offset.x;
+            if (an.Offset.y == 0)
+                pos.y -= size.y / 2;
+            else if (an.Offset.y > 0)
+                pos.y += an.Offset.y;
+            else
+                pos.y -= size.y - an.Offset.y;
+            if (an.Clamp)
+                pos = ClampLabelPos(pos, size, plot.PlotRect.Min, plot.PlotRect.Max);
+            ImRect rect(pos, pos + size);
+            if (an.Offset.x != 0 || an.Offset.y != 0) {
+                ImVec2 corners[4] = {rect.GetTL(), rect.GetTR(), rect.GetBR(), rect.GetBL()};
+                int min_corner = 0;
+                float min_len = FLT_MAX;
+                for (int c = 0; c < 4; ++c) {
+                    float len = ImLengthSqr(an.Pos - corners[c]);
+                    if (len < min_len) {
+                        min_corner = c;
+                        min_len = len;
+                    }
+                }
+                DrawList.AddLine(an.Pos, corners[min_corner], an.ColorBg);
+            }
+            DrawList.AddRectFilled(rect.Min, rect.Max, an.ColorBg);
+            DrawList.AddText(pos + gp.Style.AnnotationPadding, an.ColorFg, txt);
+        }
+        PopPlotClipRect();
+    }
+
 
     // Reset legend hover
     plot.Items.Legend.Hovered = false;
@@ -1763,6 +1948,16 @@ void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags flags) {
     legend.PreviousFlags = flags;
 }
 
+void SetupLegendFont(ImFont* Font)
+{
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
+                         "SetupLegend() needs to be called after BeginPlot() and before any setup locking functions (e.g. PlotX)!");
+    IM_ASSERT_USER_ERROR(gp.CurrentItems != nullptr, "SetupLegend() needs to be called within an itemized context!");
+    ImPlot3DLegend& legend = gp.CurrentItems->Legend;
+    legend.Font = Font;
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Plot Utils
 //-----------------------------------------------------------------------------
@@ -1974,6 +2169,44 @@ ImPlot3DRay NDCRayToPlotRay(const ImPlot3DRay& ray) {
     plot_ray.Direction = plot_direction;
 
     return plot_ray;
+}
+
+
+//-----------------------------------------------------------------------------
+// [SECTION] Plot Tools
+//-----------------------------------------------------------------------------
+
+void Annotation(double x, double y, double z, const ImVec4& col, const ImVec2& offset, bool clamp, bool round) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "Annotation() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    char x_buff[IMPLOT3D_LABEL_MAX_SIZE];
+    char y_buff[IMPLOT3D_LABEL_MAX_SIZE];
+    char z_buff[IMPLOT3D_LABEL_MAX_SIZE];
+    ImPlot3DAxis& x_axis = gp.CurrentPlot->Axes[0];
+    ImPlot3DAxis& y_axis = gp.CurrentPlot->Axes[1];
+    ImPlot3DAxis& z_axis = gp.CurrentPlot->Axes[2];
+    LabelAxisValue(x_axis, x, x_buff, sizeof(x_buff), round);
+    LabelAxisValue(y_axis, y, y_buff, sizeof(y_buff), round);
+    LabelAxisValue(z_axis, z, z_buff, sizeof(z_buff), round);
+    Annotation(x,y,z,col,offset,clamp,"%s, %s, &s",x_buff,y_buff,z_buff);
+}
+
+void AnnotationV(double x, double y, double z, const ImVec4& col, const ImVec2& offset, bool clamp, const char* fmt, va_list args) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "Annotation() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    ImVec2 pos = PlotToPixels(ImPlot3DPoint(x,y,z));
+    ImU32  bg  = ImGui::GetColorU32(col);
+    ImU32  fg  = col.w == 0 ? GetStyleColorU32(ImPlot3DCol_InlayText) : CalcTextColor(col);
+    gp.Annotations.AppendV(pos, offset, bg, fg, clamp, fmt, args);
+}
+
+void Annotation(double x, double y, double z, const ImVec4& col, const ImVec2& offset, bool clamp, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    AnnotationV(x,y,z,col,offset,clamp,fmt,args);
+    va_end(args);
 }
 
 //-----------------------------------------------------------------------------
@@ -2341,6 +2574,56 @@ void HandleInput(ImPlot3DPlot& plot) {
         }
     }
 
+    // BOX AUTO-SCALING -----------------------------------------------
+
+    if (ImHasFlag(plot.Flags, ImPlot3DFlags_AutoScaleBox)) {
+        plot.AutoScaleBox();
+    }
+
+
+    if (ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_StretchBox)) {
+        const ImPlot3DQuat& q = plot.Rotation;
+        const float x = q.x, y = q.y, z = q.z, w = q.w;
+
+        const float xx = x + x, yy = y + y, zz = z + z;
+        const float xy = x * yy, xz = x * zz, yz = y * zz;
+        const float wx = w * xx, wy = w * yy, wz = w * zz;
+
+        ImPlot3DPoint au, av;
+        const float f = plot.GetViewScale();
+        au.x = ImAbs(f * (1.0f - (y * yy + z * zz)) * plot.Axes[0].NDCScale);
+        au.y = ImAbs(f * (xy - wz) * plot.Axes[1].NDCScale);
+        au.z = ImAbs(f * (xz + wy) * plot.Axes[2].NDCScale);
+
+        av.x = ImAbs(f * (xy + wz) * plot.Axes[0].NDCScale);
+        av.y = ImAbs(f * (1.0f - (x * xx + z * zz)) * plot.Axes[1].NDCScale);
+        av.z = ImAbs(f * (yz - wx) * plot.Axes[2].NDCScale);
+
+        float labels_margin = 0.0f;
+        for (auto ax = 0u; ax < 3u; ++ax) {
+            // We need to compute the margin with the ticks. To do so,
+            // we compute the largest tick and apply an extra margin
+            const ImPlot3DAxis& axis = plot.Axes[ax];
+            float ticks_length_pix = 0.0f;
+            for (auto tick = 0u; tick < axis.Ticker.TickCount(); ++tick) {
+                ticks_length_pix = ImMax(axis.Ticker.Ticks[tick].LabelSize.x, ticks_length_pix);
+            }
+
+            float label_height = ImGui::CalcTextSize(axis.GetLabel()).y;
+
+            labels_margin = ImMax(labels_margin, label_height + ticks_length_pix + IMPLOT3D_TICK_OFFSET);
+        }
+
+        const float scale_x = (plot.PlotRect.GetWidth() - 2.0f*labels_margin) / (au.x + au.y + au.z);
+        const float scale_y = (plot.PlotRect.GetHeight() - 2.0f*labels_margin) / (av.x + av.y + av.z);
+
+        plot.StretchViewScale = ImVec2(scale_x, scale_y);
+    }
+    else {
+        plot.StretchViewScale = ImVec2(1.0f, 1.0f);
+    }
+
+
     // CONTEXT MENU -------------------------------------------------------------------
 
     // Handle context click with right mouse button
@@ -2398,6 +2681,7 @@ void SetupLock() {
             axis.Locator = Locator_Default;
     }
 
+
     // Draw frame background
     ImU32 f_bg_color = GetStyleColorU32(ImPlot3DCol_FrameBg);
     draw_list->AddRectFilled(plot.FrameRect.Min, plot.FrameRect.Max, f_bg_color);
@@ -2413,10 +2697,19 @@ void SetupLock() {
         double yar = plot.Axes[ImAxis3D_Y].GetAspect();
         double zar = plot.Axes[ImAxis3D_Z].GetAspect();
         if (!ImAlmostEqual(xar, yar) || !ImAlmostEqual(xar, zar)) {
-            double aspect = (xar + yar + zar) / 3.0;
-            plot.Axes[ImAxis3D_X].SetAspect(aspect);
-            plot.Axes[ImAxis3D_Y].SetAspect(aspect);
-            plot.Axes[ImAxis3D_Z].SetAspect(aspect);
+            if (!ImHasFlag(plot.Flags, ImPlot3DFlags_AutoScaleBox)) {
+                double aspect = (xar + yar + zar) / 3.0;
+                plot.Axes[ImAxis3D_X].SetAspect(aspect);
+                plot.Axes[ImAxis3D_Y].SetAspect(aspect);
+                plot.Axes[ImAxis3D_Z].SetAspect(aspect);
+            }
+            else {
+                double aspect = (xar + yar) / 2.0;
+                plot.Axes[ImAxis3D_X].SetAspect(aspect);
+                plot.Axes[ImAxis3D_Y].SetAspect(aspect);
+                plot.Axes[ImAxis3D_Z].SetAspect(aspect);
+
+            }
         }
     }
 
@@ -2464,6 +2757,21 @@ void SetupLock() {
 //-----------------------------------------------------------------------------
 
 ImDrawList* GetPlotDrawList() { return ImGui::GetWindowDrawList(); }
+
+void PushPlotClipRect(float expand) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "PushPlotClipRect() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    ImRect rect = gp.CurrentPlot->PlotRect;
+    rect.Expand(expand);
+    ImGui::PushClipRect(rect.Min, rect.Max, true);
+}
+
+void PopPlotClipRect() {
+    SetupLock();
+    ImGui::PopClipRect();
+}
+
 
 //-----------------------------------------------------------------------------
 // [SECTION] Styles
@@ -2920,6 +3228,7 @@ void ResetContext(ImPlot3DContext* ctx) {
     ctx->CurrentItem = nullptr;
     ctx->NextItemData.Reset();
     ctx->Style = ImPlot3DStyle();
+    ctx->Annotations.Reset();
 }
 
 //-----------------------------------------------------------------------------
@@ -3524,7 +3833,11 @@ void ImPlot3DPlot::SetRange(const ImPlot3DPoint& min, const ImPlot3DPoint& max) 
 }
 
 float ImPlot3DPlot::GetViewScale() const {
-    return ImMin(PlotRect.GetWidth(), PlotRect.GetHeight()) / 1.8f * ImPlot3D::GImPlot3D->Style.ViewScaleFactor;
+    return ImMin(PlotRect.GetWidth(), PlotRect.GetHeight()) / ImSqrt(3.0f) * ImPlot3D::GImPlot3D->Style.ViewScaleFactor;
+}
+
+ImVec2 ImPlot3DPlot::GetViewStretchScale() const {
+    return StretchViewScale;
 }
 
 ImPlot3DPoint ImPlot3DPlot::GetBoxScale() const { return ImPlot3DPoint(Axes[0].NDCSize(), Axes[1].NDCSize(), Axes[2].NDCSize()); }
@@ -3536,6 +3849,154 @@ void ImPlot3DPlot::ApplyEqualAspect(ImAxis3D ref_axis) {
             Axes[i].SetAspect(aspect);
         }
     }
+}
+
+
+void ImPlot3DPlot::AutoScaleBox() {
+
+    // Computes the scale (sx, sy, sz) where sx==sy, maximizing the fill of a W×H orthographic viewport.
+    // - q : object->camera orientation
+    // - viewport : { W, H }
+    // - scale_min/scale_max : allowed range for both the in-plane scale s (x,y) and the depth scale t (z)
+
+    // Build first two rows of rotation matrix from quaternion (x,y,z,w)
+    // Row-major: r1* are projections onto screen X, r2* onto screen Y in camera space.
+    const auto Row12FromQuat = [&](const ImPlot3DQuat& q, float& r11, float& r12, float& r13, float& r21, float& r22, float& r23) {
+        const float x = q.x, y = q.y, z = q.z, w = q.w;
+
+        const float xx = x + x, yy = y + y, zz = z + z;
+        const float xy = x * yy, xz = x * zz, yz = y * zz;
+        const float wx = w * xx, wy = w * yy, wz = w * zz;
+
+        // Standard 3x3 from unit quaternion
+        // r11 r12 r13
+        // r21 r22 r23
+        // r31 r32 r33
+        r11 = 1.0f - (y * yy + z * zz);
+        r12 = (xy - wz);
+        r13 = (xz + wy);
+
+        r21 = (xy + wz);
+        r22 = 1.0f - (x * xx + z * zz);
+        r23 = (yz - wx);
+    };
+
+    // Safe division (returns +INF-like large number when denom is ~0, but we clamp later anyway)
+    const auto SafeDiv = [&](float num, float den) {
+        const float eps = 1e-8f;
+        return (ImAbs(den) < eps) ? (1e30f) : (num / den);
+    };
+
+    // Compute best fit given fixed (s,t) bounds: solve both-edges-tight if possible,
+    // else fall back to t=0 and fit s.
+    const auto SolveST = [&](float A1, float A2, float B1, float B2, float W, float H, float& s, float& t) {
+        const float det = A1 * B2 - A2 * B1;
+        const float eps = 1e-8f;
+        if (ImAbs(det) > eps) {
+            s = (W * B2 - H * B1) / det;
+            t = (H * A1 - W * A2) / det;
+        } else {
+            // Nearly singular: local z is almost parallel to screen axes -> fit with t=0
+            t = 0.0f;
+            float sx = SafeDiv(W, ImMax(1e-8f, A1));
+            float sy = SafeDiv(H, ImMax(1e-8f, A2));
+            s = ImMin(sx, sy);
+        }
+    };
+
+    // Refit the other variable when one is clamped/fixed
+    const auto FitS_WithFixedT = [&](float A1, float A2, float B1, float B2, float W, float H, float t_fixed) {
+        float s1 = SafeDiv(W - t_fixed * B1, ImMax(1e-8f, A1));
+        float s2 = SafeDiv(H - t_fixed * B2, ImMax(1e-8f, A2));
+        return ImMin(s1, s2);
+    };
+    const auto FitT_WithFixedS = [&](float A1, float A2, float B1, float B2, float W, float H, float s_fixed) {
+        float t1 = SafeDiv(W - s_fixed * A1, ImMax(1e-8f, B1));
+        float t2 = SafeDiv(H - s_fixed * A2, ImMax(1e-8f, B2));
+        return ImMin(t1, t2);
+    };
+
+    // ---- main logic ----
+    const ImPlot3DQuat q = Rotation;
+
+    float r11, r12, r13, r21, r22, r23;
+    Row12FromQuat(q, r11, r12, r13, r21, r22, r23);
+
+    // Coeffs mapping (s,t) -> screen half-extent*2 (we work in full width/height directly)
+    const float A1 = ImAbs(r11) + ImAbs(r12); // contribution of s to width
+    const float A2 = ImAbs(r21) + ImAbs(r22); // contribution of s to height
+    const float B1 = ImAbs(r13);            // contribution of t to width
+    const float B2 = ImAbs(r23);            // contribution of t to height
+
+    float labels_margin = 0.0f;
+    for (auto ax = 0u; ax < 3u; ++ax) {
+        // We need to compute the margin with the ticks. To do so,
+        // we compute the largest tick and apply an extra margin
+        const ImPlot3DAxis& axis = Axes[ax];
+        float ticks_length_pix = 0.0f;
+        for (auto tick = 0u; tick < axis.Ticker.TickCount(); ++tick) {
+            ticks_length_pix = ImMax(axis.Ticker.Ticks[tick].LabelSize.x, ticks_length_pix);
+        }
+
+        float label_height = ImGui::CalcTextSize(axis.GetLabel()).y;
+
+        labels_margin = ImMax(labels_margin, label_height + ticks_length_pix + IMPLOT3D_TICK_OFFSET);
+    }
+
+    const float W = ImMax(0.0f, (PlotRect.GetWidth() - 2.0f*labels_margin) / GetViewScale());
+    const float H = ImMax(0.0f, (PlotRect.GetHeight() - 2.0f*labels_margin) / GetViewScale());
+
+    // Initial solve aiming to hit both W and H exactly.
+    float s, t;
+    SolveST(A1, A2, B1, B2, W, H, s, t);
+
+    // Enforce non-negativity before clamping (just in case)
+    s = ImMax(0.0f, s);
+    t = ImMax(0.0f, t);
+
+    // ImClamp to artistic/UX bounds
+    const auto scale_min = 0.8f;
+    const auto scale_max = 3.0f;
+    float s_clamped = ImClamp(s, scale_min, scale_max);
+    float t_clamped = ImClamp(t, scale_min, scale_max);
+
+    // If clamping changed anything, re-fit the other variable against both constraints.
+    if (s_clamped != s || t_clamped != t) {
+        s = s_clamped;
+        t = t_clamped;
+
+        // Try to fit s first with fixed t, then re-fit t with fixed s (one pass is enough and avoids oscillation).
+        float s_fit = FitS_WithFixedT(A1, A2, B1, B2, W, H, t);
+        s = ImClamp(ImMax(0.0f, s_fit), scale_min, scale_max);
+
+        float t_fit = FitT_WithFixedS(A1, A2, B1, B2, W, H, s);
+        t = ImClamp(ImMax(0.0f, t_fit), scale_min, scale_max);
+    }
+
+    // If after all that we still overshoot (numerical noise), lightly pull back to fit.
+    // Compute the used width/height and shrink uniformly by the tightest ratio.
+    const auto UsedW = [&](float s_, float t_) { return s_ * A1 + t_ * B1; };
+    const auto UsedH = [&](float s_, float t_) { return s_ * A2 + t_ * B2; };
+    float uw = UsedW(s, t), uh = UsedH(s, t);
+    float kW = (uw > 0.0f) ? (W / uw) : 1.0f;
+    float kH = (uh > 0.0f) ? (H / uh) : 1.0f;
+    float k = ImMin(kW, kH);
+    if (k < 1.0f) { // only shrink if needed
+        // Prefer to shrink s; if it would break bounds, share shrink with t.
+        float s_try = ImClamp(s * k, scale_min, scale_max);
+        float t_try = t;
+        float uw2 = UsedW(s_try, t_try), uh2 = UsedH(s_try, t_try);
+        if (uw2 > W + 1e-4f || uh2 > H + 1e-4f) {
+            t_try = ImClamp(t * k, scale_min, scale_max);
+        }
+        s = s_try;
+        t = t_try;
+    }
+
+
+    Axes[0].NDCScale = s;
+    Axes[1].NDCScale = s;
+    Axes[2].NDCScale = t;
 }
 
 //-----------------------------------------------------------------------------
