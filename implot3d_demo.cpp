@@ -1479,6 +1479,7 @@ void ShowAllDemos() {
 void ShowDemoWindow(bool* p_open) {
     static bool show_implot3d_metrics = false;
     static bool show_implot3d_style_editor = false;
+    static bool show_implot3d_about = false;
     static bool show_imgui_metrics = false;
     static bool show_imgui_style_editor = false;
     static bool show_imgui_demo = false;
@@ -1490,6 +1491,8 @@ void ShowDemoWindow(bool* p_open) {
         ImPlot3D::ShowStyleEditor();
         ImGui::End();
     }
+    if (show_implot3d_about)
+        ImPlot3D::ShowAboutWindow(&show_implot3d_about);
     if (show_imgui_style_editor) {
         ImGui::Begin("Style Editor (ImGui)", &show_imgui_style_editor);
         ImGui::ShowStyleEditor();
@@ -1507,6 +1510,7 @@ void ShowDemoWindow(bool* p_open) {
         if (ImGui::BeginMenu("Tools")) {
             ImGui::MenuItem("Metrics", nullptr, &show_implot3d_metrics);
             ImGui::MenuItem("Style Editor", nullptr, &show_implot3d_style_editor);
+            ImGui::MenuItem("About ImPlot3D", nullptr, &show_implot3d_about);
             ImGui::Separator();
             ImGui::MenuItem("ImGui Metrics", nullptr, &show_imgui_metrics);
             ImGui::MenuItem("ImGui Style Editor", nullptr, &show_imgui_style_editor);
@@ -1827,6 +1831,86 @@ void ShowStyleEditor(ImPlot3DStyle* ref) {
 
         ImGui::EndTabBar();
     }
+}
+
+void ShowAboutWindow(bool* p_open) {
+    if (!ImGui::Begin("About ImPlot3D", p_open, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::Text("ImPlot3D %s (%d)", IMPLOT3D_VERSION, IMPLOT3D_VERSION_NUM);
+
+    ImGui::TextLinkOpenURL("Homepage", "https://github.com/brenocq/implot3d");
+    ImGui::SameLine();
+    ImGui::TextLinkOpenURL("Q&A", "https://github.com/brenocq/implot3d/discussions/categories/q-a");
+    ImGui::SameLine();
+    ImGui::TextLinkOpenURL("Releases", "https://github.com/brenocq/implot3d/releases");
+    ImGui::SameLine();
+    ImGui::TextLinkOpenURL("Sponsors", "https://github.com/sponsors/brenocq");
+
+    ImGui::Separator();
+    ImGui::Text("(c) 2024-2025 Breno Cunha Queiroz");
+    ImGui::Text("Developed by Breno Cunha Queiroz and all ImPlot3D contributors.");
+    ImGui::Text("ImPlot3D is licensed under the MIT License.");
+    ImGui::Text("If your company uses ImPlot3D, please consider sponsoring the project.");
+
+    static bool show_config_info = false;
+    ImGui::Checkbox("Config/Build Information", &show_config_info);
+    if (show_config_info) {
+        bool copy_to_clipboard = ImGui::Button("Copy to clipboard");
+        ImVec2 child_size = ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 18);
+        ImGui::BeginChild(ImGui::GetID("cfg_infos"), child_size, ImGuiChildFlags_FrameStyle);
+        if (copy_to_clipboard) {
+            ImGui::LogToClipboard();
+            ImGui::LogText("```cpp\n");
+        }
+
+        ImGui::Text("ImPlot3D %s (%d)", IMPLOT3D_VERSION, IMPLOT3D_VERSION_NUM);
+        ImGui::Separator();
+        ImGui::Text("sizeof(size_t): %d, sizeof(ImPlot3DPoint): %d", (int)sizeof(size_t), (int)sizeof(ImPlot3DPoint));
+
+#ifdef IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
+        ImGui::Text("define: IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS");
+#endif
+
+        ImGui::Text("define: __cplusplus=%d", (int)__cplusplus);
+#ifdef _WIN32
+        ImGui::Text("define: _WIN32");
+#endif
+#ifdef _WIN64
+        ImGui::Text("define: _WIN64");
+#endif
+#ifdef __linux__
+        ImGui::Text("define: __linux__");
+#endif
+#ifdef __APPLE__
+        ImGui::Text("define: __APPLE__");
+#endif
+#ifdef _MSC_VER
+        ImGui::Text("define: _MSC_VER=%d", _MSC_VER);
+#endif
+#ifdef __MINGW32__
+        ImGui::Text("define: __MINGW32__");
+#endif
+#ifdef __MINGW64__
+        ImGui::Text("define: __MINGW64__");
+#endif
+#ifdef __GNUC__
+        ImGui::Text("define: __GNUC__=%d", (int)__GNUC__);
+#endif
+#ifdef __clang_version__
+        ImGui::Text("define: __clang_version__=%s", __clang_version__);
+#endif
+
+        if (copy_to_clipboard) {
+            ImGui::LogText("```\n");
+            ImGui::LogFinish();
+        }
+        ImGui::EndChild();
+    }
+
+    ImGui::End();
 }
 
 } // namespace ImPlot3D

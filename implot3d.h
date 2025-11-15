@@ -677,6 +677,9 @@ IMPLOT3D_API bool ShowColormapSelector(const char* label);
 // Shows ImPlot3D metrics/debug information window.
 IMPLOT3D_API void ShowMetricsWindow(bool* p_popen = nullptr);
 
+// Shows ImPlot3D about window.
+IMPLOT3D_API void ShowAboutWindow(bool* p_open = nullptr);
+
 } // namespace ImPlot3D
 
 //-----------------------------------------------------------------------------
