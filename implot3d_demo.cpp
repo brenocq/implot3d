@@ -913,6 +913,80 @@ void DemoCustomRendering() {
     }
 }
 
+void DemoLegendOptions() {
+    static ImPlot3DLocation loc = ImPlot3DLocation_East;
+    ImGui::CheckboxFlags("North", (unsigned int*)&loc, ImPlot3DLocation_North);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("South", (unsigned int*)&loc, ImPlot3DLocation_South);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("West", (unsigned int*)&loc, ImPlot3DLocation_West);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("East", (unsigned int*)&loc, ImPlot3DLocation_East);
+
+    static ImPlot3DLegendFlags flags = 0;
+
+    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_Horizontal);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Legend entries will be displayed horizontally");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_NoButtons);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Legend icons will not function as hide/show buttons");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_NoHighlightItem);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Plot items will not be highlighted when their legend entry is hovered");
+    }
+
+    ImGui::SliderFloat2("LegendPadding", (float*)&ImPlot3D::GetStyle().LegendPadding, 0.0f, 20.0f, "%.0f");
+    ImGui::SliderFloat2("LegendInnerPadding", (float*)&ImPlot3D::GetStyle().LegendInnerPadding, 0.0f, 10.0f, "%.0f");
+    ImGui::SliderFloat2("LegendSpacing", (float*)&ImPlot3D::GetStyle().LegendSpacing, 0.0f, 5.0f, "%.0f");
+
+    if (ImPlot3D::BeginPlot("Legend Options Demo", ImVec2(-1, 0))) {
+        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
+        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
+        ImPlot3D::SetupLegend(loc, flags);
+
+        // Generate some 3D line data
+        static float t = 0;
+        t += ImGui::GetIO().DeltaTime * 0.5f;
+
+        constexpr int count = 50;
+        static float xs1[count], ys1[count], zs1[count];
+        static float xs2[count], ys2[count], zs2[count];
+        static float xs3[count], ys3[count], zs3[count];
+
+        for (int i = 0; i < count; i++) {
+            float phase = i * 0.1f + t;
+            xs1[i] = 0.8f * cosf(phase);
+            ys1[i] = 0.8f * sinf(phase);
+            zs1[i] = 0.5f * sinf(phase * 2);
+
+            xs2[i] = 0.6f * cosf(phase + 1.0f);
+            ys2[i] = 0.6f * sinf(phase + 1.0f);
+            zs2[i] = -0.3f * cosf(phase * 1.5f);
+
+            xs3[i] = 0.4f * sinf(phase);
+            ys3[i] = 0.4f * cosf(phase);
+            zs3[i] = 0.7f * cosf(phase * 0.8f);
+        }
+
+        ImPlot3D::PlotLine("Helix A", xs1, ys1, zs1, count);
+        ImPlot3D::PlotLine("Helix B##IDText", xs2, ys2, zs2, count); // Text after ## used for ID only
+        ImPlot3D::PlotLine("##NotListed", xs3, ys3, zs3, count);     // Plotted, but not added to legend
+
+        ImPlot3D::EndPlot();
+    }
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Demo Window
 //-----------------------------------------------------------------------------
@@ -1005,6 +1079,7 @@ void ShowAllDemos() {
             // Plot Options
             ImGui::SeparatorText("Plot Options");
             DemoHeader("Plot Flags", DemoPlotFlags);
+            DemoHeader("Legend Options", DemoLegendOptions);
             DemoHeader("Markers and Text", DemoMarkersAndText);
             DemoHeader("NaN Values", DemoNaNValues);
             ImGui::EndTabItem();
