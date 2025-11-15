@@ -49,17 +49,12 @@ Below is a change-log of API breaking changes only. If you are using one of the 
 When you are not sure about an old symbol or function name, try using the Search/Find function of your IDE to look for comments or references in all
 implot3d files. You can read releases logs https://github.com/brenocq/implot3d/releases for more details.
 
-- 2025/10/22 (0.3) - **IMPORTANT** All coordinate types migrated from float to double precision to fix triangle sorting precision issues with large
-values:
+- 2025/10/22 (0.3) - **IMPORTANT** All plot coordinate types migrated from float to double precision to fix sorting issues with large values:
                        - ImPlot3DPoint members (x, y, z): float -> double
                        - ImPlot3DRange members (Min, Max): float -> double
                        - ImPlot3DQuat members (x, y, z, w): float -> double
                        - ImDrawList3D::ZBuffer: ImVector<float> -> ImVector<double>
                        - ImDrawList3D::_ZWritePtr: float* -> double*
-                     This change affects the public API. Users passing float arrays to plotting functions should be aware:
-                       - Float arrays are still accepted (templates handle conversion automatically)
-                       - Internal storage and calculations now use double precision
-                       - This provides ~15-17 decimal digits of precision vs ~6-7 with float
                      No code changes required for most users. Advanced users directly using ImPlot3DPoint, ImPlot3DRange, or ImPlot3DQuat
                      may need to update code that assumes float precision.
 - 2025/07/21 (0.3) - Renamed ImPlot3DPlot::GetBoxZoom() -> ImPlot3DPlot::GetViewScale() (internal API only).
@@ -1294,7 +1289,7 @@ void ShowAxisContextMenu(ImPlot3DPlot& plot, ImAxis3D axis_id) {
     bool ticks = axis.HasTickMarks();
     bool labels = axis.HasTickLabels();
     double drag_speed =
-        (axis.Range.Size() <= FLT_EPSILON) ? FLT_EPSILON * 1.0e+13 : 0.01 * axis.Range.Size(); // recover from almost equal axis limits.
+        (axis.Range.Size() <= DBL_EPSILON) ? DBL_EPSILON * 1.0e+13 : 0.01 * axis.Range.Size(); // Recover from almost equal axis limits
     const bool equal_aspect = ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_Equal);
 
     ImGui::BeginDisabled(always_locked);
@@ -1304,7 +1299,7 @@ void ShowAxisContextMenu(ImPlot3DPlot& plot, ImAxis3D axis_id) {
 
     ImGui::BeginDisabled(axis.IsLockedMin() || always_locked);
     float temp_min = axis.Range.Min;
-    if (ImGui::DragFloat("Min", &temp_min, (float)drag_speed, -HUGE_VAL, axis.Range.Max - FLT_EPSILON)) {
+    if (ImGui::DragFloat("Min", &temp_min, (float)drag_speed, -HUGE_VAL, axis.Range.Max - DBL_EPSILON)) {
         axis.SetMin(temp_min, true);
         // Apply equal aspect if needed
         if (equal_aspect)
@@ -1318,7 +1313,7 @@ void ShowAxisContextMenu(ImPlot3DPlot& plot, ImAxis3D axis_id) {
     ImGui::SameLine();
     ImGui::BeginDisabled(axis.IsLockedMax() || always_locked);
     float temp_max = axis.Range.Max;
-    if (ImGui::DragFloat("Max", &temp_max, (float)drag_speed, axis.Range.Min + FLT_EPSILON, HUGE_VAL)) {
+    if (ImGui::DragFloat("Max", &temp_max, (float)drag_speed, axis.Range.Min + DBL_EPSILON, HUGE_VAL)) {
         axis.SetMax(temp_max, true);
         // Apply equal aspect if needed
         if (equal_aspect)

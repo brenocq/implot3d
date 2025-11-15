@@ -52,22 +52,23 @@ namespace ImPlot3D {
 
 // Computes the common (base-10) logarithm
 static inline float ImLog10(float x) { return log10f(x); }
+static inline double ImLog10(double x) { return log10(x); }
 // Returns true if flag is set
 template <typename TSet, typename TFlag> static inline bool ImHasFlag(TSet set, TFlag flag) { return (set & flag) == flag; }
 // Flips a flag in a flagset
 template <typename TSet, typename TFlag> static inline void ImFlipFlag(TSet& set, TFlag flag) { ImHasFlag(set, flag) ? set &= ~flag : set |= flag; }
 template <typename T> static inline T ImRemap01(T x, T x0, T x1) { return (x1 - x0) ? ((x - x0) / (x1 - x0)) : 0; }
 // Returns true if val is NAN
-static inline bool ImNan(float val) { return isnan(val); }
+static inline bool ImNan(double val) { return isnan(val); }
 // Returns true if val is NAN or INFINITY
-static inline bool ImNanOrInf(float val) { return !(val >= -FLT_MAX && val <= FLT_MAX) || ImNan(val); }
+static inline bool ImNanOrInf(double val) { return !(val >= -DBL_MAX && val <= DBL_MAX) || ImNan(val); }
 // Turns NANs to 0s
-static inline double ImConstrainNan(float val) { return ImNan(val) ? 0 : val; }
+static inline double ImConstrainNan(double val) { return ImNan(val) ? 0 : val; }
 // Turns infinity to floating point maximums
-static inline double ImConstrainInf(double val) { return val >= FLT_MAX ? FLT_MAX : val <= -FLT_MAX ? -FLT_MAX : val; }
+static inline double ImConstrainInf(double val) { return val >= DBL_MAX ? DBL_MAX : val <= -DBL_MAX ? -DBL_MAX : val; }
 // True if two numbers are approximately equal using units in the last place.
 static inline bool ImAlmostEqual(double v1, double v2, int ulp = 2) {
-    return ImAbs(v1 - v2) < FLT_EPSILON * ImAbs(v1 + v2) * ulp || ImAbs(v1 - v2) < FLT_MIN;
+    return ImAbs(v1 - v2) < DBL_EPSILON * ImAbs(v1 + v2) * ulp || ImAbs(v1 - v2) < DBL_MIN;
 }
 // Set alpha channel of 32-bit color from float in range [0.0 1.0]
 static inline ImU32 ImAlphaU32(ImU32 col, float alpha) { return col & ~((ImU32)((1.0f - alpha) * 255) << IM_COL32_A_SHIFT); }
@@ -487,7 +488,7 @@ struct ImPlot3DAxis {
         FitExtents = ImPlot3DRange(HUGE_VAL, -HUGE_VAL);
         // Constraints
         ConstraintRange = ImPlot3DRange(-INFINITY, INFINITY);
-        ConstraintZoom = ImPlot3DRange(FLT_MIN, INFINITY);
+        ConstraintZoom = ImPlot3DRange(DBL_MIN, INFINITY);
         // User input
         Hovered = false;
         Held = false;
@@ -505,7 +506,7 @@ struct ImPlot3DAxis {
         FitExtents = ImPlot3DRange(HUGE_VAL, -HUGE_VAL);
         // Constraints
         ConstraintRange = ImPlot3DRange(-INFINITY, INFINITY);
-        ConstraintZoom = ImPlot3DRange(FLT_MIN, INFINITY);
+        ConstraintZoom = ImPlot3DRange(DBL_MIN, INFINITY);
     }
 
     inline void SetRange(double v1, double v2) {
@@ -576,7 +577,7 @@ struct ImPlot3DAxis {
             Range.Max -= delta;
         }
         if (Range.Max <= Range.Min)
-            Range.Max = Range.Min + FLT_EPSILON;
+            Range.Max = Range.Min + DBL_EPSILON;
     }
 
     inline bool IsRangeLocked() const { return RangeCond == ImPlot3DCond_Always; }
