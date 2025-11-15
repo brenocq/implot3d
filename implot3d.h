@@ -86,6 +86,7 @@ typedef int ImPlot3DQuadFlags;     // -> ImPlot3DQuadFlags_     // Flags: Quad p
 typedef int ImPlot3DSurfaceFlags;  // -> ImPlot3DSurfaceFlags_  // Flags: Surface plot flags
 typedef int ImPlot3DMeshFlags;     // -> ImPlot3DMeshFlags_     // Flags: Mesh plot flags
 typedef int ImPlot3DImageFlags;    // -> ImPlot3DImageFlags_    // Flags: Image plot flags
+typedef int ImPlot3DDummyFlags;    // -> ImPlot3DDummyFlags_    // Flags: Dummy flags
 typedef int ImPlot3DLegendFlags;   // -> ImPlot3DLegendFlags_   // Flags: Legend flags
 typedef int ImPlot3DAxisFlags;     // -> ImPlot3DAxisFlags_     // Flags: Axis flags
 
@@ -250,6 +251,11 @@ enum ImPlot3DImageFlags_ {
     ImPlot3DImageFlags_None = 0, // Default
     ImPlot3DImageFlags_NoLegend = ImPlot3DItemFlags_NoLegend,
     ImPlot3DImageFlags_NoFit = ImPlot3DItemFlags_NoFit,
+};
+
+// Flags for PlotDummy
+enum ImPlot3DDummyFlags_ {
+    ImPlot3DDummyFlags_None = 0 // Default
 };
 
 // Flags for legends
@@ -527,6 +533,9 @@ IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const Im
 
 // Plots a centered text label at point x,y,z with optional rotation angle (in radians) and pixel offset
 IMPLOT3D_API void PlotText(const char* text, double x, double y, double z, double angle = 0.0, const ImVec2& pix_offset = ImVec2(0, 0));
+
+// Plots a dummy item (can be used to modify legend entry appearance when called after plotting an item, or add a dummy legend entry)
+IMPLOT3D_API void PlotDummy(const char* label_id, ImPlot3DDummyFlags flags = 0);
 
 //-----------------------------------------------------------------------------
 // [SECTION] Plot Utils

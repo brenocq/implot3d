@@ -1479,6 +1479,11 @@ void PlotText(const char* text, double x, double y, double z, double angle, cons
     AddTextRotated(GetPlotDrawList(), p, (float)angle, GetStyleColorU32(ImPlot3DCol_InlayText), text);
 }
 
+void PlotDummy(const char* label_id, ImPlot3DDummyFlags flags) {
+    if (BeginItem(label_id, flags, ImPlot3DCol_Line))
+        EndItem();
+}
+
 } // namespace ImPlot3D
 
 #endif // #ifndef IMGUI_DISABLE

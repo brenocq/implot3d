@@ -1202,6 +1202,111 @@ void DemoCustomRendering() {
     }
 }
 
+void DemoCustomPerPointStyle() {
+    ImGui::BulletText("Demonstrates per-point coloring using colormap sampling.");
+    ImGui::BulletText("Each point calls SetNextMarkerStyle with a sampled color.");
+    ImGui::BulletText("All points share the same label for a single legend entry.");
+
+    static float marker_size = 4.0f;
+    static ImPlot3DColormap cmap = ImPlot3DColormap_Viridis;
+
+    ImGui::SliderFloat("Marker Size", &marker_size, 2.0f, 10.0f);
+    if (ImGui::BeginCombo("Colormap", ImPlot3D::GetColormapName(cmap))) {
+        ImPlot3DContext& gp = *GImPlot3D;
+        for (int i = 0; i < ImPlot3D::GetColormapCount(); i++) {
+            // Only show continuous colormaps
+            if (!gp.ColormapData.IsQual(i)) {
+                if (ImGui::Selectable(ImPlot3D::GetColormapName(i), cmap == i))
+                    cmap = i;
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    // Generate three stacked toruses with different color patterns
+    static float torus_data[3][400][4]; // 3 toruses, 400 points each, XYZT per point
+    static bool initialized = false;
+    if (!initialized) {
+        const float R = 0.6f; // Major radius
+        const float r = 0.2f; // Minor radius
+        const int u_samples = 20;
+        const int v_samples = 20;
+
+        for (int torus = 0; torus < 3; torus++) {
+            float z_offset = (2 - torus) * 0.6f;
+            int idx = 0;
+
+            for (int i = 0; i < u_samples; i++) {
+                float u = (float)i / u_samples * 2.0f * IM_PI;
+                for (int j = 0; j < v_samples; j++) {
+                    float v = (float)j / v_samples * 2.0f * IM_PI;
+
+                    // Parametric torus equations
+                    float x = (R + r * ImCos(v)) * ImCos(u);
+                    float y = (R + r * ImCos(v)) * ImSin(u);
+                    float z = r * ImSin(v) + z_offset;
+
+                    // Different color pattern for each torus
+                    float t;
+                    if (torus == 0) {
+                        // Color by height (Z coordinate)
+                        // Normalize Z to [0, 1] range for this torus
+                        t = (z - (z_offset - r)) / (2.0f * r);
+                    } else if (torus == 1) {
+                        // Color by radial distance from tube center
+                        // V parameter directly gives us position around tube
+                        // Map from [-r, +r] to [0, 1]
+                        t = (ImCos(v) + 1.0f) / 2.0f;
+                    } else {
+                        // Angular pattern: varies smoothly around the major circle
+                        // Creates wave-like color pattern
+                        t = (ImCos(u) + 1.0f) / 2.0f; // Maps [-1, 1] to [0, 1]
+                    }
+
+                    torus_data[torus][idx][0] = x;
+                    torus_data[torus][idx][1] = y;
+                    torus_data[torus][idx][2] = z;
+                    torus_data[torus][idx][3] = t;
+                    idx++;
+                }
+            }
+        }
+        initialized = true;
+    }
+
+    if (ImPlot3D::BeginPlot("##PerPointStyle", ImVec2(-1, 0))) {
+        ImPlot3D::SetupAxes("X", "Y", "Z");
+        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -0.5, 1.5);
+
+        const char* labels[3] = {"Height-colored", "Radial-colored", "Angular-colored"};
+        const ImVec4 legend_colors[3] = {
+            ImVec4(1.0f, 0.0f, 0.0f, 1.0f), // Red
+            ImVec4(0.0f, 1.0f, 0.0f, 1.0f), // Green
+            ImVec4(0.0f, 0.0f, 1.0f, 1.0f)  // Blue
+        };
+
+        for (int torus = 0; torus < 3; torus++) {
+            const int point_count = 400;
+            for (int i = 0; i < point_count; i++) {
+                float x = torus_data[torus][i][0];
+                float y = torus_data[torus][i][1];
+                float z = torus_data[torus][i][2];
+                float t = torus_data[torus][i][3];
+
+                // Sample colormap and set marker style
+                ImVec4 color = ImPlot3D::SampleColormap(t, cmap);
+                ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle, marker_size, color, IMPLOT3D_AUTO, color);
+                ImPlot3D::PlotScatter(labels[torus], &x, &y, &z, 1);
+            }
+            // Override legend color with PlotDummy
+            ImPlot3D::SetNextLineStyle(legend_colors[torus]);
+            ImPlot3D::PlotDummy(labels[torus]);
+        }
+
+        ImPlot3D::EndPlot();
+    }
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Config
 //-----------------------------------------------------------------------------
@@ -1356,6 +1461,7 @@ void ShowAllDemos() {
         if (ImGui::BeginTabItem("Custom")) {
             DemoHeader("Custom Styles", DemoCustomStyles);
             DemoHeader("Custom Rendering", DemoCustomRendering);
+            DemoHeader("Custom Per-Point Style", DemoCustomPerPointStyle);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Config")) {
