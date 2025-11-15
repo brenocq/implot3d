@@ -51,12 +51,19 @@ implot3d files. You can read releases logs https://github.com/brenocq/implot3d/r
 
 - 2025/10/22 (0.3) - **IMPORTANT** All plot coordinate types migrated from float to double precision to fix sorting issues with large values:
                        - ImPlot3DPoint members (x, y, z): float -> double
+                       - ImPlot3DPoint operators: float parameters -> double parameters
                        - ImPlot3DRange members (Min, Max): float -> double
                        - ImPlot3DQuat members (x, y, z, w): float -> double
+                       - ImPlot3DQuat methods: float parameters -> double parameters
                        - ImPlot3DTick::PlotPos: float -> double
                        - ImPlot3DAxis::NDCScale: float -> double
                        - ImDrawList3D::ZBuffer: ImVector<float> -> ImVector<double>
                        - ImDrawList3D::_ZWritePtr: float* -> double*
+                       - ImPlot3DFormatter callback: float value -> double value
+                       - SetupBoxRotation(): float elevation, float azimuth -> double elevation, double azimuth
+                       - SetupBoxInitialRotation(): float elevation, float azimuth -> double elevation, double azimuth
+                       - SetupBoxScale(): float x, float y, float z -> double x, double y, double z
+                       - PlotText(): float x, float y, float z, float angle -> double x, double y, double z, double angle
                      No code changes required for most users. Advanced users directly using these classes with float precision assumption may need to
                      update their code.
 - 2025/07/21 (0.3) - Renamed ImPlot3DPlot::GetBoxZoom() -> ImPlot3DPlot::GetViewScale() (internal API only).
