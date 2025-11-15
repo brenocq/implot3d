@@ -46,7 +46,7 @@ target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
 FetchContent_Declare(
     implot
     GIT_REPOSITORY "https://github.com/epezent/implot"
-    GIT_TAG "3da8bd34299965d3b0ab124df743fe3e076fa222"
+    GIT_TAG "de4d28e4fbf6382f4e36197a0706bec07ebae104"
     GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable(implot)
