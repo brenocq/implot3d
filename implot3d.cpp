@@ -41,6 +41,34 @@
 // [SECTION] ImPlot3DStyle
 // [SECTION] Metrics
 
+/*
+API BREAKING CHANGES
+====================
+Occasionally introducing changes that are breaking the API. We try to make the breakage minor and easy to fix.
+Below is a change-log of API breaking changes only. If you are using one of the functions listed, expect to have to fix some code.
+When you are not sure about an old symbol or function name, try using the Search/Find function of your IDE to look for comments or references in all
+implot3d files. You can read releases logs https://github.com/brenocq/implot3d/releases for more details.
+
+- 2025/10/22 (0.3) - **IMPORTANT** All plot coordinate types migrated from float to double precision to fix sorting issues with large values:
+                       - ImPlot3DPoint members (x, y, z): float -> double
+                       - ImPlot3DPoint operators: float parameters -> double parameters
+                       - ImPlot3DRange members (Min, Max): float -> double
+                       - ImPlot3DQuat members (x, y, z, w): float -> double
+                       - ImPlot3DQuat methods: float parameters -> double parameters
+                       - ImPlot3DTick::PlotPos: float -> double
+                       - ImPlot3DAxis::NDCScale: float -> double
+                       - ImDrawList3D::ZBuffer: ImVector<float> -> ImVector<double>
+                       - ImDrawList3D::_ZWritePtr: float* -> double*
+                       - ImPlot3DFormatter callback: float value -> double value
+                       - SetupBoxRotation(): float elevation, float azimuth -> double elevation, double azimuth
+                       - SetupBoxInitialRotation(): float elevation, float azimuth -> double elevation, double azimuth
+                       - SetupBoxScale(): float x, float y, float z -> double x, double y, double z
+                       - PlotText(): float x, float y, float z, float angle -> double x, double y, double z, double angle
+                     No code changes required for most users. Advanced users directly using these classes with float precision assumption may need to
+                     update their code.
+- 2025/07/21 (0.3) - Renamed ImPlot3DPlot::GetBoxZoom() -> ImPlot3DPlot::GetViewScale() (internal API only).
+*/
+
 //-----------------------------------------------------------------------------
 // [SECTION] Includes
 //-----------------------------------------------------------------------------
@@ -647,10 +675,10 @@ void RenderGrid(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DP
                 const ImPlot3DTick& tick = axis_u.Ticker.Ticks[t];
 
                 // Compute position along u
-                float t_u = (tick.PlotPos - axis_u.Range.Min) / (axis_u.Range.Max - axis_u.Range.Min);
+                double t_u = (tick.PlotPos - axis_u.Range.Min) / (axis_u.Range.Max - axis_u.Range.Min);
 
                 // Skip ticks that are out of range
-                if (t_u < 0.0f || t_u > 1.0f)
+                if (t_u < 0.0 || t_u > 1.0)
                     continue;
 
                 ImPlot3DPoint p_start = p0 + u_vec * t_u;
@@ -673,10 +701,10 @@ void RenderGrid(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DP
                 const ImPlot3DTick& tick = axis_v.Ticker.Ticks[t];
 
                 // Compute position along v
-                float t_v = (tick.PlotPos - axis_v.Range.Min) / (axis_v.Range.Max - axis_v.Range.Min);
+                double t_v = (tick.PlotPos - axis_v.Range.Min) / (axis_v.Range.Max - axis_v.Range.Min);
 
                 // Skip ticks that are out of range
-                if (t_v < 0.0f || t_v > 1.0f)
+                if (t_v < 0.0 || t_v > 1.0)
                     continue;
 
                 ImPlot3DPoint p_start = p0 + v_vec * t_v;
@@ -724,8 +752,8 @@ void RenderTickMarks(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPl
         ImPlot3DPoint axis_start = corners[idx0];
         ImPlot3DPoint axis_end = corners[idx1];
         ImPlot3DPoint axis_dir = axis_end - axis_start;
-        float axis_len = axis_dir.Length();
-        if (axis_len < 1e-12f)
+        double axis_len = axis_dir.Length();
+        if (axis_len < 1e-12)
             continue;
         axis_dir /= axis_len;
 
@@ -750,8 +778,8 @@ void RenderTickMarks(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPl
             proj_dir.z = 0.0f;
         }
 
-        float proj_len = proj_dir.Length();
-        if (proj_len < 1e-12f) {
+        double proj_len = proj_dir.Length();
+        if (proj_len < 1e-12) {
             // Axis is parallel to plane normal or something degenerate, skip ticks
             continue;
         }
@@ -775,21 +803,21 @@ void RenderTickMarks(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPl
         tick_dir.Normalize();
 
         // Tick lengths in NDC units
-        const float major_size_ndc = 0.06f;
-        const float minor_size_ndc = 0.03f;
+        const double major_size_ndc = 0.06;
+        const double minor_size_ndc = 0.03;
 
         for (int t = 0; t < axis.Ticker.TickCount(); ++t) {
             const ImPlot3DTick& tick = axis.Ticker.Ticks[t];
-            float v = (tick.PlotPos - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
+            double v = (tick.PlotPos - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
 
             // Skip ticks that are out of range
-            if (v < 0.0f || v > 1.0f)
+            if (v < 0.0 || v > 1.0)
                 continue;
             ImPlot3DPoint tick_pos_ndc = PlotToNDC(axis_start + axis_dir * (v * axis_len));
 
             // Half tick on each side of the axis line
-            float size_tick_ndc = tick.Major ? major_size_ndc : minor_size_ndc;
-            ImPlot3DPoint half_tick_ndc = tick_dir * (size_tick_ndc * 0.5f);
+            double size_tick_ndc = tick.Major ? major_size_ndc : minor_size_ndc;
+            ImPlot3DPoint half_tick_ndc = tick_dir * (size_tick_ndc * 0.5);
 
             ImPlot3DPoint T1_ndc = tick_pos_ndc - half_tick_ndc;
             ImPlot3DPoint T2_ndc = tick_pos_ndc + half_tick_ndc;
@@ -875,10 +903,10 @@ void RenderTickLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
                 continue;
 
             // Compute position along the axis
-            float t_axis = (tick.PlotPos - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
+            double t_axis = (tick.PlotPos - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
 
             // Skip ticks that are out of range
-            if (t_axis < 0.0f || t_axis > 1.0f)
+            if (t_axis < 0.0 || t_axis > 1.0)
                 continue;
             ImPlot3DPoint tick_pos = axis_start + axis_dir * t_axis;
 
@@ -992,7 +1020,7 @@ ImVec2 NDCToPixels(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
     point_pix.x += center.x;
     point_pix.y += center.y;
 
-    return {point_pix.x, point_pix.y};
+    return ImVec2((float)point_pix.x, (float)point_pix.y);
 }
 
 // Convert a position in the plot's coordinate system to the plot's normalized device coordinate system (NDC)
@@ -1001,9 +1029,9 @@ ImPlot3DPoint PlotToNDC(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
     for (int i = 0; i < 3; i++) {
         const ImPlot3DAxis& axis = plot.Axes[i];
         // Get axis point in [0, 1] range
-        float t = (point[i] - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
+        double t = (point[i] - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
         // Convert point to NDC range [-0.5*NDCScale, 0.5*NDCScale]
-        const float ndc_range = 0.5f;
+        const double ndc_range = 0.5;
         ndc_point[i] = (ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range)) * axis.NDCScale;
     }
     return ndc_point;
@@ -1142,7 +1170,7 @@ void RenderPlotBox(ImDrawList* draw_list, const ImPlot3DPlot& plot) {
 // [SECTION] Formatter
 //-----------------------------------------------------------------------------
 
-int Formatter_Default(float value, char* buff, int size, void* data) {
+int Formatter_Default(double value, char* buff, int size, void* data) {
     char* fmt = (char*)data;
     return ImFormatString(buff, size, fmt, value);
 }
@@ -1193,7 +1221,7 @@ void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float p
         // Is this zero? combat zero formatting issues
         if (major - interval < 0 && major + interval > 0)
             major = 0;
-        if (range.Contains((float)major)) {
+        if (range.Contains(major)) {
             if (!first_major_set) {
                 first_major_idx = ticker.TickCount();
                 first_major_set = true;
@@ -1202,7 +1230,7 @@ void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float p
         }
         for (int i = 1; i < nMinor; i++) {
             double minor = major + i * interval / nMinor;
-            if (range.Contains((float)minor)) {
+            if (range.Contains(minor)) {
                 ticker.AddTick(minor, false, true, formatter, formatter_data);
             }
         }
@@ -1270,7 +1298,7 @@ void ShowAxisContextMenu(ImPlot3DPlot& plot, ImAxis3D axis_id) {
     bool ticks = axis.HasTickMarks();
     bool labels = axis.HasTickLabels();
     double drag_speed =
-        (axis.Range.Size() <= FLT_EPSILON) ? FLT_EPSILON * 1.0e+13 : 0.01 * axis.Range.Size(); // recover from almost equal axis limits.
+        (axis.Range.Size() <= DBL_EPSILON) ? DBL_EPSILON * 1.0e+13 : 0.01 * axis.Range.Size(); // Recover from almost equal axis limits
     const bool equal_aspect = ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_Equal);
 
     ImGui::BeginDisabled(always_locked);
@@ -1279,8 +1307,8 @@ void ShowAxisContextMenu(ImPlot3DPlot& plot, ImAxis3D axis_id) {
     ImGui::SameLine();
 
     ImGui::BeginDisabled(axis.IsLockedMin() || always_locked);
-    float temp_min = axis.Range.Min;
-    if (ImGui::DragFloat("Min", &temp_min, (float)drag_speed, -HUGE_VAL, axis.Range.Max - FLT_EPSILON)) {
+    double temp_min = axis.Range.Min;
+    if (ImGui::DragScalar("Min", ImGuiDataType_Double, &temp_min, (float)drag_speed, &axis.ConstraintRange.Min, &axis.Range.Max)) {
         axis.SetMin(temp_min, true);
         // Apply equal aspect if needed
         if (equal_aspect)
@@ -1293,8 +1321,8 @@ void ShowAxisContextMenu(ImPlot3DPlot& plot, ImAxis3D axis_id) {
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::BeginDisabled(axis.IsLockedMax() || always_locked);
-    float temp_max = axis.Range.Max;
-    if (ImGui::DragFloat("Max", &temp_max, (float)drag_speed, axis.Range.Min + FLT_EPSILON, HUGE_VAL)) {
+    double temp_max = axis.Range.Max;
+    if (ImGui::DragScalar("Max", ImGuiDataType_Double, &temp_max, (float)drag_speed, &axis.Range.Min, &axis.ConstraintRange.Max)) {
         axis.SetMax(temp_max, true);
         // Apply equal aspect if needed
         if (equal_aspect)
@@ -1358,7 +1386,7 @@ void ShowPlotContextMenu(ImPlot3DPlot& plot) {
 
     if ((ImGui::BeginMenu("Box"))) {
         ImGui::PushItemWidth(75);
-        float temp_scale[3] = {plot.Axes[0].NDCScale, plot.Axes[1].NDCScale, plot.Axes[2].NDCScale};
+        float temp_scale[3] = {(float)plot.Axes[0].NDCScale, (float)plot.Axes[1].NDCScale, (float)plot.Axes[2].NDCScale};
         if (ImGui::DragFloat("Scale X", &temp_scale[0], 0.01f, 0.1f, 3.0f))
             plot.Axes[0].NDCScale = ImMax(temp_scale[0], 0.01f);
         if (ImGui::DragFloat("Scale Y", &temp_scale[1], 0.01f, 0.1f, 3.0f))
@@ -1590,8 +1618,8 @@ static const float ANIMATION_ANGULAR_VELOCITY = 2 * 3.1415f;
 
 float CalcAnimationTime(ImPlot3DQuat q0, ImPlot3DQuat q1) {
     // Compute the angular distance between orientations
-    float dot_product = ImClamp(q0.Dot(q1), -1.0f, 1.0f);
-    float angle = 2.0f * acosf(fabsf(dot_product));
+    double dot_product = ImClamp(q0.Dot(q1), -1.0, 1.0);
+    float angle = 2.0f * acosf(fabsf((float)dot_product));
 
     // Calculate animation time for constant the angular velocity
     return angle / ANIMATION_ANGULAR_VELOCITY;
@@ -1693,10 +1721,10 @@ void SetupAxesLimits(double x_min, double x_max, double y_min, double y_max, dou
         GImPlot3D->CurrentPlot->FitThisFrame = false;
 }
 
-void SetupBoxRotation(float elevation, float azimuth, bool animate, ImPlot3DCond cond) {
+void SetupBoxRotation(double elevation, double azimuth, bool animate, ImPlot3DCond cond) {
     // Convert angles from degrees to radians
-    float elev_rad = elevation * IM_PI / 180.0f;
-    float azim_rad = azimuth * IM_PI / 180.0f;
+    double elev_rad = elevation * IM_PI / 180.0;
+    double azim_rad = azimuth * IM_PI / 180.0;
 
     // Call quaternion SetupBoxRotation
     SetupBoxRotation(ImPlot3DQuat::FromElAz(elev_rad, azim_rad), animate, cond);
@@ -1720,10 +1748,10 @@ void SetupBoxRotation(ImPlot3DQuat rotation, bool animate, ImPlot3DCond cond) {
     }
 }
 
-void SetupBoxInitialRotation(float elevation, float azimuth) {
+void SetupBoxInitialRotation(double elevation, double azimuth) {
     // Convert angles from degrees to radians
-    float elev_rad = elevation * IM_PI / 180.0f;
-    float azim_rad = azimuth * IM_PI / 180.0f;
+    double elev_rad = elevation * IM_PI / 180.0;
+    double azim_rad = azimuth * IM_PI / 180.0;
 
     // Call quaternion SetupBoxInitialRotation
     SetupBoxInitialRotation(ImPlot3DQuat::FromElAz(elev_rad, azim_rad));
@@ -1738,11 +1766,11 @@ void SetupBoxInitialRotation(ImPlot3DQuat rotation) {
     plot.InitialRotation = rotation;
 }
 
-void SetupBoxScale(float x, float y, float z) {
+void SetupBoxScale(double x, double y, double z) {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
                          "SetupBoxScale() needs to be called after BeginPlot() and before any setup locking functions (e.g. PlotX)!");
-    IM_ASSERT_USER_ERROR(x > 0.0f && y > 0.0f && z > 0.0f, "SetupBoxScale() requires all aspect ratios to be greater than 0!");
+    IM_ASSERT_USER_ERROR(x > 0.0 && y > 0.0 && z > 0.0, "SetupBoxScale() requires all aspect ratios to be greater than 0!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     plot.Axes[0].NDCScale = x;
     plot.Axes[1].NDCScale = y;
@@ -1800,10 +1828,10 @@ ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
     const ImPlot3DPoint& D = ray.Direction;
 
     // Helper lambda to check intersection with a given coordinate and return intersection point if valid.
-    auto IntersectPlane = [&](float coord) -> ImPlot3DPoint {
+    auto IntersectPlane = [&](double coord) -> ImPlot3DPoint {
         // Solve for t in O[axis] + D[axis]*t = coord
-        float denom = 0.0f;
-        float numer = 0.0f;
+        double denom = 0.0;
+        double numer = 0.0;
         if (plane == ImPlane3D_YZ) {
             denom = D.x;
             numer = coord - O.x;
@@ -1820,7 +1848,7 @@ ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
             return ImPlot3DPoint(NAN, NAN, NAN);
         }
 
-        float t = numer / denom;
+        double t = numer / denom;
         if (t < 0.0f) {
             // Intersection behind the ray origin
             return ImPlot3DPoint(NAN, NAN, NAN);
@@ -1912,8 +1940,8 @@ ImPlot3DPoint NDCToPlot(const ImPlot3DPoint& point) {
     ImPlot3DPoint plot_point;
     for (int i = 0; i < 3; i++) {
         ImPlot3DAxis& axis = plot.Axes[i];
-        float ndc_range = 0.5f * axis.NDCScale;
-        float t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - point[i]) : (point[i] + ndc_range);
+        double ndc_range = 0.5 * axis.NDCScale;
+        double t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - point[i]) : (point[i] + ndc_range);
         t /= axis.NDCScale;
         plot_point[i] = axis.Range.Min + t * (axis.Range.Max - axis.Range.Min);
     }
@@ -2240,10 +2268,10 @@ void HandleInput(ImPlot3DPlot& plot) {
                 };
 
                 AxisAlignment candidates[] = {
-                    {x_axis, x_axis.Dot(up)},
-                    {y_axis, y_axis.Dot(up)},
-                    {neg_x_axis, neg_x_axis.Dot(up)},
-                    {neg_y_axis, neg_y_axis.Dot(up)},
+                    {x_axis, (float)x_axis.Dot(up)},
+                    {y_axis, (float)y_axis.Dot(up)},
+                    {neg_x_axis, (float)neg_x_axis.Dot(up)},
+                    {neg_y_axis, (float)neg_y_axis.Dot(up)},
                 };
 
                 // Find the candidate with the maximum dot product
@@ -2307,19 +2335,19 @@ void HandleInput(ImPlot3DPlot& plot) {
                     continue;
 
                 ImPlot3DAxis& axis = plot.Axes[i];
-                float size = axis.Range.Max - axis.Range.Min;
-                float new_size = size * zoom_factor;
+                double size = axis.Range.Max - axis.Range.Min;
+                double new_size = size * zoom_factor;
 
                 const bool zoom_around_mouse = (hovered_axis != -1 || hovered_plane != -1);
                 if (zoom_around_mouse) {
                     // Zoom around the mouse plot position
-                    float offset = mouse_pos_plot[i] - axis.Range.Min;
-                    float ratio = offset / size;
+                    double offset = mouse_pos_plot[i] - axis.Range.Min;
+                    double ratio = offset / size;
                     axis.SetMin(mouse_pos_plot[i] - new_size * ratio);
                     axis.SetMax(mouse_pos_plot[i] + new_size * (1.0f - ratio));
                 } else {
                     // Zoom around center
-                    float center = (axis.Range.Min + axis.Range.Max) * 0.5f;
+                    double center = (axis.Range.Min + axis.Range.Max) * 0.5;
                     axis.SetMin(center - new_size * 0.5f);
                     axis.SetMax(center + new_size * 0.5f);
                 }
@@ -2424,7 +2452,7 @@ void SetupLock() {
     for (int i = 0; i < 3; i++) {
         ImPlot3DAxis& axis = plot.Axes[i];
         if (axis.ShowDefaultTicks) {
-            float pixels = plot.GetViewScale() * axis.NDCScale;
+            float pixels = float(plot.GetViewScale() * axis.NDCScale);
             axis.Locator(axis.Ticker, axis.Range, pixels, axis.Formatter, axis.FormatterData);
         }
     }
@@ -2967,21 +2995,21 @@ const ImPlot3DNextItemData& GetItemData() { return GImPlot3D->NextItemData; }
 // [SECTION] ImPlot3DPoint
 //-----------------------------------------------------------------------------
 
-ImPlot3DPoint ImPlot3DPoint::operator*(float rhs) const { return ImPlot3DPoint(x * rhs, y * rhs, z * rhs); }
-ImPlot3DPoint ImPlot3DPoint::operator/(float rhs) const { return ImPlot3DPoint(x / rhs, y / rhs, z / rhs); }
+ImPlot3DPoint ImPlot3DPoint::operator*(double rhs) const { return ImPlot3DPoint(x * rhs, y * rhs, z * rhs); }
+ImPlot3DPoint ImPlot3DPoint::operator/(double rhs) const { return ImPlot3DPoint(x / rhs, y / rhs, z / rhs); }
 ImPlot3DPoint ImPlot3DPoint::operator+(const ImPlot3DPoint& rhs) const { return ImPlot3DPoint(x + rhs.x, y + rhs.y, z + rhs.z); }
 ImPlot3DPoint ImPlot3DPoint::operator-(const ImPlot3DPoint& rhs) const { return ImPlot3DPoint(x - rhs.x, y - rhs.y, z - rhs.z); }
 ImPlot3DPoint ImPlot3DPoint::operator*(const ImPlot3DPoint& rhs) const { return ImPlot3DPoint(x * rhs.x, y * rhs.y, z * rhs.z); }
 ImPlot3DPoint ImPlot3DPoint::operator/(const ImPlot3DPoint& rhs) const { return ImPlot3DPoint(x / rhs.x, y / rhs.y, z / rhs.z); }
 ImPlot3DPoint ImPlot3DPoint::operator-() const { return ImPlot3DPoint(-x, -y, -z); }
 
-ImPlot3DPoint& ImPlot3DPoint::operator*=(float rhs) {
+ImPlot3DPoint& ImPlot3DPoint::operator*=(double rhs) {
     x *= rhs;
     y *= rhs;
     z *= rhs;
     return *this;
 }
-ImPlot3DPoint& ImPlot3DPoint::operator/=(float rhs) {
+ImPlot3DPoint& ImPlot3DPoint::operator/=(double rhs) {
     x /= rhs;
     y /= rhs;
     z /= rhs;
@@ -3015,29 +3043,29 @@ ImPlot3DPoint& ImPlot3DPoint::operator/=(const ImPlot3DPoint& rhs) {
 bool ImPlot3DPoint::operator==(const ImPlot3DPoint& rhs) const { return x == rhs.x && y == rhs.y && z == rhs.z; }
 bool ImPlot3DPoint::operator!=(const ImPlot3DPoint& rhs) const { return !(*this == rhs); }
 
-float ImPlot3DPoint::Dot(const ImPlot3DPoint& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z; }
+double ImPlot3DPoint::Dot(const ImPlot3DPoint& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z; }
 
 ImPlot3DPoint ImPlot3DPoint::Cross(const ImPlot3DPoint& rhs) const {
     return ImPlot3DPoint(y * rhs.z - z * rhs.y, z * rhs.x - x * rhs.z, x * rhs.y - y * rhs.x);
 }
 
-float ImPlot3DPoint::Length() const { return ImSqrt(x * x + y * y + z * z); }
+double ImPlot3DPoint::Length() const { return sqrt(x * x + y * y + z * z); }
 
-float ImPlot3DPoint::LengthSquared() const { return x * x + y * y + z * z; }
+double ImPlot3DPoint::LengthSquared() const { return x * x + y * y + z * z; }
 
 void ImPlot3DPoint::Normalize() {
-    float l = Length();
+    double l = Length();
     x /= l;
     y /= l;
     z /= l;
 }
 
 ImPlot3DPoint ImPlot3DPoint::Normalized() const {
-    float l = Length();
+    double l = Length();
     return ImPlot3DPoint(x / l, y / l, z / l);
 }
 
-ImPlot3DPoint operator*(float lhs, const ImPlot3DPoint& rhs) { return ImPlot3DPoint(lhs * rhs.x, lhs * rhs.y, lhs * rhs.z); }
+ImPlot3DPoint operator*(double lhs, const ImPlot3DPoint& rhs) { return ImPlot3DPoint(lhs * rhs.x, lhs * rhs.y, lhs * rhs.z); }
 
 bool ImPlot3DPoint::IsNaN() const { return ImPlot3D::ImNan(x) || ImPlot3D::ImNan(y) || ImPlot3D::ImNan(z); }
 
@@ -3124,95 +3152,95 @@ bool ImPlot3DBox::ClipLineSegment(const ImPlot3DPoint& p0, const ImPlot3DPoint& 
 // [SECTION] ImPlot3DRange
 //-----------------------------------------------------------------------------
 
-void ImPlot3DRange::Expand(float value) {
+void ImPlot3DRange::Expand(double value) {
     Min = ImMin(Min, value);
     Max = ImMax(Max, value);
 }
 
-bool ImPlot3DRange::Contains(float value) const { return value >= Min && value <= Max; }
+bool ImPlot3DRange::Contains(double value) const { return value >= Min && value <= Max; }
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImPlot3DQuat
 //-----------------------------------------------------------------------------
 
-ImPlot3DQuat::ImPlot3DQuat(float _angle, const ImPlot3DPoint& _axis) {
-    float half_angle = _angle * 0.5f;
-    float s = ImSin(half_angle);
+ImPlot3DQuat::ImPlot3DQuat(double _angle, const ImPlot3DPoint& _axis) {
+    double half_angle = _angle * 0.5;
+    double s = sin(half_angle);
     x = s * _axis.x;
     y = s * _axis.y;
     z = s * _axis.z;
-    w = ImCos(half_angle);
+    w = cos(half_angle);
 }
 
 ImPlot3DQuat ImPlot3DQuat::FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3DPoint& v1) {
     ImPlot3DQuat q;
 
     // Compute the dot product and lengths of the vectors
-    float dot = v0.Dot(v1);
-    float length_v0 = v0.Length();
-    float length_v1 = v1.Length();
+    double dot = v0.Dot(v1);
+    double length_v0 = v0.Length();
+    double length_v1 = v1.Length();
 
     // Normalize the dot product
-    float normalized_dot = dot / (length_v0 * length_v1);
+    double normalized_dot = dot / (length_v0 * length_v1);
 
     // Handle edge cases: if vectors are very close or identical
-    const float epsilon = 1e-6f;
-    if (ImFabs(normalized_dot - 1.0f) < epsilon) {
+    const double epsilon = 1e-6;
+    if (ImAbs(normalized_dot - 1.0) < epsilon) {
         // v0 and v1 are nearly identical; return an identity quaternion
-        q.x = 0.0f;
-        q.y = 0.0f;
-        q.z = 0.0f;
-        q.w = 1.0f;
+        q.x = 0.0;
+        q.y = 0.0;
+        q.z = 0.0;
+        q.w = 1.0;
         return q;
     }
 
     // Handle edge case: if vectors are opposite
-    if (ImFabs(normalized_dot + 1.0f) < epsilon) {
+    if (ImAbs(normalized_dot + 1.0) < epsilon) {
         // v0 and v1 are opposite; choose an arbitrary orthogonal axis
-        ImPlot3DPoint arbitrary_axis = ImFabs(v0.x) > ImFabs(v0.z) ? ImPlot3DPoint(-v0.y, v0.x, 0.0f) : ImPlot3DPoint(0.0f, -v0.z, v0.y);
+        ImPlot3DPoint arbitrary_axis = ImAbs(v0.x) > ImAbs(v0.z) ? ImPlot3DPoint(-v0.y, v0.x, 0.0) : ImPlot3DPoint(0.0, -v0.z, v0.y);
         arbitrary_axis.Normalize();
         q.x = arbitrary_axis.x;
         q.y = arbitrary_axis.y;
         q.z = arbitrary_axis.z;
-        q.w = 0.0f;
+        q.w = 0.0;
         return q;
     }
 
     // General case
     ImPlot3DPoint axis = v0.Cross(v1);
     axis.Normalize();
-    float angle = ImAcos(normalized_dot);
-    float half_angle = angle * 0.5f;
-    float s = ImSin(half_angle);
+    double angle = acos(normalized_dot);
+    double half_angle = angle * 0.5;
+    double s = sin(half_angle);
     q.x = s * axis.x;
     q.y = s * axis.y;
     q.z = s * axis.z;
-    q.w = ImCos(half_angle);
+    q.w = cos(half_angle);
 
     return q;
 }
 
-ImPlot3DQuat ImPlot3DQuat::FromElAz(float elevation, float azimuth) {
+ImPlot3DQuat ImPlot3DQuat::FromElAz(double elevation, double azimuth) {
     // Create quaternions for azimuth and elevation
-    ImPlot3DQuat azimuth_quat(azimuth, ImPlot3DPoint(0.0f, 0.0f, 1.0f));     // Rotate around Z-axis
-    ImPlot3DQuat elevation_quat(elevation, ImPlot3DPoint(1.0f, 0.0f, 0.0f)); // Rotate around X-axis
-    ImPlot3DQuat zero_quat(-IM_PI / 2, ImPlot3DPoint(1.0f, 0.0f, 0.0f));     // Rotate to zero azimuth/elevation orientation
+    ImPlot3DQuat azimuth_quat(azimuth, ImPlot3DPoint(0.0, 0.0, 1.0));     // Rotate around Z-axis
+    ImPlot3DQuat elevation_quat(elevation, ImPlot3DPoint(1.0, 0.0, 0.0)); // Rotate around X-axis
+    ImPlot3DQuat zero_quat(-IM_PI / 2, ImPlot3DPoint(1.0, 0.0, 0.0));     // Rotate to zero azimuth/elevation orientation
 
     // Combine rotations
     return elevation_quat * zero_quat * azimuth_quat;
 }
 
-float ImPlot3DQuat::Length() const { return ImSqrt(x * x + y * y + z * z + w * w); }
+double ImPlot3DQuat::Length() const { return sqrt(x * x + y * y + z * z + w * w); }
 
 ImPlot3DQuat ImPlot3DQuat::Normalized() const {
-    float l = Length();
+    double l = Length();
     return ImPlot3DQuat(x / l, y / l, z / l, w / l);
 }
 
 ImPlot3DQuat ImPlot3DQuat::Conjugate() const { return ImPlot3DQuat(-x, -y, -z, w); }
 
 ImPlot3DQuat ImPlot3DQuat::Inverse() const {
-    float l_squared = x * x + y * y + z * z + w * w;
+    double l_squared = x * x + y * y + z * z + w * w;
     return ImPlot3DQuat(-x / l_squared, -y / l_squared, -z / l_squared, w / l_squared);
 }
 
@@ -3222,7 +3250,7 @@ ImPlot3DQuat ImPlot3DQuat::operator*(const ImPlot3DQuat& rhs) const {
 }
 
 ImPlot3DQuat& ImPlot3DQuat::Normalize() {
-    float l = Length();
+    double l = Length();
     x /= l;
     y /= l;
     z /= l;
@@ -3239,46 +3267,46 @@ ImPlot3DPoint ImPlot3DQuat::operator*(const ImPlot3DPoint& point) const {
     ImPlot3DPoint uuv = qv.Cross(uv);   // uuv = qv x uv
 
     // Compute the rotated vector
-    return point + (uv * w * 2.0f) + (uuv * 2.0f);
+    return point + (uv * w * 2.0) + (uuv * 2.0);
 }
 
 bool ImPlot3DQuat::operator==(const ImPlot3DQuat& rhs) const { return x == rhs.x && y == rhs.y && z == rhs.z && w == rhs.w; }
 
 bool ImPlot3DQuat::operator!=(const ImPlot3DQuat& rhs) const { return !(*this == rhs); }
 
-ImPlot3DQuat ImPlot3DQuat::Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2, float t) {
+ImPlot3DQuat ImPlot3DQuat::Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2, double t) {
     // Clamp t to [0, 1]
-    t = ImClamp(t, 0.0f, 1.0f);
+    t = ImClamp(t, 0.0, 1.0);
 
     // Compute the dot product (cosine of the angle between quaternions)
-    float dot = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
+    double dot = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
 
     // If the dot product is negative, negate one quaternion to take the shorter path
     ImPlot3DQuat q2_ = q2;
-    if (dot < 0.0f) {
+    if (dot < 0.0) {
         q2_ = ImPlot3DQuat(-q2.x, -q2.y, -q2.z, -q2.w);
         dot = -dot;
     }
 
     // If the quaternions are very close, use linear interpolation to avoid numerical instability
-    if (dot > 0.9995f) {
+    if (dot > 0.9995) {
         return ImPlot3DQuat(q1.x + t * (q2_.x - q1.x), q1.y + t * (q2_.y - q1.y), q1.z + t * (q2_.z - q1.z), q1.w + t * (q2_.w - q1.w)).Normalized();
     }
 
     // Compute the angle and the interpolation factors
-    float theta_0 = ImAcos(dot);        // Angle between input quaternions
-    float theta = theta_0 * t;          // Interpolated angle
-    float sin_theta = ImSin(theta);     // Sine of interpolated angle
-    float sin_theta_0 = ImSin(theta_0); // Sine of original angle
+    double theta_0 = acos(dot);        // Angle between input quaternions
+    double theta = theta_0 * t;        // Interpolated angle
+    double sin_theta = sin(theta);     // Sine of interpolated angle
+    double sin_theta_0 = sin(theta_0); // Sine of original angle
 
-    float s1 = ImCos(theta) - dot * sin_theta / sin_theta_0;
-    float s2 = sin_theta / sin_theta_0;
+    double s1 = cos(theta) - dot * sin_theta / sin_theta_0;
+    double s2 = sin_theta / sin_theta_0;
 
     // Interpolate and return the result
     return ImPlot3DQuat(s1 * q1.x + s2 * q2_.x, s1 * q1.y + s2 * q2_.y, s1 * q1.z + s2 * q2_.z, s1 * q1.w + s2 * q2_.w);
 }
 
-float ImPlot3DQuat::Dot(const ImPlot3DQuat& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w; }
+double ImPlot3DQuat::Dot(const ImPlot3DQuat& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w; }
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImDrawList3D
@@ -3354,7 +3382,7 @@ void ImDrawList3D::SortedMoveToImGuiDrawList() {
 
     // Build an array of (z, tri_idx)
     struct TriRef {
-        float z;
+        double z;
         int tri_idx;
     };
     TriRef* tris = (TriRef*)IM_ALLOC(sizeof(TriRef) * tri_count);
@@ -3365,8 +3393,8 @@ void ImDrawList3D::SortedMoveToImGuiDrawList() {
 
     // Sort by z (distance from viewer)
     ImQsort(tris, (size_t)tri_count, sizeof(TriRef), [](const void* a, const void* b) {
-        float za = ((const TriRef*)a)->z;
-        float zb = ((const TriRef*)b)->z;
+        double za = ((const TriRef*)a)->z;
+        double zb = ((const TriRef*)b)->z;
         return (za < zb) ? -1 : (za > zb) ? 1 : 0;
     });
 
@@ -3478,7 +3506,7 @@ bool ImPlot3DAxis::HasTickLabels() const { return !ImPlot3D::ImHasFlag(Flags, Im
 bool ImPlot3DAxis::HasTickMarks() const { return !ImPlot3D::ImHasFlag(Flags, ImPlot3DAxisFlags_NoTickMarks); }
 bool ImPlot3DAxis::IsAutoFitting() const { return ImPlot3D::ImHasFlag(Flags, ImPlot3DAxisFlags_AutoFit); }
 
-void ImPlot3DAxis::ExtendFit(float value) {
+void ImPlot3DAxis::ExtendFit(double value) {
     FitExtents.Min = ImMin(FitExtents.Min, value);
     FitExtents.Max = ImMax(FitExtents.Max, value);
 }
@@ -3739,7 +3767,7 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
                 if (corner_types[c] == DisplayedType::Active || corner_types[c] == DisplayedType::NotActive) {
                     ImVec2 corner = corners_pix[c];
                     ImFormatString(buff, IM_ARRAYSIZE(buff), "C%d", c);
-                    AddTextRotated(&fg, corner, 0, IM_COL32(0, 200, 0, 200), buff);
+                    AddTextRotated(&fg, corner, 0.0f, IM_COL32(0, 200, 0, 200), buff);
                 }
             }
         }
@@ -3753,7 +3781,7 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
                         // Display the text in the middle of the square by determining the point between two of opposite corner pixels
                         ImVec2 middle_of_face_sqaure = (corners_pix[face_indexes[0]] + corners_pix[face_indexes[2]]) / 2;
                         ImFormatString(buff, IM_ARRAYSIZE(buff), "F%d", face_idx);
-                        AddTextRotated(&fg, middle_of_face_sqaure, 0, IM_COL32(0, 200, 200, 200), buff);
+                        AddTextRotated(&fg, middle_of_face_sqaure, 0.0f, IM_COL32(0, 200, 200, 200), buff);
                     }
                 }
             }

@@ -21,6 +21,7 @@ ImPlot3D is a C++ library for 3D plotting, extending Dear ImGui. It is designed 
 * **Bug Fixes:** Provide concise and effective fixes.
 * **Feature Implementation:** Implement features aligned with the existing structure.
 * **Commit Messages:** Follow Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `style:`, `test:`, `chore:`, `merge:`).
+* **Breaking Changes:** When making changes to public API signatures (function parameters, return types, struct members, etc.), always add an entry to the "API BREAKING CHANGES" section at the top of `implot3d.cpp` with the date and version number.
 
 ## Build Example Code:
 

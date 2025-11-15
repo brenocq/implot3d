@@ -308,7 +308,7 @@ void SetNextMarkerStyle(ImPlot3DMarker marker, float size, const ImVec4& fill, f
 //-----------------------------------------------------------------------------
 
 IMPLOT3D_INLINE void PrimLine(ImDrawList3D& draw_list_3d, const ImVec2& P1, const ImVec2& P2, float half_weight, ImU32 col, const ImVec2& tex_uv0,
-                              const ImVec2& tex_uv1, float z) {
+                              const ImVec2& tex_uv1, double z) {
     float dx = P2.x - P1.x;
     float dy = P2.y - P1.y;
     IMPLOT3D_NORMALIZE2F(dx, dy);
@@ -348,7 +348,7 @@ IMPLOT3D_INLINE void PrimLine(ImDrawList3D& draw_list_3d, const ImVec2& P1, cons
 // [SECTION] Renderers
 //-----------------------------------------------------------------------------
 
-float GetPointDepth(ImPlot3DPoint p) {
+double GetPointDepth(ImPlot3DPoint p) {
     ImPlot3DContext& gp = *GImPlot3D;
     ImPlot3DPlot& plot = *gp.CurrentPlot;
 
@@ -464,7 +464,7 @@ template <class _Getter> struct RendererLineStrip : RendererBase {
             ImVec2 P1_screen = PlotToPixels(P1_clipped);
             ImVec2 P2_screen = PlotToPixels(P2_clipped);
             // Render the line segment
-            PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5f));
+            PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
         }
 
         // Update for next segment
@@ -507,7 +507,7 @@ template <class _Getter> struct RendererLineStripSkip : RendererBase {
                 ImVec2 P1_screen = PlotToPixels(P1_clipped);
                 ImVec2 P2_screen = PlotToPixels(P2_clipped);
                 // Render the line segment
-                PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5f));
+                PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
             }
         }
 
@@ -549,7 +549,7 @@ template <class _Getter> struct RendererLineSegments : RendererBase {
                 ImVec2 P1_screen = PlotToPixels(P1_clipped);
                 ImVec2 P2_screen = PlotToPixels(P2_clipped);
                 // Render the line segment
-                PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5f));
+                PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
             }
             return visible;
         }
@@ -678,7 +678,7 @@ template <class _Getter> struct RendererQuadFill : RendererBase {
         draw_list_3d._IdxWritePtr += 6;
 
         // Add depth value for the quad
-        float z = GetPointDepth((p_plot[0] + p_plot[1] + p_plot[2] + p_plot[3]) / 4.0f);
+        double z = GetPointDepth((p_plot[0] + p_plot[1] + p_plot[2] + p_plot[3]) / 4.0);
         draw_list_3d._ZWritePtr[0] = z;
         draw_list_3d._ZWritePtr[1] = z;
         draw_list_3d._ZWritePtr += 2;
@@ -757,7 +757,7 @@ template <class _Getter> struct RendererQuadImage : RendererBase {
         draw_list_3d._IdxWritePtr += 6;
 
         // Add depth value for the quad
-        float z = GetPointDepth((p_plot[0] + p_plot[1] + p_plot[2] + p_plot[3]) / 4.0f);
+        double z = GetPointDepth((p_plot[0] + p_plot[1] + p_plot[2] + p_plot[3]) / 4.0);
         draw_list_3d._ZWritePtr[0] = z;
         draw_list_3d._ZWritePtr[1] = z;
         draw_list_3d._ZWritePtr += 2;
@@ -788,10 +788,10 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
         // Compute min and max values for the colormap (if not solid fill)
         const ImPlot3DNextItemData& n = GetItemData();
         if (n.IsAutoFill) {
-            Min = FLT_MAX;
-            Max = -FLT_MAX;
+            Min = DBL_MAX;
+            Max = -DBL_MAX;
             for (int i = 0; i < Getter.Count; i++) {
-                float z = Getter(i).z;
+                double z = Getter(i).z;
                 Min = ImMin(Min, z);
                 Max = ImMax(Max, z);
             }
@@ -817,14 +817,14 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
         const ImPlot3DNextItemData& n = GetItemData();
         if (n.IsAutoFill) {
             float alpha = GImPlot3D->NextItemData.FillAlpha;
-            float min = Min;
-            float max = Max;
+            double min = Min;
+            double max = Max;
             if (ScaleMin != 0.0 || ScaleMax != 0.0) {
-                min = (float)ScaleMin;
-                max = (float)ScaleMax;
+                min = ScaleMin;
+                max = ScaleMax;
             }
             for (int i = 0; i < 4; i++) {
-                ImVec4 col = SampleColormap(ImClamp(ImRemap01(p_plot[i].z, min, max), 0.0f, 1.0f));
+                ImVec4 col = SampleColormap((float)ImClamp(ImRemap01(p_plot[i].z, min, max), 0.0, 1.0));
                 col.w *= alpha;
                 cols[i] = ImGui::ColorConvertFloat4ToU32(col);
             }
@@ -872,8 +872,8 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
         draw_list_3d._IdxWritePtr += 6;
 
         // Add depth values for the two triangles
-        draw_list_3d._ZWritePtr[0] = GetPointDepth((p_plot[0] + p_plot[1] + p_plot[2]) / 3.0f);
-        draw_list_3d._ZWritePtr[1] = GetPointDepth((p_plot[0] + p_plot[2] + p_plot[3]) / 3.0f);
+        draw_list_3d._ZWritePtr[0] = GetPointDepth((p_plot[0] + p_plot[1] + p_plot[2]) / 3.0);
+        draw_list_3d._ZWritePtr[1] = GetPointDepth((p_plot[0] + p_plot[2] + p_plot[3]) / 3.0);
         draw_list_3d._ZWritePtr += 2;
 
         // Update vertex count
@@ -884,8 +884,8 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
 
     const _Getter& Getter;
     mutable ImVec2 UV;
-    mutable float Min; // Minimum value for the colormap
-    mutable float Max; // Minimum value for the colormap
+    mutable double Min; // Minimum value for the colormap
+    mutable double Max; // Maximum value for the colormap
     const int XCount;
     const int YCount;
     const ImU32 Col;
@@ -902,7 +902,7 @@ template <typename T> IMPLOT3D_INLINE T IndexData(const T* data, int idx, int co
     switch (s) {
         case 3: return data[idx];
         case 2: return data[(offset + idx) % count];
-        case 1: return *(const T*)(const void*)((const unsigned char*)data + (size_t)((idx))*stride);
+        case 1: return *(const T*)(const void*)((const unsigned char*)data + (size_t)((idx)) * stride);
         case 0: return *(const T*)(const void*)((const unsigned char*)data + (size_t)((offset + idx) % count) * stride);
         default: return T(0);
     }
@@ -923,9 +923,7 @@ template <typename T> struct IndexerIdx {
 
 template <typename _IndexerX, typename _IndexerY, typename _IndexerZ> struct GetterXYZ {
     GetterXYZ(_IndexerX x, _IndexerY y, _IndexerZ z, int count) : IndexerX(x), IndexerY(y), IndexerZ(z), Count(count) {}
-    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
-        return ImPlot3DPoint((float)IndexerX(idx), (float)IndexerY(idx), (float)IndexerZ(idx));
-    }
+    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const { return ImPlot3DPoint(IndexerX(idx), IndexerY(idx), IndexerZ(idx)); }
     const _IndexerX IndexerX;
     const _IndexerY IndexerY;
     const _IndexerZ IndexerZ;
@@ -1458,7 +1456,7 @@ IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const Im
 // [SECTION] PlotText
 //-----------------------------------------------------------------------------
 
-void PlotText(const char* text, float x, float y, float z, float angle, const ImVec2& pix_offset) {
+void PlotText(const char* text, double x, double y, double z, double angle, const ImVec2& pix_offset) {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "PlotText() needs to be called between BeginPlot() and EndPlot()!");
     SetupLock();
@@ -1478,7 +1476,7 @@ void PlotText(const char* text, float x, float y, float z, float angle, const Im
     ImVec2 p = PlotToPixels(ImPlot3DPoint(x, y, z));
     p.x += pix_offset.x;
     p.y += pix_offset.y;
-    AddTextRotated(GetPlotDrawList(), p, angle, GetStyleColorU32(ImPlot3DCol_InlayText), text);
+    AddTextRotated(GetPlotDrawList(), p, (float)angle, GetStyleColorU32(ImPlot3DCol_InlayText), text);
 }
 
 } // namespace ImPlot3D

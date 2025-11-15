@@ -325,7 +325,7 @@ enum ImPlot3DColormap_ {
 //-----------------------------------------------------------------------------
 
 // Callback signature for axis tick label formatter
-typedef int (*ImPlot3DFormatter)(float value, char* buff, int size, void* user_data);
+typedef int (*ImPlot3DFormatter)(double value, char* buff, int size, void* user_data);
 
 namespace ImPlot3D {
 
@@ -416,21 +416,21 @@ IMPLOT3D_API void SetupAxesLimits(double x_min, double x_max, double y_min, doub
                                   ImPlot3DCond cond = ImPlot3DCond_Once);
 
 // Sets the plot box rotation given the elevation and azimuth angles in degrees. If ImPlot3DCond_Always is used, the rotation will be locked
-IMPLOT3D_API void SetupBoxRotation(float elevation, float azimuth, bool animate = false, ImPlot3DCond cond = ImPlot3DCond_Once);
+IMPLOT3D_API void SetupBoxRotation(double elevation, double azimuth, bool animate = false, ImPlot3DCond cond = ImPlot3DCond_Once);
 
 // Sets the plot box rotation given a quaternion. If ImPlot3DCond_Always is used, the rotation will be locked
 IMPLOT3D_API void SetupBoxRotation(ImPlot3DQuat rotation, bool animate = false, ImPlot3DCond cond = ImPlot3DCond_Once);
 
 // Sets the plot box initial rotation given the elevation and azimuth angles in degrees. The initial rotation is the rotation the plot goes back to
 // when a left mouse button double click happens
-IMPLOT3D_API void SetupBoxInitialRotation(float elevation, float azimuth);
+IMPLOT3D_API void SetupBoxInitialRotation(double elevation, double azimuth);
 
 // Sets the plot box initial rotation given a quaternion. The initial rotation is the rotation the plot goes back to when a left mouse button double
 // click happens
 IMPLOT3D_API void SetupBoxInitialRotation(ImPlot3DQuat rotation);
 
 // Sets the plot box X/Y/Z scale. A scale of 1.0 is the default. Values greater than 1.0 enlarge the plot, while values between 0.0 and 1.0 shrink it
-IMPLOT3D_API void SetupBoxScale(float x, float y, float z);
+IMPLOT3D_API void SetupBoxScale(double x, double y, double z);
 
 IMPLOT3D_API void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags flags = 0);
 
@@ -480,7 +480,7 @@ IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const Im
                             ImPlot3DImageFlags flags = 0);
 
 // Plots a centered text label at point x,y,z. It is possible to set the text angle in radians and offset in pixels
-IMPLOT3D_API void PlotText(const char* text, float x, float y, float z, float angle = 0.0f, const ImVec2& pix_offset = ImVec2(0, 0));
+IMPLOT3D_API void PlotText(const char* text, double x, double y, double z, double angle = 0.0, const ImVec2& pix_offset = ImVec2(0, 0));
 
 //-----------------------------------------------------------------------------
 // [SECTION] Plot Utils
@@ -619,23 +619,23 @@ IMPLOT3D_API void ShowMetricsWindow(bool* p_popen = nullptr);
 
 // ImPlot3DPoint: 3D vector to store points in 3D
 struct ImPlot3DPoint {
-    float x, y, z;
-    constexpr ImPlot3DPoint() : x(0.0f), y(0.0f), z(0.0f) {}
-    constexpr ImPlot3DPoint(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
+    double x, y, z;
+    constexpr ImPlot3DPoint() : x(0.0), y(0.0), z(0.0) {}
+    constexpr ImPlot3DPoint(double _x, double _y, double _z) : x(_x), y(_y), z(_z) {}
 
     // Accessors
-    float& operator[](size_t idx) {
+    double& operator[](size_t idx) {
         IM_ASSERT(idx == 0 || idx == 1 || idx == 2);
-        return ((float*)(void*)(char*)this)[idx];
+        return ((double*)(void*)(char*)this)[idx];
     }
-    float operator[](size_t idx) const {
+    double operator[](size_t idx) const {
         IM_ASSERT(idx == 0 || idx == 1 || idx == 2);
-        return ((const float*)(const void*)(const char*)this)[idx];
+        return ((const double*)(const void*)(const char*)this)[idx];
     }
 
     // Binary operators
-    IMPLOT3D_API ImPlot3DPoint operator*(float rhs) const;
-    IMPLOT3D_API ImPlot3DPoint operator/(float rhs) const;
+    IMPLOT3D_API ImPlot3DPoint operator*(double rhs) const;
+    IMPLOT3D_API ImPlot3DPoint operator/(double rhs) const;
     IMPLOT3D_API ImPlot3DPoint operator+(const ImPlot3DPoint& rhs) const;
     IMPLOT3D_API ImPlot3DPoint operator-(const ImPlot3DPoint& rhs) const;
     IMPLOT3D_API ImPlot3DPoint operator*(const ImPlot3DPoint& rhs) const;
@@ -645,8 +645,8 @@ struct ImPlot3DPoint {
     IMPLOT3D_API ImPlot3DPoint operator-() const;
 
     // Compound assignment operators
-    IMPLOT3D_API ImPlot3DPoint& operator*=(float rhs);
-    IMPLOT3D_API ImPlot3DPoint& operator/=(float rhs);
+    IMPLOT3D_API ImPlot3DPoint& operator*=(double rhs);
+    IMPLOT3D_API ImPlot3DPoint& operator/=(double rhs);
     IMPLOT3D_API ImPlot3DPoint& operator+=(const ImPlot3DPoint& rhs);
     IMPLOT3D_API ImPlot3DPoint& operator-=(const ImPlot3DPoint& rhs);
     IMPLOT3D_API ImPlot3DPoint& operator*=(const ImPlot3DPoint& rhs);
@@ -657,16 +657,16 @@ struct ImPlot3DPoint {
     IMPLOT3D_API bool operator!=(const ImPlot3DPoint& rhs) const;
 
     // Dot product
-    IMPLOT3D_API float Dot(const ImPlot3DPoint& rhs) const;
+    IMPLOT3D_API double Dot(const ImPlot3DPoint& rhs) const;
 
     // Cross product
     IMPLOT3D_API ImPlot3DPoint Cross(const ImPlot3DPoint& rhs) const;
 
     // Get vector length
-    IMPLOT3D_API float Length() const;
+    IMPLOT3D_API double Length() const;
 
     // Get vector squared length
-    IMPLOT3D_API float LengthSquared() const;
+    IMPLOT3D_API double LengthSquared() const;
 
     // Normalize to unit length
     IMPLOT3D_API void Normalize();
@@ -675,7 +675,7 @@ struct ImPlot3DPoint {
     IMPLOT3D_API ImPlot3DPoint Normalized() const;
 
     // Friend binary operators to allow commutative behavior
-    IMPLOT3D_API friend ImPlot3DPoint operator*(float lhs, const ImPlot3DPoint& rhs);
+    IMPLOT3D_API friend ImPlot3DPoint operator*(double lhs, const ImPlot3DPoint& rhs);
 
     // Check if the point is NaN
     IMPLOT3D_API bool IsNaN() const;
@@ -733,15 +733,15 @@ struct ImPlot3DBox {
 //-----------------------------------------------------------------------------
 
 struct ImPlot3DRange {
-    float Min;
-    float Max;
+    double Min;
+    double Max;
 
-    constexpr ImPlot3DRange() : Min(0.0f), Max(0.0f) {}
-    constexpr ImPlot3DRange(float min, float max) : Min(min), Max(max) {}
+    constexpr ImPlot3DRange() : Min(0.0), Max(0.0) {}
+    constexpr ImPlot3DRange(double min, double max) : Min(min), Max(max) {}
 
-    IMPLOT3D_API void Expand(float value);
-    IMPLOT3D_API bool Contains(float value) const;
-    float Size() const { return Max - Min; }
+    IMPLOT3D_API void Expand(double value);
+    IMPLOT3D_API bool Contains(double value) const;
+    double Size() const { return Max - Min; }
 };
 
 //-----------------------------------------------------------------------------
@@ -749,22 +749,22 @@ struct ImPlot3DRange {
 //-----------------------------------------------------------------------------
 
 struct ImPlot3DQuat {
-    float x, y, z, w;
+    double x, y, z, w;
 
     // Constructors
-    constexpr ImPlot3DQuat() : x(0.0f), y(0.0f), z(0.0f), w(1.0f) {}
-    constexpr ImPlot3DQuat(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z), w(_w) {}
+    constexpr ImPlot3DQuat() : x(0.0), y(0.0), z(0.0), w(1.0) {}
+    constexpr ImPlot3DQuat(double _x, double _y, double _z, double _w) : x(_x), y(_y), z(_z), w(_w) {}
 
-    IMPLOT3D_API ImPlot3DQuat(float _angle, const ImPlot3DPoint& _axis);
+    IMPLOT3D_API ImPlot3DQuat(double _angle, const ImPlot3DPoint& _axis);
 
     // Set quaternion from two vectors
     IMPLOT3D_API static ImPlot3DQuat FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3DPoint& v1);
 
     // Set quaternion given elevation and azimuth angles in radians
-    IMPLOT3D_API static ImPlot3DQuat FromElAz(float elevation, float azimuth);
+    IMPLOT3D_API static ImPlot3DQuat FromElAz(double elevation, double azimuth);
 
     // Get quaternion length
-    IMPLOT3D_API float Length() const;
+    IMPLOT3D_API double Length() const;
 
     // Get normalized quaternion
     IMPLOT3D_API ImPlot3DQuat Normalized() const;
@@ -789,10 +789,10 @@ struct ImPlot3DQuat {
     IMPLOT3D_API bool operator!=(const ImPlot3DQuat& rhs) const;
 
     // Interpolate between two quaternions
-    IMPLOT3D_API static ImPlot3DQuat Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2, float t);
+    IMPLOT3D_API static ImPlot3DQuat Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2, double t);
 
     // Get quaternion dot product
-    IMPLOT3D_API float Dot(const ImPlot3DQuat& rhs) const;
+    IMPLOT3D_API double Dot(const ImPlot3DQuat& rhs) const;
 
 #ifdef IMPLOT3D_QUAT_CLASS_EXTRA
     IMPLOT3D_QUAT_CLASS_EXTRA // Define additional constructors and implicit cast operators in imconfig.h to convert back and forth between your math
