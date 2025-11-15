@@ -1119,6 +1119,42 @@ void Demo3DInteraction() {
     }
 }
 
+void DemoConfig() {
+    ImGui::ShowFontSelector("Font");
+    ImGui::ShowStyleSelector("ImGui Style");
+    ImPlot3D::ShowStyleSelector("ImPlot3D Style");
+    ImPlot3D::ShowColormapSelector("ImPlot3D Colormap");
+    ImGui::Separator();
+
+    // Preview plot with 3D spirals
+    if (ImPlot3D::BeginPlot("Preview", ImVec2(-1, 0))) {
+        // Generate 10 spirals at different heights
+        static float xs[10][50], ys[10][50], zs[10][50];
+        static bool initialized = false;
+        if (!initialized) {
+            for (int i = 0; i < 10; ++i) {
+                for (int j = 0; j < 50; ++j) {
+                    float t = j / 49.0f;
+                    float angle = t * 4.0f * IM_PI;
+                    float radius = 0.3f + i * 0.05f;
+                    xs[i][j] = radius * ImCos(angle);
+                    ys[i][j] = radius * ImSin(angle);
+                    zs[i][j] = i / 9.0f;
+                }
+            }
+            initialized = true;
+        }
+
+        for (int i = 0; i < 10; ++i) {
+            ImGui::PushID(i);
+            ImPlot3D::PlotLine("##Spiral", xs[i], ys[i], zs[i], 50);
+            ImGui::PopID();
+        }
+
+        ImPlot3D::EndPlot();
+    }
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Demo Window
 //-----------------------------------------------------------------------------
@@ -1230,6 +1266,10 @@ void ShowAllDemos() {
             DemoHeader("3D Interaction", Demo3DInteraction);
             ImGui::EndTabItem();
         }
+        if (ImGui::BeginTabItem("Config")) {
+            DemoConfig();
+            ImGui::EndTabItem();
+        }
         if (ImGui::BeginTabItem("Help")) {
             DemoHelp();
             ImGui::EndTabItem();
@@ -1284,20 +1324,6 @@ void ShowDemoWindow(bool* p_open) {
 //-----------------------------------------------------------------------------
 // [SECTION] Style Editor
 //-----------------------------------------------------------------------------
-
-bool ShowStyleSelector(const char* label) {
-    static int style_idx = -1;
-    if (ImGui::Combo(label, &style_idx, "Auto\0Classic\0Dark\0Light\0")) {
-        switch (style_idx) {
-            case 0: StyleColorsAuto(); break;
-            case 1: StyleColorsClassic(); break;
-            case 2: StyleColorsDark(); break;
-            case 3: StyleColorsLight(); break;
-        }
-        return true;
-    }
-    return false;
-}
 
 bool ColormapButton(const char* label, const ImVec2& size_arg, ImPlot3DColormap cmap) {
     ImGuiContext& G = *GImGui;

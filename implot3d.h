@@ -660,6 +660,10 @@ IMPLOT3D_API void ShowAllDemos();
 
 // Shows ImPlot3D style editor block (not a window)
 IMPLOT3D_API void ShowStyleEditor(ImPlot3DStyle* ref = nullptr);
+// Shows ImPlot3D style selector and returns true if selection is changed (not a window)
+IMPLOT3D_API bool ShowStyleSelector(const char* label);
+// Shows ImPlot3D colormap selector and returns true if selection is changed (not a window)
+IMPLOT3D_API bool ShowColormapSelector(const char* label);
 
 // Shows ImPlot3D metrics/debug information window.
 IMPLOT3D_API void ShowMetricsWindow(bool* p_popen = nullptr);

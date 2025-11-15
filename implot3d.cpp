@@ -2628,6 +2628,37 @@ void StyleColorsClassic(ImPlot3DStyle* dst) {
     colors[ImPlot3DCol_AxisTick] = IMPLOT3D_AUTO_COL;
 }
 
+bool ShowStyleSelector(const char* label) {
+    static int style_idx = -1;
+    if (ImGui::Combo(label, &style_idx, "Auto\0Classic\0Dark\0Light\0")) {
+        switch (style_idx) {
+            case 0: StyleColorsAuto(); break;
+            case 1: StyleColorsClassic(); break;
+            case 2: StyleColorsDark(); break;
+            case 3: StyleColorsLight(); break;
+        }
+        return true;
+    }
+    return false;
+}
+
+bool ShowColormapSelector(const char* label) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    bool set = false;
+    if (ImGui::BeginCombo(label, gp.ColormapData.GetName(gp.Style.Colormap))) {
+        for (int i = 0; i < gp.ColormapData.Count; ++i) {
+            const char* name = gp.ColormapData.GetName(i);
+            if (ImGui::Selectable(name, gp.Style.Colormap == i)) {
+                gp.Style.Colormap = i;
+                BustItemCache();
+                set = true;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    return set;
+}
+
 void PushStyleColor(ImPlot3DCol idx, ImU32 col) {
     ImPlot3DContext& gp = *GImPlot3D;
     ImGuiColorMod backup;
