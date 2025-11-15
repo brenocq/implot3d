@@ -325,7 +325,7 @@ enum ImPlot3DColormap_ {
 //-----------------------------------------------------------------------------
 
 // Callback signature for axis tick label formatter
-typedef int (*ImPlot3DFormatter)(float value, char* buff, int size, void* user_data);
+typedef int (*ImPlot3DFormatter)(double value, char* buff, int size, void* user_data);
 
 namespace ImPlot3D {
 
@@ -416,21 +416,21 @@ IMPLOT3D_API void SetupAxesLimits(double x_min, double x_max, double y_min, doub
                                   ImPlot3DCond cond = ImPlot3DCond_Once);
 
 // Sets the plot box rotation given the elevation and azimuth angles in degrees. If ImPlot3DCond_Always is used, the rotation will be locked
-IMPLOT3D_API void SetupBoxRotation(float elevation, float azimuth, bool animate = false, ImPlot3DCond cond = ImPlot3DCond_Once);
+IMPLOT3D_API void SetupBoxRotation(double elevation, double azimuth, bool animate = false, ImPlot3DCond cond = ImPlot3DCond_Once);
 
 // Sets the plot box rotation given a quaternion. If ImPlot3DCond_Always is used, the rotation will be locked
 IMPLOT3D_API void SetupBoxRotation(ImPlot3DQuat rotation, bool animate = false, ImPlot3DCond cond = ImPlot3DCond_Once);
 
 // Sets the plot box initial rotation given the elevation and azimuth angles in degrees. The initial rotation is the rotation the plot goes back to
 // when a left mouse button double click happens
-IMPLOT3D_API void SetupBoxInitialRotation(float elevation, float azimuth);
+IMPLOT3D_API void SetupBoxInitialRotation(double elevation, double azimuth);
 
 // Sets the plot box initial rotation given a quaternion. The initial rotation is the rotation the plot goes back to when a left mouse button double
 // click happens
 IMPLOT3D_API void SetupBoxInitialRotation(ImPlot3DQuat rotation);
 
 // Sets the plot box X/Y/Z scale. A scale of 1.0 is the default. Values greater than 1.0 enlarge the plot, while values between 0.0 and 1.0 shrink it
-IMPLOT3D_API void SetupBoxScale(float x, float y, float z);
+IMPLOT3D_API void SetupBoxScale(double x, double y, double z);
 
 IMPLOT3D_API void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags flags = 0);
 
@@ -480,7 +480,7 @@ IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const Im
                             ImPlot3DImageFlags flags = 0);
 
 // Plots a centered text label at point x,y,z. It is possible to set the text angle in radians and offset in pixels
-IMPLOT3D_API void PlotText(const char* text, float x, float y, float z, float angle = 0.0f, const ImVec2& pix_offset = ImVec2(0, 0));
+IMPLOT3D_API void PlotText(const char* text, double x, double y, double z, double angle = 0.0, const ImVec2& pix_offset = ImVec2(0, 0));
 
 //-----------------------------------------------------------------------------
 // [SECTION] Plot Utils

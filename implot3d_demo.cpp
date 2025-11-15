@@ -269,7 +269,7 @@ void DemoQuadPlots() {
     CHECKBOX_FLAG(flags, ImPlot3DQuadFlags_NoMarkers);
 
     if (ImPlot3D::BeginPlot("Quad Plots")) {
-        ImPlot3D::SetupAxesLimits(-1.5f, 1.5f, -1.5f, 1.5f, -1.5f, 1.5f);
+        ImPlot3D::SetupAxesLimits(-1.5, 1.5, -1.5, 1.5, -1.5, 1.5);
 
         // Render +x and -x faces
         static ImVec4 colorX(0.8f, 0.2f, 0.2f, 0.8f); // Red
@@ -557,7 +557,7 @@ void DemoRealtimePlots() {
         }
 
         ImPlot3D::SetupAxes("Time", "Mouse X", "Mouse Y", flags, flags, flags);
-        ImPlot3D::SetupAxisLimits(ImAxis3D_X, t - 10.0f, t, ImPlot3DCond_Always);
+        ImPlot3D::SetupAxisLimits(ImAxis3D_X, t - 10.0, t, ImPlot3DCond_Always);
         ImPlot3D::SetupAxisLimits(ImAxis3D_Y, -400, 400, ImPlot3DCond_Once);
         ImPlot3D::SetupAxisLimits(ImAxis3D_Z, -400, 400, ImPlot3DCond_Once);
         ImPlot3D::PlotLine("Mouse", &sdata1.Data[0], &sdata2.Data[0], &sdata3.Data[0], sdata1.Data.size(), 0, sdata1.Offset, sizeof(float));
@@ -612,11 +612,11 @@ void DemoMarkersAndText() {
             zs[1]--;
         }
 
-        ImPlot3D::PlotText("Filled Markers", 0.0f, 0.0f, 6.0f);
-        ImPlot3D::PlotText("Open Markers", 1.0f, 1.0f, 6.0f);
+        ImPlot3D::PlotText("Filled Markers", 0.0, 0.0, 6.0);
+        ImPlot3D::PlotText("Open Markers", 1.0, 1.0, 6.0);
 
         ImPlot3D::PushStyleColor(ImPlot3DCol_InlayText, ImVec4(1, 0, 1, 1));
-        ImPlot3D::PlotText("Rotated Text", 0.5f, 0.5f, 6.0f, IM_PI / 4, ImVec2(0, 0));
+        ImPlot3D::PlotText("Rotated Text", 0.5, 0.5, 6.0, IM_PI / 4, ImVec2(0, 0));
         ImPlot3D::PopStyleColor();
 
         ImPlot3D::EndPlot();
@@ -670,8 +670,8 @@ void DemoBoxScale() {
 }
 
 void DemoBoxRotation() {
-    float origin[2] = {0.0f, 0.0f};
-    float axis[2] = {0.0f, 1.0f};
+    double origin[2] = {0.0, 0.0};
+    double axis[2] = {0.0, 1.0};
 
     // Sliders for rotation angles
     static float elevation = 45.0f;
@@ -748,12 +748,12 @@ void DemoAxisConstraints() {
     if (ImPlot3D::BeginPlot("##AxisConstraints", ImVec2(-1, 0))) {
         ImPlot3D::SetupAxes("X", "Y", "Z", flags, flags, flags);
         ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
-        ImPlot3D::SetupAxisLimitsConstraints(ImAxis3D_X, limit_constraints[0], limit_constraints[1]);
-        ImPlot3D::SetupAxisLimitsConstraints(ImAxis3D_Y, limit_constraints[0], limit_constraints[1]);
-        ImPlot3D::SetupAxisLimitsConstraints(ImAxis3D_Z, limit_constraints[0], limit_constraints[1]);
-        ImPlot3D::SetupAxisZoomConstraints(ImAxis3D_X, zoom_constraints[0], zoom_constraints[1]);
-        ImPlot3D::SetupAxisZoomConstraints(ImAxis3D_Y, zoom_constraints[0], zoom_constraints[1]);
-        ImPlot3D::SetupAxisZoomConstraints(ImAxis3D_Z, zoom_constraints[0], zoom_constraints[1]);
+        ImPlot3D::SetupAxisLimitsConstraints(ImAxis3D_X, (double)limit_constraints[0], (double)limit_constraints[1]);
+        ImPlot3D::SetupAxisLimitsConstraints(ImAxis3D_Y, (double)limit_constraints[0], (double)limit_constraints[1]);
+        ImPlot3D::SetupAxisLimitsConstraints(ImAxis3D_Z, (double)limit_constraints[0], (double)limit_constraints[1]);
+        ImPlot3D::SetupAxisZoomConstraints(ImAxis3D_X, (double)zoom_constraints[0], (double)zoom_constraints[1]);
+        ImPlot3D::SetupAxisZoomConstraints(ImAxis3D_Y, (double)zoom_constraints[0], (double)zoom_constraints[1]);
+        ImPlot3D::SetupAxisZoomConstraints(ImAxis3D_Z, (double)zoom_constraints[0], (double)zoom_constraints[1]);
         ImPlot3D::EndPlot();
     }
 }
@@ -843,7 +843,7 @@ void DemoCustomStyles() {
     MyImPlot3D::StyleSeaborn();
     if (ImPlot3D::BeginPlot("Seaborn Style")) {
         ImPlot3D::SetupAxes("X-axis", "Y-axis", "Z-axis");
-        ImPlot3D::SetupAxesLimits(-0.5f, 9.5f, -0.5f, 0.5f, 0, 10);
+        ImPlot3D::SetupAxesLimits(-0.5, 9.5, -0.5, 0.5, 0, 10);
         unsigned int xs[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
         unsigned int ys[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
         unsigned int lin[10] = {8, 8, 9, 7, 8, 8, 8, 9, 7, 8};
@@ -860,10 +860,10 @@ void DemoCustomStyles() {
 
 void DemoCustomRendering() {
     if (ImPlot3D::BeginPlot("##CustomRend")) {
-        ImPlot3D::SetupAxesLimits(-0.1f, 1.1f, -0.1f, 1.1f, -0.1f, 1.1f);
+        ImPlot3D::SetupAxesLimits(-0.1, 1.1, -0.1, 1.1, -0.1, 1.1);
 
         // Draw circle
-        ImVec2 cntr = ImPlot3D::PlotToPixels(ImPlot3DPoint(0.5f, 0.5f, 0.5f));
+        ImVec2 cntr = ImPlot3D::PlotToPixels(ImPlot3DPoint(0.5, 0.5, 0.5));
         ImPlot3D::GetPlotDrawList()->AddCircleFilled(cntr, 20, IM_COL32(255, 255, 0, 255), 20);
 
         // Draw box
