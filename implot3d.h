@@ -82,7 +82,7 @@ typedef int ImPlot3DItemFlags;     // -> ImPlot3DItemFlags_     // Flags: Item f
 typedef int ImPlot3DScatterFlags;  // -> ImPlot3DScatterFlags_  // Flags: Scatter plot flags
 typedef int ImPlot3DLineFlags;     // -> ImPlot3DLineFlags_     // Flags: Line plot flags
 typedef int ImPlot3DTriangleFlags; // -> ImPlot3DTriangleFlags_ // Flags: Triangle plot flags
-typedef int ImPlot3DQuadFlags;     // -> ImPlot3DQuadFlags_     // Flags: QuadFplot flags
+typedef int ImPlot3DQuadFlags;     // -> ImPlot3DQuadFlags_     // Flags: Quad plot flags
 typedef int ImPlot3DSurfaceFlags;  // -> ImPlot3DSurfaceFlags_  // Flags: Surface plot flags
 typedef int ImPlot3DMeshFlags;     // -> ImPlot3DMeshFlags_     // Flags: Mesh plot flags
 typedef int ImPlot3DImageFlags;    // -> ImPlot3DImageFlags_    // Flags: Image plot flags
@@ -291,17 +291,17 @@ enum ImPlot3DAxisFlags_ {
 
 // Axis indices
 enum ImAxis3D_ {
-    ImAxis3D_X = 0,
-    ImAxis3D_Y,
-    ImAxis3D_Z,
+    ImAxis3D_X = 0,  // X-axis
+    ImAxis3D_Y,      // Y-axis
+    ImAxis3D_Z,      // Z-axis
     ImAxis3D_COUNT,
 };
 
 // Plane indices
 enum ImPlane3D_ {
-    ImPlane3D_YZ = 0,
-    ImPlane3D_XZ,
-    ImPlane3D_XY,
+    ImPlane3D_YZ = 0,  // YZ plane (perpendicular to X-axis)
+    ImPlane3D_XZ,      // XZ plane (perpendicular to Y-axis)
+    ImPlane3D_XY,      // XY plane (perpendicular to Z-axis)
     ImPlane3D_COUNT,
 };
 
@@ -329,7 +329,9 @@ enum ImPlot3DColormap_ {
 // [SECTION] Callbacks
 //-----------------------------------------------------------------------------
 
-// Callback signature for axis tick label formatter
+// Callback signature for axis tick label formatter.
+// Given a numeric #value, format it into #buff with maximum #size characters.
+// Optionally use #user_data for context. Return the number of characters written (excluding null terminator)
 typedef int (*ImPlot3DFormatter)(double value, char* buff, int size, void* user_data);
 
 namespace ImPlot3D {
