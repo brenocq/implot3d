@@ -40,6 +40,7 @@
 // [SECTION] ImPlot3DPlot
 // [SECTION] ImPlot3DStyle
 // [SECTION] Metrics
+// [SECTION] Obsolete API
 
 /*
 API BREAKING CHANGES
@@ -49,6 +50,8 @@ Below is a change-log of API breaking changes only. If you are using one of the 
 When you are not sure about an old symbol or function name, try using the Search/Find function of your IDE to look for comments or references in all
 implot3d files. You can read releases logs https://github.com/brenocq/implot3d/releases for more details.
 
+- 2025/11/15 (0.3) - Renamed GetPlotPos() -> GetPlotRectPos() and GetPlotSize() -> GetPlotRectSize() for clarity in 3D context.
+                     Old functions are marked as deprecated and will be removed in v1.0.
 - 2025/10/22 (0.3) - **IMPORTANT** All plot coordinate types migrated from float to double precision to fix sorting issues with large values:
                        - ImPlot3DPoint members (x, y, z): float -> double
                        - ImPlot3DPoint operators: float parameters -> double parameters
@@ -1896,16 +1899,16 @@ ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
 
 ImPlot3DPoint PixelsToPlotPlane(double x, double y, ImPlane3D plane, bool mask) { return PixelsToPlotPlane(ImVec2((float)x, (float)y), plane, mask); }
 
-ImVec2 GetPlotPos() {
+ImVec2 GetPlotRectPos() {
     ImPlot3DContext& gp = *GImPlot3D;
-    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetPlotPos() needs to be called between BeginPlot() and EndPlot()!");
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetPlotRectPos() needs to be called between BeginPlot() and EndPlot()!");
     SetupLock();
     return gp.CurrentPlot->PlotRect.Min;
 }
 
-ImVec2 GetPlotSize() {
+ImVec2 GetPlotRectSize() {
     ImPlot3DContext& gp = *GImPlot3D;
-    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetPlotSize() needs to be called between BeginPlot() and EndPlot()!");
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetPlotRectSize() needs to be called between BeginPlot() and EndPlot()!");
     SetupLock();
     return gp.CurrentPlot->PlotRect.GetSize();
 }
@@ -3928,5 +3931,21 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
     }
     ImGui::End();
 }
+
+//-----------------------------------------------------------------------------
+// [SECTION] Obsolete API
+//-----------------------------------------------------------------------------
+
+#ifndef IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
+
+namespace ImPlot3D {
+
+// OBSOLETED in v0.3
+ImVec2 GetPlotPos()  { return GetPlotRectPos(); }
+ImVec2 GetPlotSize() { return GetPlotRectSize(); }
+
+} // namespace ImPlot3D
+
+#endif // #ifndef IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
 
 #endif // #ifndef IMGUI_DISABLE

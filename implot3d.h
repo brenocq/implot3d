@@ -32,6 +32,7 @@
 // [SECTION] ImPlot3DQuat
 // [SECTION] ImPlot3DStyle
 // [SECTION] Meshes
+// [SECTION] Obsolete API
 
 #pragma once
 #include "imgui.h"
@@ -543,10 +544,10 @@ IMPLOT3D_API ImPlot3DRay PixelsToPlotRay(double x, double y);
 IMPLOT3D_API ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask = true);
 IMPLOT3D_API ImPlot3DPoint PixelsToPlotPlane(double x, double y, ImPlane3D plane, bool mask = true);
 
-// Get the current plot rect position (top-left) in pixels
-IMPLOT3D_API ImVec2 GetPlotPos();
+// Get the current plot rect position (top-left) in absolute screen coordinates
+IMPLOT3D_API ImVec2 GetPlotRectPos();
 // Get the current plot rect size in pixels
-IMPLOT3D_API ImVec2 GetPlotSize();
+IMPLOT3D_API ImVec2 GetPlotRectSize();
 
 //-----------------------------------------------------------------------------
 // [SECTION] Miscellaneous
@@ -907,5 +908,40 @@ extern ImPlot3DPoint duck_vtx[DUCK_VTX_COUNT]; // Duck vertices
 extern unsigned int duck_idx[DUCK_IDX_COUNT];  // Duck indices
 
 } // namespace ImPlot3D
+
+//-----------------------------------------------------------------------------
+// [SECTION] Obsolete API
+//-----------------------------------------------------------------------------
+
+// The following functions will be removed! Keep your copy of ImPlot3D up to date!
+// Occasionally set '#define IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS' to stay ahead.
+// If you absolutely must use these functions and do not want to receive compiler
+// warnings, set '#define IMPLOT3D_DISABLE_OBSOLETE_WARNINGS'.
+
+#ifndef IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
+
+#ifndef IMPLOT3D_DISABLE_OBSOLETE_WARNINGS
+#if __cplusplus > 201402L
+#define IMPLOT3D_DEPRECATED(method) [[deprecated]] method
+#elif defined(__GNUC__) && !defined(__INTEL_COMPILER) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))
+#define IMPLOT3D_DEPRECATED(method) method __attribute__((deprecated))
+#elif defined(_MSC_VER)
+#define IMPLOT3D_DEPRECATED(method) __declspec(deprecated) method
+#else
+#define IMPLOT3D_DEPRECATED(method) method
+#endif
+#else
+#define IMPLOT3D_DEPRECATED(method) method
+#endif
+
+namespace ImPlot3D {
+
+// OBSOLETED in v0.3 -> PLANNED REMOVAL in v1.0
+IMPLOT3D_DEPRECATED(IMPLOT3D_API ImVec2 GetPlotPos());   // Renamed to GetPlotRectPos()
+IMPLOT3D_DEPRECATED(IMPLOT3D_API ImVec2 GetPlotSize());  // Renamed to GetPlotRectSize()
+
+} // namespace ImPlot3D
+
+#endif // #ifndef IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
 
 #endif // #ifndef IMGUI_DISABLE
