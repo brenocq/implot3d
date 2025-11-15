@@ -3941,7 +3941,7 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
 namespace ImPlot3D {
 
 // OBSOLETED in v0.3
-ImVec2 GetPlotPos()  { return GetPlotRectPos(); }
+ImVec2 GetPlotPos() { return GetPlotRectPos(); }
 ImVec2 GetPlotSize() { return GetPlotRectSize(); }
 
 } // namespace ImPlot3D

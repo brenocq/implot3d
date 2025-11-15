@@ -291,17 +291,17 @@ enum ImPlot3DAxisFlags_ {
 
 // Axis indices
 enum ImAxis3D_ {
-    ImAxis3D_X = 0,  // X-axis
-    ImAxis3D_Y,      // Y-axis
-    ImAxis3D_Z,      // Z-axis
+    ImAxis3D_X = 0, // X-axis
+    ImAxis3D_Y,     // Y-axis
+    ImAxis3D_Z,     // Z-axis
     ImAxis3D_COUNT,
 };
 
 // Plane indices
 enum ImPlane3D_ {
-    ImPlane3D_YZ = 0,  // YZ plane (perpendicular to X-axis)
-    ImPlane3D_XZ,      // XZ plane (perpendicular to Y-axis)
-    ImPlane3D_XY,      // XY plane (perpendicular to Z-axis)
+    ImPlane3D_YZ = 0, // YZ plane (perpendicular to X-axis)
+    ImPlane3D_XZ,     // XZ plane (perpendicular to Y-axis)
+    ImPlane3D_XY,     // XY plane (perpendicular to Z-axis)
     ImPlane3D_COUNT,
 };
 
@@ -670,9 +670,9 @@ IMPLOT3D_API void ShowMetricsWindow(bool* p_popen = nullptr);
 // [SECTION] ImPlot3DPoint
 //-----------------------------------------------------------------------------
 
-// ImPlot3DPoint: 3D vector to store points in 3D
+// ImPlot3DPoint: 3D vector to store points in 3D space
 struct ImPlot3DPoint {
-    double x, y, z;
+    double x, y, z; // Coordinates
     constexpr ImPlot3DPoint() : x(0.0), y(0.0), z(0.0) {}
     constexpr ImPlot3DPoint(double _x, double _y, double _z) : x(_x), y(_y), z(_z) {}
 
@@ -743,27 +743,30 @@ struct ImPlot3DPoint {
 // [SECTION] ImPlot3DRay
 //-----------------------------------------------------------------------------
 
+// ImPlot3DRay: Represents a ray in 3D space with an origin and direction
 struct ImPlot3DRay {
-    ImPlot3DPoint Origin;
-    ImPlot3DPoint Direction;
+    ImPlot3DPoint Origin;    // Ray origin point
+    ImPlot3DPoint Direction; // Ray direction (not necessarily normalized)
 };
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImPlot3DPlane
 //-----------------------------------------------------------------------------
 
+// ImPlot3DPlane: Represents a plane in 3D space defined by a point and normal vector
 struct ImPlot3DPlane {
-    ImPlot3DPoint Point;
-    ImPlot3DPoint Normal;
+    ImPlot3DPoint Point;  // A point on the plane
+    ImPlot3DPoint Normal; // Plane normal vector
 };
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImPlot3DBox
 //-----------------------------------------------------------------------------
 
+// ImPlot3DBox: Axis-aligned bounding box in 3D space
 struct ImPlot3DBox {
-    ImPlot3DPoint Min;
-    ImPlot3DPoint Max;
+    ImPlot3DPoint Min; // Minimum corner of the box
+    ImPlot3DPoint Max; // Maximum corner of the box
 
     // Default constructor
     constexpr ImPlot3DBox() : Min(ImPlot3DPoint()), Max(ImPlot3DPoint()) {}
@@ -785,35 +788,38 @@ struct ImPlot3DBox {
 // [SECTION] ImPlot3DRange
 //-----------------------------------------------------------------------------
 
+// ImPlot3DRange: Represents a 1D range with min and max values
 struct ImPlot3DRange {
-    double Min;
-    double Max;
+    double Min; // Minimum value
+    double Max; // Maximum value
 
     constexpr ImPlot3DRange() : Min(0.0), Max(0.0) {}
     constexpr ImPlot3DRange(double min, double max) : Min(min), Max(max) {}
 
-    IMPLOT3D_API void Expand(double value);
-    IMPLOT3D_API bool Contains(double value) const;
-    double Size() const { return Max - Min; }
+    IMPLOT3D_API void Expand(double value);         // Expand range to include value
+    IMPLOT3D_API bool Contains(double value) const; // Check if value is within range
+    double Size() const { return Max - Min; }       // Get range size
 };
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImPlot3DQuat
 //-----------------------------------------------------------------------------
 
+// ImPlot3DQuat: Quaternion for representing 3D rotations
 struct ImPlot3DQuat {
-    double x, y, z, w;
+    double x, y, z, w; // Quaternion components
 
     // Constructors
     constexpr ImPlot3DQuat() : x(0.0), y(0.0), z(0.0), w(1.0) {}
     constexpr ImPlot3DQuat(double _x, double _y, double _z, double _w) : x(_x), y(_y), z(_z), w(_w) {}
 
+    // Construct quaternion from angle-axis representation (angle in radians)
     IMPLOT3D_API ImPlot3DQuat(double _angle, const ImPlot3DPoint& _axis);
 
-    // Set quaternion from two vectors
+    // Create quaternion that rotates from v0 to v1
     IMPLOT3D_API static ImPlot3DQuat FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3DPoint& v1);
 
-    // Set quaternion given elevation and azimuth angles in radians
+    // Create quaternion from elevation and azimuth angles (in radians)
     IMPLOT3D_API static ImPlot3DQuat FromElAz(double elevation, double azimuth);
 
     // Get quaternion length
@@ -829,7 +835,7 @@ struct ImPlot3DQuat {
     IMPLOT3D_API ImPlot3DQuat Inverse() const;
 
     // Binary operators
-    IMPLOT3D_API ImPlot3DQuat operator*(const ImPlot3DQuat& rhs) const;
+    IMPLOT3D_API ImPlot3DQuat operator*(const ImPlot3DQuat& rhs) const; // Quaternion multiplication
 
     // Normalize the quaternion in place
     IMPLOT3D_API ImPlot3DQuat& Normalize();
@@ -841,7 +847,7 @@ struct ImPlot3DQuat {
     IMPLOT3D_API bool operator==(const ImPlot3DQuat& rhs) const;
     IMPLOT3D_API bool operator!=(const ImPlot3DQuat& rhs) const;
 
-    // Interpolate between two quaternions
+    // Spherical linear interpolation between two quaternions (t in [0,1])
     IMPLOT3D_API static ImPlot3DQuat Slerp(const ImPlot3DQuat& q1, const ImPlot3DQuat& q2, double t);
 
     // Get quaternion dot product
@@ -865,17 +871,17 @@ struct ImPlot3DStyle {
     float MarkerWeight; // Marker outline weight in pixels
     float FillAlpha;    // Alpha modifier applied to plot fills
     // Plot style
-    ImVec2 PlotDefaultSize;  // Default size used when ImVec2(0,0) is passed to BeginPlot
-    ImVec2 PlotMinSize;      // Minimum size plot frame can be when shrunk
-    ImVec2 PlotPadding;      // Padding between widget frame and plot area
-    ImVec2 LabelPadding;     // Padding between axes labels, tick labels, and plot edge
-    float ViewScaleFactor;   // Scale factor for 3D view
+    ImVec2 PlotDefaultSize; // Default size used when ImVec2(0,0) is passed to BeginPlot
+    ImVec2 PlotMinSize;     // Minimum size plot frame can be when shrunk
+    ImVec2 PlotPadding;     // Padding between widget frame and plot area
+    ImVec2 LabelPadding;    // Padding between axes labels, tick labels, and plot edge
+    float ViewScaleFactor;  // Scale factor for 3D view
     // Legend style
     ImVec2 LegendPadding;      // Legend padding from plot edges
     ImVec2 LegendInnerPadding; // Legend inner padding from legend edges
     ImVec2 LegendSpacing;      // Spacing between legend entries
     // Colors
-    ImVec4 Colors[ImPlot3DCol_COUNT];  // Array of plot colors
+    ImVec4 Colors[ImPlot3DCol_COUNT]; // Array of plot colors
     inline ImVec4 GetColor(ImPlot3DCol idx) const { return Colors[idx]; }
     inline void SetColor(ImPlot3DCol idx, const ImVec4& col) { Colors[idx] = col; }
     // Colormap
@@ -939,8 +945,8 @@ extern unsigned int duck_idx[DUCK_IDX_COUNT];  // Duck indices
 namespace ImPlot3D {
 
 // OBSOLETED in v0.3 -> PLANNED REMOVAL in v1.0
-IMPLOT3D_DEPRECATED(IMPLOT3D_API ImVec2 GetPlotPos());   // Renamed to GetPlotRectPos()
-IMPLOT3D_DEPRECATED(IMPLOT3D_API ImVec2 GetPlotSize());  // Renamed to GetPlotRectSize()
+IMPLOT3D_DEPRECATED(IMPLOT3D_API ImVec2 GetPlotPos());  // Renamed to GetPlotRectPos()
+IMPLOT3D_DEPRECATED(IMPLOT3D_API ImVec2 GetPlotSize()); // Renamed to GetPlotRectSize()
 
 } // namespace ImPlot3D
 
