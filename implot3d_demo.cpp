@@ -1014,6 +1014,76 @@ void DemoLegendOptions() {
     }
 }
 
+void Demo3DInteraction() {
+    static ImVector<ImPlot3DPoint> points;
+    static ImVector<ImPlot3DRay> rays;
+
+    ImGui::BulletText("Click anywhere in the plot to place points/rays.");
+
+    static int selected_plane = ImPlane3D_XY;
+    ImGui::RadioButton("XY-Plane", &selected_plane, ImPlane3D_XY);
+    ImGui::SameLine();
+    ImGui::RadioButton("XZ-Plane", &selected_plane, ImPlane3D_XZ);
+    ImGui::SameLine();
+    ImGui::RadioButton("YZ-Plane", &selected_plane, ImPlane3D_YZ);
+
+    static bool mask_plane = true;
+    ImGui::Checkbox("Mask Plane", &mask_plane);
+    if (ImGui::Button("Clear")) {
+        points.clear();
+        rays.clear();
+    }
+
+    if (ImPlot3D::BeginPlot("3D Interaction Demo", ImVec2(-1, 0))) {
+        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
+        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
+
+        // Get mouse position and convert to ray
+        ImVec2 mouse_pos = ImGui::GetMousePos();
+        ImPlot3DRay ray = ImPlot3D::PixelsToPlotRay(mouse_pos);
+
+        // Convert to selected plane
+        ImPlane3D plane = (ImPlane3D)selected_plane;
+        ImPlot3DPoint point = ImPlot3D::PixelsToPlotPlane(mouse_pos, plane, mask_plane);
+
+        // Show intersection point
+        if (ImGui::IsItemHovered() && !point.IsNaN()) {
+            ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle, 5, ImVec4(1, 1, 0, 1));
+            ImPlot3D::PlotScatter("##Intersection", &point.x, &point.y, &point.z, 1);
+        }
+
+        // Add point/ray on click
+        if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0) && !point.IsNaN()) {
+            points.push_back(point);
+            rays.push_back(ray);
+        }
+
+        // Draw all placed points
+        if (!points.empty()) {
+            ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle, 3);
+            // Plot points
+            ImPlot3D::PlotScatter("Placed Points", &points[0].x, &points[0].y, &points[0].z, (int)points.Size, ImPlot3DScatterFlags_None, 0,
+                                  sizeof(ImPlot3DPoint));
+        }
+
+        // Draw all placed rays
+        if (!rays.empty()) {
+            ImVector<ImPlot3DPoint> ray_points;
+            ray_points.reserve(rays.Size * 2);
+            for (int i = 0; i < rays.Size; i++) {
+                ImPlot3DPoint p1 = rays[i].Origin;
+                ImPlot3DPoint p2 = rays[i].Origin + rays[i].Direction;
+                ray_points.push_back(p1);
+                ray_points.push_back(p2);
+            }
+            ImPlot3D::PlotLine("Placed Rays", &ray_points[0].x, &ray_points[0].y, &ray_points[0].z, (int)rays.Size, ImPlot3DLineFlags_Segments, 0,
+                               sizeof(ImPlot3DPoint));
+        }
+
+        ImPlot3D::EndPlot();
+    }
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Demo Window
 //-----------------------------------------------------------------------------
@@ -1121,6 +1191,7 @@ void ShowAllDemos() {
         if (ImGui::BeginTabItem("Custom")) {
             DemoHeader("Custom Styles", DemoCustomStyles);
             DemoHeader("Custom Rendering", DemoCustomRendering);
+            DemoHeader("3D Interaction", Demo3DInteraction);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Help")) {
