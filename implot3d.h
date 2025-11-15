@@ -532,20 +532,27 @@ IMPLOT3D_API void PlotText(const char* text, double x, double y, double z, doubl
 // Convert a position in the current plot's coordinate system to pixels
 IMPLOT3D_API ImVec2 PlotToPixels(const ImPlot3DPoint& point);
 IMPLOT3D_API ImVec2 PlotToPixels(double x, double y, double z);
-// Convert a pixel coordinate to a ray in the current plot's coordinate system
+
+// Convert a pixel coordinate to a ray in the current plot's coordinate system. Useful for 3D picking and intersection tests
 IMPLOT3D_API ImPlot3DRay PixelsToPlotRay(const ImVec2& pix);
 IMPLOT3D_API ImPlot3DRay PixelsToPlotRay(double x, double y);
-// Convert a pixel coordinate to a point in an axis plane in the current plot's coordinate system
+
+// Convert a pixel coordinate to a point on one of the plot box's axis-aligned planes (XY, XZ, or YZ).
+// By default, the result is masked to the axis ranges. Set #mask=false to project to the infinite plane.
+// Returns ImPlot3DPoint(NAN, NAN, NAN) if the ray does not intersect the plane
 IMPLOT3D_API ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask = true);
 IMPLOT3D_API ImPlot3DPoint PixelsToPlotPlane(double x, double y, ImPlane3D plane, bool mask = true);
 
-IMPLOT3D_API ImVec2 GetPlotPos();  // Get the current plot position (top-left) in pixels
-IMPLOT3D_API ImVec2 GetPlotSize(); // Get the current plot size in pixels
+// Get the current plot rect position (top-left) in pixels
+IMPLOT3D_API ImVec2 GetPlotPos();
+// Get the current plot rect size in pixels
+IMPLOT3D_API ImVec2 GetPlotSize();
 
 //-----------------------------------------------------------------------------
 // [SECTION] Miscellaneous
 //-----------------------------------------------------------------------------
 
+// Returns the ImDrawList used for rendering plot items. Use this to add custom rendering inside plots
 IMPLOT3D_API ImDrawList* GetPlotDrawList();
 
 //-----------------------------------------------------------------------------
