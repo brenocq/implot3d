@@ -863,21 +863,21 @@ struct ImPlot3DStyle {
     float MarkerWeight; // Marker outline weight in pixels
     float FillAlpha;    // Alpha modifier applied to plot fills
     // Plot style
-    ImVec2 PlotDefaultSize;
-    ImVec2 PlotMinSize;
-    ImVec2 PlotPadding;
-    ImVec2 LabelPadding;
-    float ViewScaleFactor;
+    ImVec2 PlotDefaultSize;  // Default size used when ImVec2(0,0) is passed to BeginPlot
+    ImVec2 PlotMinSize;      // Minimum size plot frame can be when shrunk
+    ImVec2 PlotPadding;      // Padding between widget frame and plot area
+    ImVec2 LabelPadding;     // Padding between axes labels, tick labels, and plot edge
+    float ViewScaleFactor;   // Scale factor for 3D view
     // Legend style
     ImVec2 LegendPadding;      // Legend padding from plot edges
     ImVec2 LegendInnerPadding; // Legend inner padding from legend edges
     ImVec2 LegendSpacing;      // Spacing between legend entries
     // Colors
-    ImVec4 Colors[ImPlot3DCol_COUNT];
+    ImVec4 Colors[ImPlot3DCol_COUNT];  // Array of plot colors
     inline ImVec4 GetColor(ImPlot3DCol idx) const { return Colors[idx]; }
     inline void SetColor(ImPlot3DCol idx, const ImVec4& col) { Colors[idx] = col; }
     // Colormap
-    ImPlot3DColormap Colormap; // The current colormap. Set this to either an ImPlot3DColormap_ enum or an index returned by AddColormap
+    ImPlot3DColormap Colormap; // The current colormap (ImPlot3DColormap_ enum or index from AddColormap)
     // Constructor
     IMPLOT3D_API ImPlot3DStyle();
     ImPlot3DStyle(const ImPlot3DStyle& other) = default;
