@@ -1975,8 +1975,8 @@ ImPlot3DRay PixelsToNDCRay(const ImVec2& pix) {
     float y = -(pix.y - center.y) / zoom; // Invert y-axis
 
     // Define near and far points in NDC space along the z-axis
-    ImPlot3DPoint ndc_near = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, -10.0f);
-    ImPlot3DPoint ndc_far = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, 10.0f);
+    ImPlot3DPoint ndc_near = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, 10.0f);
+    ImPlot3DPoint ndc_far = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, -10.0f);
 
     // Create the ray in NDC space
     ImPlot3DRay ndc_ray;

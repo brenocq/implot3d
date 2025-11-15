@@ -1099,7 +1099,7 @@ void DemoMousePicking() {
         rays.clear();
     }
 
-    if (ImPlot3D::BeginPlot("Mouse Picking", ImVec2(-1, 0))) {
+    if (ImPlot3D::BeginPlot("Mouse Picking", ImVec2(-1, 0), ImPlot3DFlags_NoClip)) {
         ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
         ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
 
@@ -1136,12 +1136,12 @@ void DemoMousePicking() {
             ImVector<ImPlot3DPoint> ray_points;
             ray_points.reserve(rays.Size * 2);
             for (int i = 0; i < rays.Size; i++) {
-                ImPlot3DPoint p1 = rays[i].Origin;
-                ImPlot3DPoint p2 = rays[i].Origin + rays[i].Direction;
+                ImPlot3DPoint p1 = points[i];
+                ImPlot3DPoint p2 = points[i] - rays[i].Direction; // Ray from added point to the camera
                 ray_points.push_back(p1);
                 ray_points.push_back(p2);
             }
-            ImPlot3D::PlotLine("Placed Rays", &ray_points[0].x, &ray_points[0].y, &ray_points[0].z, (int)rays.Size, ImPlot3DLineFlags_Segments, 0,
+            ImPlot3D::PlotLine("Placed Rays", &ray_points[0].x, &ray_points[0].y, &ray_points[0].z, (int)rays.Size * 2, ImPlot3DLineFlags_Segments, 0,
                                sizeof(ImPlot3DPoint));
         }
 
@@ -1198,6 +1198,122 @@ void DemoCustomRendering() {
             ImPlot3D::GetPlotDrawList()->AddLine(corners_px[i + 4], corners_px[(i + 1) % 4 + 4], col);
             ImPlot3D::GetPlotDrawList()->AddLine(corners_px[i], corners_px[i + 4], col);
         }
+        ImPlot3D::EndPlot();
+    }
+}
+
+void DemoCustomOverlay() {
+    ImGui::BulletText("Demonstrates custom 2D overlays using GetPlotRectPos/GetPlotRectSize.");
+    ImGui::BulletText("Shows mouse tooltip, line to closest point, and orientation gizmo.");
+
+    // Generate some 3D scatter data
+    static float xs[50], ys[50], zs[50];
+    static bool initialized = false;
+    if (!initialized) {
+        srand(0);
+        for (int i = 0; i < 50; i++) {
+            xs[i] = (float)rand() / (float)RAND_MAX;
+            ys[i] = (float)rand() / (float)RAND_MAX;
+            zs[i] = (float)rand() / (float)RAND_MAX;
+        }
+        initialized = true;
+    }
+
+    if (ImPlot3D::BeginPlot("##CustomOverlay", ImVec2(-1, 0))) {
+        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
+        ImPlot3D::SetupAxesLimits(0, 1, 0, 1, 0, 1);
+        ImPlot3D::PlotScatter("Data", xs, ys, zs, 50);
+
+        ImDrawList* draw_list = ImPlot3D::GetPlotDrawList();
+        ImVec2 mouse_pos = ImGui::GetMousePos();
+        ImVec2 plot_pos = ImPlot3D::GetPlotRectPos();
+        ImVec2 plot_size = ImPlot3D::GetPlotRectSize();
+
+        // Check if mouse is over plot
+        bool is_hovered = ImGui::IsItemHovered();
+
+        if (is_hovered) {
+            // Find closest point to mouse in screen space
+            int closest_idx = -1;
+            float min_dist_sq = 1e10f; // Large value instead of FLT_MAX
+            ImVec2 closest_px;
+
+            for (int i = 0; i < 50; i++) {
+                ImVec2 point_px = ImPlot3D::PlotToPixels(xs[i], ys[i], zs[i]);
+                float dx = point_px.x - mouse_pos.x;
+                float dy = point_px.y - mouse_pos.y;
+                float dist_sq = dx * dx + dy * dy;
+                if (dist_sq < min_dist_sq) {
+                    min_dist_sq = dist_sq;
+                    closest_idx = i;
+                    closest_px = point_px;
+                }
+            }
+
+            // Draw line to closest point
+            if (closest_idx >= 0) {
+                draw_list->AddLine(mouse_pos, closest_px, IM_COL32(255, 255, 0, 255), 2.0f);
+
+                // Draw tooltip
+                ImGui::BeginTooltip();
+                ImGui::Text("Mouse: (%.1f, %.1f)", mouse_pos.x, mouse_pos.y);
+                ImGui::Text("Closest Point #%d", closest_idx);
+                ImGui::Text("Position: (%.3f, %.3f, %.3f)", xs[closest_idx], ys[closest_idx], zs[closest_idx]);
+                ImGui::Text("Distance: %.1f px", ImSqrt(min_dist_sq));
+                ImGui::EndTooltip();
+            }
+        }
+
+        // Draw orientation gizmo in bottom-right corner
+        ImPlot3DContext& gp = *GImPlot3D;
+        ImPlot3DPlot* plot = gp.CurrentPlot;
+        if (plot) {
+            ImVec2 gizmo_center = ImVec2(plot_pos.x + plot_size.x - 50, plot_pos.y + plot_size.y - 50);
+            float gizmo_size = 30.0f;
+
+            // Get rotation quaternion
+            ImPlot3DQuat rot = plot->Rotation;
+
+            // Define axis directions in plot space
+            ImPlot3DPoint axes[3] = {
+                ImPlot3DPoint(1, 0, 0), // X-axis (red)
+                ImPlot3DPoint(0, 1, 0), // Y-axis (green)
+                ImPlot3DPoint(0, 0, 1)  // Z-axis (blue)
+            };
+
+            ImU32 colors[3] = {
+                IM_COL32(200, 50, 50, 255), // Red
+                IM_COL32(50, 200, 50, 255), // Green
+                IM_COL32(50, 50, 200, 255)  // Blue
+            };
+
+            const char* labels[3] = {"X", "Y", "Z"};
+
+            // Draw gizmo background circle
+            draw_list->AddCircleFilled(gizmo_center, gizmo_size + 5, IM_COL32(0, 0, 0, 100));
+
+            // Draw each axis
+            for (int i = 0; i < 3; i++) {
+                // Rotate axis by quaternion
+                ImPlot3DPoint rotated = rot * axes[i];
+
+                // Project to 2D gizmo space (simple orthographic projection)
+                ImVec2 axis_end = ImVec2(gizmo_center.x + rotated.x * gizmo_size,
+                                         gizmo_center.y - rotated.y * gizmo_size // Flip Y for screen coords
+                );
+
+                // Draw line
+                draw_list->AddLine(gizmo_center, axis_end, colors[i], 2.0f);
+
+                // Draw circle at end
+                draw_list->AddCircleFilled(axis_end, 4.0f, colors[i]);
+
+                // Draw label
+                ImVec2 label_pos = ImVec2(axis_end.x + 8, axis_end.y - 8);
+                draw_list->AddText(label_pos, colors[i], labels[i]);
+            }
+        }
+
         ImPlot3D::EndPlot();
     }
 }
@@ -1461,6 +1577,7 @@ void ShowAllDemos() {
         if (ImGui::BeginTabItem("Custom")) {
             DemoHeader("Custom Styles", DemoCustomStyles);
             DemoHeader("Custom Rendering", DemoCustomRendering);
+            DemoHeader("Custom Overlay", DemoCustomOverlay);
             DemoHeader("Custom Per-Point Style", DemoCustomPerPointStyle);
             ImGui::EndTabItem();
         }
