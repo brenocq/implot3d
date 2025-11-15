@@ -3176,7 +3176,7 @@ ImPlot3DQuat ImPlot3DQuat::FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3
 
     // Handle edge cases: if vectors are very close or identical
     const double epsilon = 1e-6;
-    if (ImFabs(normalized_dot - 1.0) < epsilon) {
+    if (ImAbs(normalized_dot - 1.0) < epsilon) {
         // v0 and v1 are nearly identical; return an identity quaternion
         q.x = 0.0;
         q.y = 0.0;
@@ -3186,9 +3186,9 @@ ImPlot3DQuat ImPlot3DQuat::FromTwoVectors(const ImPlot3DPoint& v0, const ImPlot3
     }
 
     // Handle edge case: if vectors are opposite
-    if (ImFabs(normalized_dot + 1.0) < epsilon) {
+    if (ImAbs(normalized_dot + 1.0) < epsilon) {
         // v0 and v1 are opposite; choose an arbitrary orthogonal axis
-        ImPlot3DPoint arbitrary_axis = ImFabs(v0.x) > ImFabs(v0.z) ? ImPlot3DPoint(-v0.y, v0.x, 0.0) : ImPlot3DPoint(0.0, -v0.z, v0.y);
+        ImPlot3DPoint arbitrary_axis = ImAbs(v0.x) > ImAbs(v0.z) ? ImPlot3DPoint(-v0.y, v0.x, 0.0) : ImPlot3DPoint(0.0, -v0.z, v0.y);
         arbitrary_axis.Normalize();
         q.x = arbitrary_axis.x;
         q.y = arbitrary_axis.y;
