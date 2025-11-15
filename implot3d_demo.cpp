@@ -1064,7 +1064,7 @@ void DemoHeader(const char* label, void (*demo)()) {
 }
 
 void ShowAllDemos() {
-    ImGui::Text("ImPlot3D says olá! (%s)", IMPLOT3D_VERSION);
+    ImGui::Text("ImPlot3D says olá! (%s) (%d)", IMPLOT3D_VERSION, IMPLOT3D_VERSION_NUM);
     ImGui::Spacing();
     if (ImGui::BeginTabBar("ImPlot3DDemoTabs")) {
         if (ImGui::BeginTabItem("Plots")) {
