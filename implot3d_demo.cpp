@@ -998,6 +998,43 @@ void DemoAxisConstraints() {
     }
 }
 
+void DemoEqualAxes() {
+    ImGui::BulletText("Equal constraint applies to all three axes (X, Y, Z)");
+    ImGui::BulletText("When enabled, the axes maintain the same units/pixel ratio");
+
+    static double circle_xs[360], circle_ys[360], circle_zs[360];
+    static double helix_xs[360], helix_ys[360], helix_zs[360];
+    float square_xs[] = {-0.5f, 0.5f, 0.5f, -0.5f, -0.5f};
+    float square_ys[] = {-0.5f, -0.5f, 0.5f, 0.5f, -0.5f};
+    float square_zs[] = {-0.5f, -0.5f, -0.5f, -0.5f, -0.5f};
+    static bool initialized = false;
+    if (!initialized) {
+        for (int i = 0; i < 360; ++i) {
+            double angle = i * 2 * IM_PI / 359.0;
+            // Circle in XY plane at Z=0
+            circle_xs[i] = cos(angle);
+            circle_ys[i] = sin(angle);
+            circle_zs[i] = 0;
+            // Helix
+            helix_xs[i] = 0.5 * cos(angle);
+            helix_ys[i] = 0.5 * sin(angle);
+            helix_zs[i] = (double)i / 359.0 * 2.0 - 1.0;
+        }
+        initialized = true;
+    }
+
+    static ImPlot3DFlags flags = ImPlot3DFlags_Equal;
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_Equal);
+
+    if (ImPlot3D::BeginPlot("##EqualAxes", ImVec2(-1, 0), flags)) {
+        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
+        ImPlot3D::PlotLine("Circle", circle_xs, circle_ys, circle_zs, 360);
+        ImPlot3D::PlotLine("Helix", helix_xs, helix_ys, helix_zs, 360);
+        ImPlot3D::PlotLine("Square", square_xs, square_ys, square_zs, 5);
+        ImPlot3D::EndPlot();
+    }
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Tools
 //-----------------------------------------------------------------------------
@@ -1268,6 +1305,7 @@ void ShowAllDemos() {
             DemoHeader("Box Rotation", DemoBoxRotation);
             DemoHeader("Tick Labels", DemoTickLabels);
             DemoHeader("Axis Constraints", DemoAxisConstraints);
+            DemoHeader("Equal Axes", DemoEqualAxes);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Tools")) {
