@@ -1035,6 +1035,46 @@ void DemoEqualAxes() {
     }
 }
 
+void DemoAutoFittingData() {
+    ImGui::BulletText("Axes can be configured to auto-fit to data extents.");
+    ImGui::BulletText("Try panning and zooming to see the axes adjust.");
+    ImGui::BulletText("Disable AutoFit on an axis to fix its range.");
+
+    static ImPlot3DAxisFlags xflags = ImPlot3DAxisFlags_None;
+    static ImPlot3DAxisFlags yflags = ImPlot3DAxisFlags_None;
+    static ImPlot3DAxisFlags zflags = ImPlot3DAxisFlags_AutoFit;
+
+    ImGui::TextUnformatted("X: ");
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("ImPlot3DAxisFlags_AutoFit##X", (unsigned int*)&xflags, ImPlot3DAxisFlags_AutoFit);
+
+    ImGui::TextUnformatted("Y: ");
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("ImPlot3DAxisFlags_AutoFit##Y", (unsigned int*)&yflags, ImPlot3DAxisFlags_AutoFit);
+
+    ImGui::TextUnformatted("Z: ");
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("ImPlot3DAxisFlags_AutoFit##Z", (unsigned int*)&zflags, ImPlot3DAxisFlags_AutoFit);
+
+    static double data_x[101], data_y[101], data_z[101];
+    static bool initialized = false;
+    if (!initialized) {
+        srand(0);
+        for (int i = 0; i < 101; ++i) {
+            data_x[i] = i * 0.1;
+            data_y[i] = i * 0.1;
+            data_z[i] = 1 + sin(i / 10.0);
+        }
+        initialized = true;
+    }
+
+    if (ImPlot3D::BeginPlot("##AutoFitting")) {
+        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis", xflags, yflags, zflags);
+        ImPlot3D::PlotLine("Wave", data_x, data_y, data_z, 101);
+        ImPlot3D::EndPlot();
+    }
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Tools
 //-----------------------------------------------------------------------------
@@ -1306,6 +1346,7 @@ void ShowAllDemos() {
             DemoHeader("Tick Labels", DemoTickLabels);
             DemoHeader("Axis Constraints", DemoAxisConstraints);
             DemoHeader("Equal Axes", DemoEqualAxes);
+            DemoHeader("Auto-Fitting Data", DemoAutoFittingData);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Tools")) {
