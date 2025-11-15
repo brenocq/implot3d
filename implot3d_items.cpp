@@ -909,7 +909,7 @@ template <typename T> IMPLOT3D_INLINE T IndexData(const T* data, int idx, int co
 }
 
 template <typename T> struct IndexerIdx {
-    IndexerIdx(const T* data, int count, int offset = 0, int stride = sizeof(T)) : Data(data), Count(count), Offset(offset), Stride(stride) {}
+    IndexerIdx(const T* data, int count, int offset = 0, int stride = sizeof(T)) : Data(data), Count(count), Offset(count ? ImPosMod(offset, count) : 0), Stride(stride) {}
     template <typename I> IMPLOT3D_INLINE double operator()(I idx) const { return (double)IndexData(Data, idx, Count, Offset, Stride); }
     const T* Data;
     int Count;

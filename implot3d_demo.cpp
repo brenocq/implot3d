@@ -698,7 +698,7 @@ void DemoOffsetAndStride() {
             double theta = (double)p / k_points_per * 6.28;
             interleaved_data[p * 3 * k_spirals + 3 * s + 0] = 0.5 + r * cos(theta);
             interleaved_data[p * 3 * k_spirals + 3 * s + 1] = 0.5 + r * sin(theta);
-            interleaved_data[p * 3 * k_spirals + 3 * s + 2] = (double)p / k_points_per;
+            interleaved_data[p * 3 * k_spirals + 3 * s + 2] = 0.5 + 0.5 * sin(2.0 * theta);
         }
     }
     static int offset = 0;
