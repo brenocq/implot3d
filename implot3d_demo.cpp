@@ -585,6 +585,217 @@ void DemoRealtimePlots() {
     }
 }
 
+void DemoPlotFlags() {
+    static ImPlot3DFlags flags = ImPlot3DFlags_None;
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoTitle);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide plot title");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoLegend);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide plot legend");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoMouseText);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide mouse position in plot coordinates");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoClip);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Disable 3D box clipping");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoMenus);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("The user will not be able to open context menus");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_Equal);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("X, Y, and Z axes will be constrained to have the same units/pixel");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoRotate);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Lock rotation interaction");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoPan);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Lock panning/translation interaction");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoZoom);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Lock zooming interaction");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoInputs);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Disable all user inputs");
+    }
+
+    if (ImPlot3D::BeginPlot("Plot Flags Demo", ImVec2(-1, 0), flags)) {
+        ImPlot3D::SetupAxes("X-axis", "Y-axis", "Z-axis");
+        ImPlot3D::SetupAxesLimits(-10, 10, -10, 10, -5, 5);
+
+        // Generate some sample data for demonstration
+        static float x[100], y[100], z[100];
+        static bool first = true;
+        if (first) {
+            for (int i = 0; i < 100; i++) {
+                float t = i * 0.1f;
+                x[i] = 3.0f * cosf(t);
+                y[i] = 3.0f * sinf(t);
+                z[i] = t - 5.0f;
+            }
+            first = false;
+        }
+
+        ImPlot3D::PlotLine("Helix", x, y, z, 100);
+
+        // Add some scatter points to show equal scaling effect
+        float scatter_x[8] = {-10, 10, -10, 10, -10, 10, -10, 10};
+        float scatter_y[8] = {-10, -10, 10, 10, -10, -10, 10, 10};
+        float scatter_z[8] = {-5, -5, -5, -5, 5, 5, 5, 5};
+        ImPlot3D::PlotScatter("Cube corners", scatter_x, scatter_y, scatter_z, 8);
+
+        ImPlot3D::EndPlot();
+    }
+}
+
+void DemoOffsetAndStride() {
+    static const int k_spirals = 11;
+    static const int k_points_per = 50;
+    static const int k_size = 3 * k_points_per * k_spirals;
+    static double interleaved_data[k_size];
+    for (int p = 0; p < k_points_per; ++p) {
+        for (int s = 0; s < k_spirals; ++s) {
+            double r = (double)s / (k_spirals - 1) * 0.2 + 0.2;
+            double theta = (double)p / k_points_per * 6.28;
+            interleaved_data[p * 3 * k_spirals + 3 * s + 0] = 0.5 + r * cos(theta);
+            interleaved_data[p * 3 * k_spirals + 3 * s + 1] = 0.5 + r * sin(theta);
+            interleaved_data[p * 3 * k_spirals + 3 * s + 2] = (double)p / k_points_per;
+        }
+    }
+    static int offset = 0;
+    ImGui::BulletText("Offsetting is useful for realtime plots (see above) and circular buffers.");
+    ImGui::BulletText("Striding is useful for interleaved data (e.g. audio) or plotting structs.");
+    ImGui::BulletText("Here, all spiral data is stored in a single interleaved buffer:");
+    ImGui::BulletText("[s0.x0 s0.y0 s0.z0 ... sn.x0 sn.y0 sn.z0 s0.x1 s0.y1 s0.z1 ... sn.x1 sn.y1 sn.z1 ... sn.xm sn.ym sn.zm]");
+    ImGui::BulletText("The offset value indicates which spiral point index is considered the first.");
+    ImGui::BulletText("Offsets can be negative and/or larger than the actual data count.");
+    ImGui::SliderInt("Offset", &offset, -2 * k_points_per, 2 * k_points_per);
+    if (ImPlot3D::BeginPlot("##strideoffset", ImVec2(-1, 0))) {
+        ImPlot3D::PushColormap(ImPlot3DColormap_Jet);
+        char buff[32];
+        for (int s = 0; s < k_spirals; ++s) {
+            snprintf(buff, sizeof(buff), "Spiral %d", s);
+            ImPlot3D::PlotLine(buff, &interleaved_data[s * 3 + 0], &interleaved_data[s * 3 + 1], &interleaved_data[s * 3 + 2], k_points_per, 0,
+                               offset, 3 * k_spirals * sizeof(double));
+        }
+        ImPlot3D::EndPlot();
+        ImPlot3D::PopColormap();
+    }
+}
+
+void DemoLegendOptions() {
+    static ImPlot3DLocation loc = ImPlot3DLocation_East;
+    ImGui::CheckboxFlags("North", (unsigned int*)&loc, ImPlot3DLocation_North);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("South", (unsigned int*)&loc, ImPlot3DLocation_South);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("West", (unsigned int*)&loc, ImPlot3DLocation_West);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("East", (unsigned int*)&loc, ImPlot3DLocation_East);
+
+    static ImPlot3DLegendFlags flags = 0;
+
+    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_Horizontal);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Legend entries will be displayed horizontally");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_NoButtons);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Legend icons will not function as hide/show buttons");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_NoHighlightItem);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Plot items will not be highlighted when their legend entry is hovered");
+    }
+
+    ImGui::SliderFloat2("LegendPadding", (float*)&ImPlot3D::GetStyle().LegendPadding, 0.0f, 20.0f, "%.0f");
+    ImGui::SliderFloat2("LegendInnerPadding", (float*)&ImPlot3D::GetStyle().LegendInnerPadding, 0.0f, 10.0f, "%.0f");
+    ImGui::SliderFloat2("LegendSpacing", (float*)&ImPlot3D::GetStyle().LegendSpacing, 0.0f, 5.0f, "%.0f");
+
+    if (ImPlot3D::BeginPlot("Legend Options Demo", ImVec2(-1, 0))) {
+        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
+        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
+        ImPlot3D::SetupLegend(loc, flags);
+
+        // Generate some 3D line data
+        static float t = 0;
+        t += ImGui::GetIO().DeltaTime * 0.5f;
+
+        constexpr int count = 50;
+        static float xs1[count], ys1[count], zs1[count];
+        static float xs2[count], ys2[count], zs2[count];
+        static float xs3[count], ys3[count], zs3[count];
+
+        for (int i = 0; i < count; i++) {
+            float phase = i * 0.1f + t;
+            xs1[i] = 0.8f * cosf(phase);
+            ys1[i] = 0.8f * sinf(phase);
+            zs1[i] = 0.5f * sinf(phase * 2);
+
+            xs2[i] = 0.6f * cosf(phase + 1.0f);
+            ys2[i] = 0.6f * sinf(phase + 1.0f);
+            zs2[i] = -0.3f * cosf(phase * 1.5f);
+
+            xs3[i] = 0.4f * sinf(phase);
+            ys3[i] = 0.4f * cosf(phase);
+            zs3[i] = 0.7f * cosf(phase * 0.8f);
+        }
+
+        ImPlot3D::PlotLine("Helix A", xs1, ys1, zs1, count);
+        ImPlot3D::PlotLine("Helix B##IDText", xs2, ys2, zs2, count); // Text after ## used for ID only
+        ImPlot3D::PlotLine("##NotListed", xs3, ys3, zs3, count);     // Plotted, but not added to legend
+
+        ImPlot3D::EndPlot();
+    }
+}
+
 void DemoMarkersAndText() {
     static float mk_size = ImPlot3D::GetStyle().MarkerSize;
     static float mk_weight = ImPlot3D::GetStyle().MarkerWeight;
@@ -785,108 +996,6 @@ void DemoAxisConstraints() {
     }
 }
 
-void DemoPlotFlags() {
-    static ImPlot3DFlags flags = ImPlot3DFlags_None;
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoTitle);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Hide plot title");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoLegend);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Hide plot legend");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoMouseText);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Hide mouse position in plot coordinates");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoClip);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Disable 3D box clipping");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoMenus);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("The user will not be able to open context menus");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_Equal);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("X, Y, and Z axes will be constrained to have the same units/pixel");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoRotate);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Lock rotation interaction");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoPan);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Lock panning/translation interaction");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoZoom);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Lock zooming interaction");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoInputs);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Disable all user inputs");
-    }
-
-    if (ImPlot3D::BeginPlot("Plot Flags Demo", ImVec2(-1, 0), flags)) {
-        ImPlot3D::SetupAxes("X-axis", "Y-axis", "Z-axis");
-        ImPlot3D::SetupAxesLimits(-10, 10, -10, 10, -5, 5);
-
-        // Generate some sample data for demonstration
-        static float x[100], y[100], z[100];
-        static bool first = true;
-        if (first) {
-            for (int i = 0; i < 100; i++) {
-                float t = i * 0.1f;
-                x[i] = 3.0f * cosf(t);
-                y[i] = 3.0f * sinf(t);
-                z[i] = t - 5.0f;
-            }
-            first = false;
-        }
-
-        ImPlot3D::PlotLine("Helix", x, y, z, 100);
-
-        // Add some scatter points to show equal scaling effect
-        float scatter_x[8] = {-10, 10, -10, 10, -10, 10, -10, 10};
-        float scatter_y[8] = {-10, -10, 10, 10, -10, -10, 10, 10};
-        float scatter_z[8] = {-5, -5, -5, -5, 5, 5, 5, 5};
-        ImPlot3D::PlotScatter("Cube corners", scatter_x, scatter_y, scatter_z, 8);
-
-        ImPlot3D::EndPlot();
-    }
-}
-
 //-----------------------------------------------------------------------------
 // [SECTION] Custom
 //-----------------------------------------------------------------------------
@@ -936,80 +1045,6 @@ void DemoCustomRendering() {
             ImPlot3D::GetPlotDrawList()->AddLine(corners_px[i + 4], corners_px[(i + 1) % 4 + 4], col);
             ImPlot3D::GetPlotDrawList()->AddLine(corners_px[i], corners_px[i + 4], col);
         }
-        ImPlot3D::EndPlot();
-    }
-}
-
-void DemoLegendOptions() {
-    static ImPlot3DLocation loc = ImPlot3DLocation_East;
-    ImGui::CheckboxFlags("North", (unsigned int*)&loc, ImPlot3DLocation_North);
-    ImGui::SameLine();
-    ImGui::CheckboxFlags("South", (unsigned int*)&loc, ImPlot3DLocation_South);
-    ImGui::SameLine();
-    ImGui::CheckboxFlags("West", (unsigned int*)&loc, ImPlot3DLocation_West);
-    ImGui::SameLine();
-    ImGui::CheckboxFlags("East", (unsigned int*)&loc, ImPlot3DLocation_East);
-
-    static ImPlot3DLegendFlags flags = 0;
-
-    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_Horizontal);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Legend entries will be displayed horizontally");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_NoButtons);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Legend icons will not function as hide/show buttons");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_NoHighlightItem);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Plot items will not be highlighted when their legend entry is hovered");
-    }
-
-    ImGui::SliderFloat2("LegendPadding", (float*)&ImPlot3D::GetStyle().LegendPadding, 0.0f, 20.0f, "%.0f");
-    ImGui::SliderFloat2("LegendInnerPadding", (float*)&ImPlot3D::GetStyle().LegendInnerPadding, 0.0f, 10.0f, "%.0f");
-    ImGui::SliderFloat2("LegendSpacing", (float*)&ImPlot3D::GetStyle().LegendSpacing, 0.0f, 5.0f, "%.0f");
-
-    if (ImPlot3D::BeginPlot("Legend Options Demo", ImVec2(-1, 0))) {
-        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
-        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
-        ImPlot3D::SetupLegend(loc, flags);
-
-        // Generate some 3D line data
-        static float t = 0;
-        t += ImGui::GetIO().DeltaTime * 0.5f;
-
-        constexpr int count = 50;
-        static float xs1[count], ys1[count], zs1[count];
-        static float xs2[count], ys2[count], zs2[count];
-        static float xs3[count], ys3[count], zs3[count];
-
-        for (int i = 0; i < count; i++) {
-            float phase = i * 0.1f + t;
-            xs1[i] = 0.8f * cosf(phase);
-            ys1[i] = 0.8f * sinf(phase);
-            zs1[i] = 0.5f * sinf(phase * 2);
-
-            xs2[i] = 0.6f * cosf(phase + 1.0f);
-            ys2[i] = 0.6f * sinf(phase + 1.0f);
-            zs2[i] = -0.3f * cosf(phase * 1.5f);
-
-            xs3[i] = 0.4f * sinf(phase);
-            ys3[i] = 0.4f * cosf(phase);
-            zs3[i] = 0.7f * cosf(phase * 0.8f);
-        }
-
-        ImPlot3D::PlotLine("Helix A", xs1, ys1, zs1, count);
-        ImPlot3D::PlotLine("Helix B##IDText", xs2, ys2, zs2, count); // Text after ## used for ID only
-        ImPlot3D::PlotLine("##NotListed", xs3, ys3, zs3, count);     // Plotted, but not added to legend
-
         ImPlot3D::EndPlot();
     }
 }
@@ -1176,6 +1211,7 @@ void ShowAllDemos() {
             // Plot Options
             ImGui::SeparatorText("Plot Options");
             DemoHeader("Plot Flags", DemoPlotFlags);
+            DemoHeader("Offset and Stride", DemoOffsetAndStride);
             DemoHeader("Legend Options", DemoLegendOptions);
             DemoHeader("Markers and Text", DemoMarkersAndText);
             DemoHeader("NaN Values", DemoNaNValues);
