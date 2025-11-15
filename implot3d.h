@@ -451,15 +451,44 @@ IMPLOT3D_API void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags fla
 // [SECTION] Plot Items
 //-----------------------------------------------------------------------------
 
+// The plotting API is provided below. Call these functions between
+// BeginPlot/EndPlot and after any Setup API calls.
+//
+// The templated functions are explicitly instantiated in implot3d_items.cpp.
+// They are not intended to be used generically with custom types. You will get
+// a linker error if you try! All functions support the following scalar types:
+//
+// float, double, ImS8, ImU8, ImS16, ImU16, ImS32, ImU32, ImS64, ImU64
+//
+// If you need to plot custom or non-homogenous data you have a few options:
+//
+// 1. If your data is a simple struct/class (e.g. Vector3f), you can use striding.
+//    This is the most performant option if applicable.
+//
+//    struct Vector3f { float X, Y, Z; };
+//    ...
+//    Vector3f data[42];
+//    ImPlot3D::PlotLine("line", &data[0].X, &data[0].Y, &data[0].Z, 42, 0, 0, sizeof(Vector3f));
+//
+// 2. If your data is in separate arrays or requires computation, you can copy/transform
+//    it into temporary float or double arrays before plotting.
+//
+// NB: All types are converted to double before plotting. You may lose information
+// if you try plotting extremely large 64-bit integral types. Proceed with caution!
+
+// Plots a scatter plot in 3D. Points are rendered as markers at the specified coordinates
 IMPLOT3D_TMP void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DScatterFlags flags = 0, int offset = 0,
                               int stride = sizeof(T));
 
+// Plots a line in 3D. Consecutive points are connected with line segments
 IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DLineFlags flags = 0, int offset = 0,
                            int stride = sizeof(T));
 
+// Plots triangles in 3D. Every 3 consecutive points define a triangle
 IMPLOT3D_TMP void PlotTriangle(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DTriangleFlags flags = 0,
                                int offset = 0, int stride = sizeof(T));
 
+// Plots quads in 3D. Every 4 consecutive points define a quadrilateral
 IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DQuadFlags flags = 0, int offset = 0,
                            int stride = sizeof(T));
 
@@ -469,6 +498,7 @@ IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const
 IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count, double scale_min = 0.0,
                               double scale_max = 0.0, ImPlot3DSurfaceFlags flags = 0, int offset = 0, int stride = sizeof(T));
 
+// Plots a 3D mesh given vertex positions and indices. Triangles are defined by the index buffer (every 3 indices form a triangle)
 IMPLOT3D_API void PlotMesh(const char* label_id, const ImPlot3DPoint* vtx, const unsigned int* idx, int vtx_count, int idx_count,
                            ImPlot3DMeshFlags flags = 0);
 
@@ -492,7 +522,7 @@ IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const Im
                             const ImVec2& uv2 = ImVec2(1, 1), const ImVec2& uv3 = ImVec2(0, 1), const ImVec4& tint_col = ImVec4(1, 1, 1, 1),
                             ImPlot3DImageFlags flags = 0);
 
-// Plots a centered text label at point x,y,z. It is possible to set the text angle in radians and offset in pixels
+// Plots a centered text label at point x,y,z with optional rotation angle (in radians) and pixel offset
 IMPLOT3D_API void PlotText(const char* text, double x, double y, double z, double angle = 0.0, const ImVec2& pix_offset = ImVec2(0, 0));
 
 //-----------------------------------------------------------------------------
