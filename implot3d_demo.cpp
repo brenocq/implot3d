@@ -86,6 +86,26 @@ struct ScrollingBuffer {
 };
 
 //-----------------------------------------------------------------------------
+// [SECTION] Helpers
+//-----------------------------------------------------------------------------
+
+// Custom axis formatter that adds metric prefixes (G, M, k, m, u, n)
+int MetricFormatter(double value, char* buff, int size, void* data) {
+    const char* unit = (const char*)data;
+    static double v[] = {1000000000, 1000000, 1000, 1, 0.001, 0.000001, 0.000000001};
+    static const char* p[] = {"G", "M", "k", "", "m", "u", "n"};
+    if (value == 0) {
+        return snprintf(buff, size, "0 %s", unit);
+    }
+    for (int i = 0; i < 7; ++i) {
+        if (fabs(value) >= v[i]) {
+            return snprintf(buff, size, "%g %s%s", value / v[i], p[i], unit);
+        }
+    }
+    return snprintf(buff, size, "%g %s%s", value / v[6], p[6], unit);
+}
+
+//-----------------------------------------------------------------------------
 // [SECTION] Plots
 //-----------------------------------------------------------------------------
 
@@ -716,8 +736,11 @@ void DemoBoxRotation() {
 }
 
 void DemoTickLabels() {
-    static bool custom_ticks = true;
+    static bool custom_fmt = true;
+    static bool custom_ticks = false;
     static bool custom_labels = true;
+    ImGui::Checkbox("Show Custom Format", &custom_fmt);
+    ImGui::SameLine();
     ImGui::Checkbox("Show Custom Ticks", &custom_ticks);
     if (custom_ticks) {
         ImGui::SameLine();
@@ -728,11 +751,15 @@ void DemoTickLabels() {
     static double letters_ticks[] = {0.0, 0.2, 0.4, 0.6, 0.8, 1.0};
     static const char* letters_labels[] = {"A", "B", "C", "D", "E", "F"};
     if (ImPlot3D::BeginPlot("##Ticks")) {
-        ImPlot3D::SetupAxesLimits(2, 5, 0, 1, 0, 1);
+        ImPlot3D::SetupAxesLimits(2, 5, 0, 1, 0, 1000);
+        if (custom_fmt) {
+            ImPlot3D::SetupAxisFormat(ImAxis3D_Y, MetricFormatter, (void*)"Hz");
+            ImPlot3D::SetupAxisFormat(ImAxis3D_Z, MetricFormatter, (void*)"m");
+        }
         if (custom_ticks) {
             ImPlot3D::SetupAxisTicks(ImAxis3D_X, &pi, 1, custom_labels ? pi_str : nullptr, true);
             ImPlot3D::SetupAxisTicks(ImAxis3D_Y, letters_ticks, 6, custom_labels ? letters_labels : nullptr, false);
-            ImPlot3D::SetupAxisTicks(ImAxis3D_Z, 0, 1, 6, custom_labels ? letters_labels : nullptr, false);
+            ImPlot3D::SetupAxisTicks(ImAxis3D_Z, 0, 1000, 6, custom_labels ? letters_labels : nullptr, false);
         }
         ImPlot3D::EndPlot();
     }
