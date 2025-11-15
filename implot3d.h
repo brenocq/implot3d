@@ -336,9 +336,14 @@ namespace ImPlot3D {
 //-----------------------------------------------------------------------------
 // [SECTION] Context
 //-----------------------------------------------------------------------------
+
+// Creates a new ImPlot3D context. Call this after ImGui::CreateContext
 IMPLOT3D_API ImPlot3DContext* CreateContext();
+// Destroys an ImPlot3D context. Call this before ImGui::DestroyContext. nullptr = destroy current context
 IMPLOT3D_API void DestroyContext(ImPlot3DContext* ctx = nullptr);
+// Returns the current ImPlot3D context. nullptr if no context has been set
 IMPLOT3D_API ImPlot3DContext* GetCurrentContext();
+// Sets the current ImPlot3D context
 IMPLOT3D_API void SetCurrentContext(ImPlot3DContext* ctx);
 
 //-----------------------------------------------------------------------------
