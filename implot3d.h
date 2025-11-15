@@ -399,8 +399,11 @@ IMPLOT3D_API void EndPlot(); // Only call if BeginPlot() returns true!
 // Enables an axis or sets the label and/or flags for an existing axis. Leave #label = nullptr for no label
 IMPLOT3D_API void SetupAxis(ImAxis3D axis, const char* label = nullptr, ImPlot3DAxisFlags flags = 0);
 
+// Sets an axis range limits. If ImPlot3DCond_Always is used, the axis limits will be locked.
+// Note: To invert an axis, use ImPlot3DAxisFlags_Invert with SetupAxis instead of swapping min/max
 IMPLOT3D_API void SetupAxisLimits(ImAxis3D axis, double v_min, double v_max, ImPlot3DCond cond = ImPlot3DCond_Once);
 
+// Sets the format of numeric axis labels via formatter callback. Given value, write a label into buff. Optionally pass user data
 IMPLOT3D_API void SetupAxisFormat(ImAxis3D axis, ImPlot3DFormatter formatter, void* data = nullptr);
 
 // Sets an axis' ticks and optionally the labels. To keep the default ticks, set #keep_default=true
@@ -410,17 +413,17 @@ IMPLOT3D_API void SetupAxisTicks(ImAxis3D axis, const double* values, int n_tick
 IMPLOT3D_API void SetupAxisTicks(ImAxis3D axis, double v_min, double v_max, int n_ticks, const char* const labels[] = nullptr,
                                  bool keep_default = false);
 
-// Sets an axis' limits constraints
+// Sets an axis' limits constraints. The axis will be constrained to never go below #v_min or above #v_max
 IMPLOT3D_API void SetupAxisLimitsConstraints(ImAxis3D axis, double v_min, double v_max);
 
-// Sets an axis' zoom constraints
-IMPLOT3D_API void SetupAxisZoomConstraints(ImAxis3D axis, double z_min, double z_max);
+// Sets an axis' zoom constraints. The zoom (axis range size: range.max - range.min) will be constrained between #zoom_min and #zoom_max
+IMPLOT3D_API void SetupAxisZoomConstraints(ImAxis3D axis, double zoom_min, double zoom_max);
 
 // Sets the label and/or flags for primary X/Y/Z axes (shorthand for three calls to SetupAxis)
 IMPLOT3D_API void SetupAxes(const char* x_label, const char* y_label, const char* z_label, ImPlot3DAxisFlags x_flags = 0,
                             ImPlot3DAxisFlags y_flags = 0, ImPlot3DAxisFlags z_flags = 0);
 
-// Sets the X/Y/Z axes range limits. If ImPlot3DCond_Always is used, the axes limits will be locked (shorthand for two calls to SetupAxisLimits)
+// Sets the X/Y/Z axes range limits. If ImPlot3DCond_Always is used, the axes limits will be locked (shorthand for three calls to SetupAxisLimits)
 IMPLOT3D_API void SetupAxesLimits(double x_min, double x_max, double y_min, double y_max, double z_min, double z_max,
                                   ImPlot3DCond cond = ImPlot3DCond_Once);
 
@@ -441,6 +444,7 @@ IMPLOT3D_API void SetupBoxInitialRotation(ImPlot3DQuat rotation);
 // Sets the plot box X/Y/Z scale. A scale of 1.0 is the default. Values greater than 1.0 enlarge the plot, while values between 0.0 and 1.0 shrink it
 IMPLOT3D_API void SetupBoxScale(double x, double y, double z);
 
+// Sets up the plot legend location and flags
 IMPLOT3D_API void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags flags = 0);
 
 //-----------------------------------------------------------------------------
