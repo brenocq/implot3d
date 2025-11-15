@@ -1,15 +1,13 @@
-//--------------------------------------------------
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2024-2025 Breno Cunha Queiroz
+
 // ImPlot3D v0.3 WIP
-// implot3d_demo.cpp
-// Date: 2024-11-17
-// Author: Breno Cunha Queiroz (brenocq.com)
-//
+
 // Acknowledgments:
 //  ImPlot3D is heavily inspired by ImPlot
 //  (https://github.com/epezent/implot) by Evan Pezent,
 //  and follows a similar code style and structure to
 //  maintain consistency with ImPlot's API.
-//--------------------------------------------------
 
 // Table of Contents:
 // [SECTION] User Namespace

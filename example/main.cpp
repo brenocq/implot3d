@@ -1,9 +1,8 @@
-//--------------------------------------------------
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2024-2025 Breno Cunha Queiroz
+
 // ImPlot3D Example
-// main.cpp
-// Date: 2024-11-17
-// Author: Breno Cunha Queiroz (brenocq.com)
-//--------------------------------------------------
+
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
