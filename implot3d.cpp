@@ -2011,6 +2011,9 @@ ImPlot3DRay NDCRayToPlotRay(const ImPlot3DRay& ray) {
 static const float MOUSE_CURSOR_DRAG_THRESHOLD = 5.0f;
 
 void HandleInput(ImPlot3DPlot& plot) {
+    if (ImHasFlag(plot.Flags, ImPlot3DFlags_NoInputs))
+        return;
+
     ImGuiIO& IO = ImGui::GetIO();
 
     // clang-format off
@@ -2030,6 +2033,9 @@ void HandleInput(ImPlot3DPlot& plot) {
     const ImVec2 rot_drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
     const bool rotating = ImLengthSqr(rot_drag) > MOUSE_CURSOR_DRAG_THRESHOLD;
     const bool axis_equal = ImHasFlag(plot.Flags, ImPlot3DFlags_Equal);
+    const bool allow_rotate = !ImHasFlag(plot.Flags, ImPlot3DFlags_NoRotate);
+    const bool allow_pan = !ImHasFlag(plot.Flags, ImPlot3DFlags_NoPan);
+    const bool allow_zoom = !ImHasFlag(plot.Flags, ImPlot3DFlags_NoZoom);
 
     // HOVERING STATE -------------------------------------------------------------------
 
@@ -2140,7 +2146,8 @@ void HandleInput(ImPlot3DPlot& plot) {
     // AUTO FIT -------------------------------------------------------------------
 
     // Handle translation/zoom fit with double click
-    if (plot_clicked && (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Middle))) {
+    if (plot_clicked && (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Middle)) &&
+        (allow_pan && allow_zoom)) {
         plot.FitThisFrame = true;
         for (int i = 0; i < 3; i++)
             plot.Axes[i].FitThisFrame = plot.Axes[i].Hovered;
@@ -2156,7 +2163,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     // TRANSLATION -------------------------------------------------------------------
 
     // Handle translation with right mouse button
-    if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+    if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Left) && allow_pan) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
         if (plot.Axes[0].Hovered && plot.Axes[1].Hovered && plot.Axes[2].Hovered) {
@@ -2232,7 +2239,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     // ROTATION -------------------------------------------------------------------
 
     // Handle reset rotation with left mouse double click
-    if (plot.Held && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && !plot.IsRotationLocked()) {
+    if (plot.Held && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && !plot.IsRotationLocked() && allow_rotate) {
         plot.RotationAnimationEnd = plot.Rotation;
 
         // Calculate rotation to align the z-axis with the camera direction
@@ -2293,7 +2300,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     }
 
     // Handle rotation with left mouse dragging
-    if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Right) && !plot.IsRotationLocked()) {
+    if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Right) && !plot.IsRotationLocked() && allow_rotate) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
         // Map delta to rotation angles (in radians)
@@ -2322,7 +2329,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     // ZOOM -------------------------------------------------------------------
 
     // Handle zoom with mouse wheel
-    if (plot.Hovered) {
+    if (plot.Hovered && allow_zoom) {
         ImGui::SetKeyOwner(ImGuiKey_MouseWheelY, plot.ID);
         if (ImGui::IsMouseDown(ImGuiMouseButton_Middle) || IO.MouseWheel != 0.0f) {
             float delta = ImGui::IsMouseDown(ImGuiMouseButton_Middle) ? (-0.01f * IO.MouseDelta.y) : (-0.1f * IO.MouseWheel);
@@ -2374,11 +2381,11 @@ void HandleInput(ImPlot3DPlot& plot) {
     // Handle context click with right mouse button
     if (plot.Held && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_NoMenus))
         plot.ContextClick = true;
-    if (rotating || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right))
+    if (rotating || (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && allow_rotate))
         plot.ContextClick = false;
 
     // Handle context menu (should not happen if it is not a double click action)
-    bool not_double_click = (float)(ImGui::GetTime() - IO.MouseClickedTime[ImGuiMouseButton_Right]) > IO.MouseDoubleClickTime;
+    bool not_double_click = allow_rotate ? (float)(ImGui::GetTime() - IO.MouseClickedTime[ImGuiMouseButton_Right]) > IO.MouseDoubleClickTime : true;
     if (plot.Hovered && plot.ContextClick && not_double_click && !ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
         plot.ContextClick = false;
         plot.OpenContextThisFrame = true;

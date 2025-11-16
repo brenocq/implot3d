@@ -803,6 +803,34 @@ void DemoPlotFlags() {
         ImGui::SetTooltip("X, Y, and Z axes will be constrained to have the same units/pixel");
     }
 
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoRotate);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Lock rotation interaction");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoPan);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Lock panning/translation interaction");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoZoom);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Lock zooming interaction");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoInputs);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Disable all user inputs");
+    }
+
     if (ImPlot3D::BeginPlot("Plot Flags Demo", ImVec2(-1, 0), flags)) {
         ImPlot3D::SetupAxes("X-axis", "Y-axis", "Z-axis");
         ImPlot3D::SetupAxesLimits(-10, 10, -10, 10, -5, 5);
