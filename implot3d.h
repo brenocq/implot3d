@@ -110,6 +110,7 @@ enum ImPlot3DFlags_ {
     ImPlot3DFlags_NoRotate = 1 << 6,    // Lock rotation interaction
     ImPlot3DFlags_NoPan = 1 << 7,       // Lock panning/translation interaction
     ImPlot3DFlags_NoZoom = 1 << 8,      // Lock zoom interaction
+    ImPlot3DFlags_NoInputs = 1 << 9,    // Disable all user inputs
     ImPlot3DFlags_CanvasOnly = ImPlot3DFlags_NoTitle | ImPlot3DFlags_NoLegend | ImPlot3DFlags_NoMouseText,
 };
 

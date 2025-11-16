@@ -803,6 +803,13 @@ void DemoPlotFlags() {
         ImGui::SetTooltip("Lock zooming interaction");
     }
 
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoInputs);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Disable all user inputs");
+    }
+
     if (ImPlot3D::BeginPlot("Plot Flags Demo", ImVec2(-1, 0), flags)) {
         ImPlot3D::SetupAxes("X-axis", "Y-axis", "Z-axis");
         ImPlot3D::SetupAxesLimits(-10, 10, -10, 10, -5, 5);

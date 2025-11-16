@@ -1983,6 +1983,9 @@ ImPlot3DRay NDCRayToPlotRay(const ImPlot3DRay& ray) {
 static const float MOUSE_CURSOR_DRAG_THRESHOLD = 5.0f;
 
 void HandleInput(ImPlot3DPlot& plot) {
+    if (ImHasFlag(plot.Flags, ImPlot3DFlags_NoInputs))
+        return;
+
     ImGuiIO& IO = ImGui::GetIO();
 
     // clang-format off
