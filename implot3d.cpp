@@ -2112,7 +2112,8 @@ void HandleInput(ImPlot3DPlot& plot) {
     // AUTO FIT -------------------------------------------------------------------
 
     // Handle translation/zoom fit with double click
-    if (plot_clicked && (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Middle))) {
+    if (plot_clicked && (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Middle)) &&
+        !ImHasFlag(plot.Flags, ImPlot3DFlags_NoPan) && !ImHasFlag(plot.Flags, ImPlot3DFlags_NoZoom)) {
         plot.FitThisFrame = true;
         for (int i = 0; i < 3; i++)
             plot.Axes[i].FitThisFrame = plot.Axes[i].Hovered;
@@ -2204,7 +2205,8 @@ void HandleInput(ImPlot3DPlot& plot) {
     // ROTATION -------------------------------------------------------------------
 
     // Handle reset rotation with left mouse double click
-    if (plot.Held && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && !plot.IsRotationLocked()) {
+    if (plot.Held && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && !plot.IsRotationLocked() &&
+        !ImHasFlag(plot.Flags, ImPlot3DFlags_NoRotate)) {
         plot.RotationAnimationEnd = plot.Rotation;
 
         // Calculate rotation to align the z-axis with the camera direction
@@ -2346,7 +2348,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     // Handle context click with right mouse button
     if (plot.Held && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_NoMenus))
         plot.ContextClick = true;
-    if (rotating || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right))
+    if (rotating || (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && !ImHasFlag(plot.Flags, ImPlot3DFlags_NoRotate)))
         plot.ContextClick = false;
 
     // Handle context menu (should not happen if it is not a double click action)
