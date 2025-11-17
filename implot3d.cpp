@@ -81,8 +81,8 @@ implot3d files. You can read releases logs https://github.com/brenocq/implot3d/r
 #endif
 
 // We define this to avoid accidentally using the deprecated API
-#ifndef IMPLOT_DISABLE_OBSOLETE_FUNCTIONS
-#define IMPLOT_DISABLE_OBSOLETE_FUNCTIONS
+#ifndef IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
+#define IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
 #endif
 
 #include "implot3d.h"
