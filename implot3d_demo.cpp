@@ -1298,8 +1298,8 @@ void DemoCustomOverlay() {
                 ImPlot3DPoint rotated = rot * axes[i];
 
                 // Project to 2D gizmo space (simple orthographic projection)
-                ImVec2 axis_end = ImVec2(gizmo_center.x + rotated.x * gizmo_size,
-                                         gizmo_center.y - rotated.y * gizmo_size // Flip Y for screen coords
+                ImVec2 axis_end = ImVec2(gizmo_center.x + float(rotated.x) * gizmo_size,
+                                         gizmo_center.y - float(rotated.y) * gizmo_size // Flip Y for screen coords
                 );
 
                 // Draw line
