@@ -87,10 +87,6 @@ struct ScrollingBuffer {
     }
 };
 
-//-----------------------------------------------------------------------------
-// [SECTION] Helpers
-//-----------------------------------------------------------------------------
-
 // Custom axis formatter that adds metric prefixes (G, M, k, m, u, n)
 int MetricFormatter(double value, char* buff, int size, void* data) {
     const char* unit = (const char*)data;
