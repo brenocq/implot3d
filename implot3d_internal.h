@@ -49,8 +49,12 @@
 namespace ImPlot3D {
 
 // Computes the common (base-10) logarithm
-static inline float ImLog10(float x) { return log10f(x); }
 static inline double ImLog10(double x) { return log10(x); }
+// Computes the hyperbolic sine
+static inline double ImSinh(double x) { return sinh(x); }
+// Computes the inverse hyperbolic sine
+static inline double ImAsinh(double x) { return asinh(x); }
+
 // Returns true if flag is set
 template <typename TSet, typename TFlag> static inline bool ImHasFlag(TSet set, TFlag flag) { return (set & flag) == flag; }
 // Flips a flag in a flagset
@@ -65,7 +69,11 @@ static inline bool ImNanOrInf(double val) { return !(val >= -DBL_MAX && val <= D
 // Turns NANs to 0s
 static inline double ImConstrainNan(double val) { return ImNan(val) ? 0 : val; }
 // Turns infinity to floating point maximums
-static inline double ImConstrainInf(double val) { return val >= DBL_MAX ? DBL_MAX : val <= -DBL_MAX ? -DBL_MAX : val; }
+// Clamped to half DBL_MAX to prevent overflow in size calculations (Max - Min)
+static inline double ImConstrainInf(double val) {
+    const double max_val = DBL_MAX * 0.5;
+    return val >= max_val ? max_val : val <= -max_val ? -max_val : val;
+}
 // True if two numbers are approximately equal using units in the last place.
 static inline bool ImAlmostEqual(double v1, double v2, int ulp = 2) {
     return ImAbs(v1 - v2) < DBL_EPSILON * ImAbs(v1 + v2) * ulp || ImAbs(v1 - v2) < DBL_MIN;
@@ -452,6 +460,7 @@ struct ImPlot3DAxis {
     ImPlot3DRange Range;
     ImPlot3DCond RangeCond;
     double NDCScale;
+    ImPlot3DScale Scale;
     // Label
     ImGuiTextBuffer Label;
     // Ticks
@@ -460,6 +469,11 @@ struct ImPlot3DAxis {
     void* FormatterData;
     ImPlot3DLocator Locator;
     bool ShowDefaultTicks;
+    // Scale
+    ImPlot3DTransform TransformForward; // Custom axis forward transform
+    ImPlot3DTransform TransformInverse; // Custom axis inverse transform
+    void* TransformData;                // Custom transform data set by the user
+    ImPlot3DRange ScaledRange;          // Cached scaled range values
     // Fit data
     bool FitThisFrame;
     ImPlot3DRange FitExtents;
@@ -477,7 +491,11 @@ struct ImPlot3DAxis {
         Range.Min = 0.0;
         Range.Max = 1.0;
         RangeCond = ImPlot3DCond_None;
+        // Scale
         NDCScale = 1.0;
+        Scale = ImPlot3DScale_Linear;
+        TransformForward = TransformInverse = nullptr;
+        TransformData = nullptr;
         // Ticks
         Formatter = nullptr;
         FormatterData = nullptr;
@@ -496,6 +514,10 @@ struct ImPlot3DAxis {
 
     inline void Reset() {
         RangeCond = ImPlot3DCond_None;
+        // Scale
+        Scale = ImPlot3DScale_Linear;
+        TransformForward = TransformInverse = nullptr;
+        TransformData = nullptr;
         // Ticks
         Ticker.Reset();
         Formatter = nullptr;
@@ -510,9 +532,12 @@ struct ImPlot3DAxis {
     }
 
     inline void SetRange(double v1, double v2) {
+        v1 = ImPlot3D::ImConstrainNan(ImPlot3D::ImConstrainInf(v1));
+        v2 = ImPlot3D::ImConstrainNan(ImPlot3D::ImConstrainInf(v2));
         Range.Min = ImMin(v1, v2);
         Range.Max = ImMax(v1, v2);
         Constrain();
+        UpdateTransformCache();
     }
 
     inline bool SetMin(double _min, bool force = false) {
@@ -533,7 +558,8 @@ struct ImPlot3DAxis {
         if (_min >= Range.Max)
             return false;
 
-        Range.Min = (float)_min;
+        Range.Min = _min;
+        UpdateTransformCache();
         return true;
     }
 
@@ -554,7 +580,9 @@ struct ImPlot3DAxis {
         // Ensure max is greater than min
         if (_max <= Range.Min)
             return false;
-        Range.Max = (float)_max;
+
+        Range.Max = _max;
+        UpdateTransformCache();
         return true;
     }
 
@@ -578,6 +606,32 @@ struct ImPlot3DAxis {
         }
         if (Range.Max <= Range.Min)
             Range.Max = Range.Min + DBL_EPSILON;
+    }
+
+    inline void UpdateTransformCache() {
+        if (TransformForward != nullptr) {
+            ScaledRange.Min = TransformForward(Range.Min, TransformData);
+            ScaledRange.Max = TransformForward(Range.Max, TransformData);
+        } else {
+            ScaledRange.Min = Range.Min;
+            ScaledRange.Max = Range.Max;
+        }
+    }
+
+    inline double PlotToNDC(double plt) const {
+        if (TransformForward != nullptr) {
+            double s = TransformForward(plt, TransformData);
+            return (s - ScaledRange.Min) / (ScaledRange.Max - ScaledRange.Min);
+        }
+        return (plt - Range.Min) / (Range.Max - Range.Min);
+    }
+
+    inline double NDCToPlot(double t) const {
+        if (TransformInverse != nullptr) {
+            double s = t * (ScaledRange.Max - ScaledRange.Min) + ScaledRange.Min;
+            return TransformInverse(s, TransformData);
+        }
+        return Range.Min + t * (Range.Max - Range.Min);
     }
 
     inline bool IsRangeLocked() const { return RangeCond == ImPlot3DCond_Always; }
@@ -823,7 +877,7 @@ IMPLOT3D_API ImVec2 GetFramePos();  // Get the current frame position (top-left)
 IMPLOT3D_API ImVec2 GetFrameSize(); // Get the current frame size in pixels
 
 // Convert a position in the current plot's coordinate system to the current plot's normalized device coordinate system (NDC)
-// When the cube aspect ratio is [1,1,1], the NDC varies from [-0.5, 0.5] in each axis
+// When the cube's aspect ratio is [1,1,1], the NDC ranges from [-0.5, 0.5] along each axis
 IMPLOT3D_API ImPlot3DPoint PlotToNDC(const ImPlot3DPoint& point);
 IMPLOT3D_API ImPlot3DPoint NDCToPlot(const ImPlot3DPoint& point);
 // Convert a position in the current plot's NDC to pixels
@@ -840,6 +894,18 @@ IMPLOT3D_API ImPlot3DRay NDCRayToPlotRay(const ImPlot3DRay& ray);
 IMPLOT3D_API void SetupLock();
 
 //-----------------------------------------------------------------------------
+// [SECTION] Transforms
+//-----------------------------------------------------------------------------
+
+static inline double TransformForward_Log10(double v, void*) { return ImLog10(v <= 0.0 ? DBL_MIN : v); }
+
+static inline double TransformInverse_Log10(double v, void*) { return ImPow(10, v); }
+
+static inline double TransformForward_SymLog(double v, void*) { return 2.0 * ImAsinh(v / 2.0); }
+
+static inline double TransformInverse_SymLog(double v, void*) { return 2.0 * ImSinh(v / 2.0); }
+
+//-----------------------------------------------------------------------------
 // [SECTION] Formatter
 //-----------------------------------------------------------------------------
 
@@ -850,6 +916,8 @@ int Formatter_Default(double value, char* buff, int size, void* data);
 //------------------------------------------------------------------------------
 
 void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data);
+void Locator_Log10(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data);
+void Locator_SymLog(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data);
 
 } // namespace ImPlot3D
 

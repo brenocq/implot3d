@@ -71,7 +71,8 @@ typedef int ImPlot3DStyleVar; // -> ImPlot3DStyleVar_          // Enum: Style va
 typedef int ImPlot3DMarker;   // -> ImPlot3DMarker_            // Enum: Marker styles
 typedef int ImPlot3DLocation; // -> ImPlot3DLocation_          // Enum: Locations
 typedef int ImAxis3D;         // -> ImAxis3D_                  // Enum: Axis indices
-typedef int ImPlane3D;        // -> ImPlane3D_                  // Enum: Plane indices
+typedef int ImPlane3D;        // -> ImPlane3D_                 // Enum: Plane indices
+typedef int ImPlot3DScale;    // -> ImPlot3DScale_             // Enum: Axis scale (linear, log, etc.)
 typedef int ImPlot3DColormap; // -> ImPlot3DColormap_          // Enum: Colormaps
 
 // Flags
@@ -309,6 +310,13 @@ enum ImPlane3D_ {
     ImPlane3D_COUNT,
 };
 
+// Axis scale
+enum ImPlot3DScale_ {
+    ImPlot3DScale_Linear = 0, // Default linear scale
+    ImPlot3DScale_Log10,      // Base 10 log scale
+    ImPlot3DScale_SymLog,     // Symmetric base 10 log scale
+};
+
 // Colormaps
 enum ImPlot3DColormap_ {
     ImPlot3DColormap_Deep = 0,      // Same as seaborn "deep"
@@ -337,6 +345,9 @@ enum ImPlot3DColormap_ {
 // Given a numeric #value, format it into #buff with maximum #size characters.
 // Optionally use #user_data for context. Return the number of characters written (excluding null terminator)
 typedef int (*ImPlot3DFormatter)(double value, char* buff, int size, void* user_data);
+
+// Callback signature for axis transform
+typedef double (*ImPlot3DTransform)(double value, void* user_data);
 
 namespace ImPlot3D {
 
@@ -419,6 +430,12 @@ IMPLOT3D_API void SetupAxisTicks(ImAxis3D axis, const double* values, int n_tick
 // Sets an axis' ticks and optionally the labels for the next plot. To keep the default ticks, set #keep_default=true
 IMPLOT3D_API void SetupAxisTicks(ImAxis3D axis, double v_min, double v_max, int n_ticks, const char* const labels[] = nullptr,
                                  bool keep_default = false);
+
+// Sets an axis' scale using built-in options
+IMPLOT3D_API void SetupAxisScale(ImAxis3D axis, ImPlot3DScale scale);
+
+// Sets an axis' scale using user supplied forward and inverse transforms
+IMPLOT3D_API void SetupAxisScale(ImAxis3D axis, ImPlot3DTransform forward, ImPlot3DTransform inverse, void* data = nullptr);
 
 // Sets an axis' limits constraints. The axis will be constrained to never go below #v_min or above #v_max
 IMPLOT3D_API void SetupAxisLimitsConstraints(ImAxis3D axis, double v_min, double v_max);

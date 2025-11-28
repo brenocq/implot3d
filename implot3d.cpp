@@ -1029,8 +1029,15 @@ ImPlot3DPoint PlotToNDC(const ImPlot3DPlot& plot, const ImPlot3DPoint& point) {
     ImPlot3DPoint ndc_point;
     for (int i = 0; i < 3; i++) {
         const ImPlot3DAxis& axis = plot.Axes[i];
-        // Get axis point in [0, 1] range
-        double t = (point[i] - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
+        // Apply forward transform if needed, then normalize to [0, 1]
+        double plt = point[i];
+        double t;
+        if (axis.TransformForward != nullptr) {
+            double s = axis.TransformForward(plt, axis.TransformData);
+            t = (s - axis.ScaledRange.Min) / (axis.ScaledRange.Max - axis.ScaledRange.Min);
+        } else {
+            t = (plt - axis.Range.Min) / (axis.Range.Max - axis.Range.Min);
+        }
         // Convert point to NDC range [-0.5*NDCScale, 0.5*NDCScale]
         const double ndc_range = 0.5;
         ndc_point[i] = (ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - t) : (t - ndc_range)) * axis.NDCScale;
@@ -1183,7 +1190,7 @@ int Formatter_Default(double value, char* buff, int size, void* data) {
 double NiceNum(double x, bool round) {
     double f;
     double nf;
-    int expv = (int)floor(ImLog10((float)x));
+    int expv = (int)floor(ImLog10(x));
     f = x / ImPow(10.0, (double)expv);
     if (round)
         if (f < 1.5)
@@ -1243,6 +1250,87 @@ void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float p
             ticker.Ticks[i].ShowLabel = false;
         for (int i = first_major_idx + 1; i < ticker.TickCount(); i += 2)
             ticker.Ticks[i].ShowLabel = false;
+    }
+}
+
+bool CalcLogarithmicExponents(const ImPlot3DRange& range, float pix, int& exp_min, int& exp_max, int& exp_step) {
+    if (range.Min * range.Max > 0) {
+        const int nMajor = ImMax(2, (int)IM_ROUND(pix * 0.01f)); // TODO: magic numbers
+        double log_min = ImLog10(ImAbs(range.Min));
+        double log_max = ImLog10(ImAbs(range.Max));
+        double log_a = ImMin(log_min, log_max);
+        double log_b = ImMax(log_min, log_max);
+        exp_step = ImMax(1, (int)(log_b - log_a) / nMajor);
+        exp_min = (int)log_a;
+        exp_max = (int)log_b;
+        if (exp_step != 1) {
+            while (exp_step % 3 != 0)
+                exp_step++; // make step size multiple of three
+            while (exp_min % exp_step != 0)
+                exp_min--; // decrease exp_min until exp_min + N * exp_step will be 0
+        }
+        return true;
+    }
+    return false;
+}
+
+void AddTicksLogarithmic(const ImPlot3DRange& range, int exp_min, int exp_max, int exp_step, ImPlot3DTicker& ticker, ImPlot3DFormatter formatter,
+                         void* data) {
+    const double sign = ImSign(range.Max);
+    for (int e = exp_min - exp_step; e < (exp_max + exp_step); e += exp_step) {
+        double major1 = sign * ImPow(10, (double)(e));
+        double major2 = sign * ImPow(10, (double)(e + 1));
+        double interval = (major2 - major1) / 9;
+        if (major1 >= (range.Min - DBL_EPSILON) && major1 <= (range.Max + DBL_EPSILON))
+            ticker.AddTick(major1, true, true, formatter, data);
+        for (int j = 0; j < exp_step; ++j) {
+            major1 = sign * ImPow(10, (double)(e + j));
+            major2 = sign * ImPow(10, (double)(e + j + 1));
+            interval = (major2 - major1) / 9;
+            for (int i = 1; i < (9 + (int)(j < (exp_step - 1))); ++i) {
+                double minor = major1 + i * interval;
+                if (minor >= (range.Min - DBL_EPSILON) && minor <= (range.Max + DBL_EPSILON))
+                    ticker.AddTick(minor, false, false, formatter, data);
+            }
+        }
+    }
+}
+
+void Locator_Log10(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data) {
+    int exp_min, exp_max, exp_step;
+    if (CalcLogarithmicExponents(range, pixels, exp_min, exp_max, exp_step))
+        AddTicksLogarithmic(range, exp_min, exp_max, exp_step, ticker, formatter, formatter_data);
+}
+
+float CalcSymLogPixel(double plt, const ImPlot3DRange& range, float pixels) {
+    double scaleToPixels = pixels / range.Size();
+    double scaleMin = TransformForward_SymLog(range.Min, nullptr);
+    double scaleMax = TransformForward_SymLog(range.Max, nullptr);
+    double s = TransformForward_SymLog(plt, nullptr);
+    double t = (s - scaleMin) / (scaleMax - scaleMin);
+    plt = range.Min + range.Size() * t;
+
+    return (float)(0 + scaleToPixels * (plt - range.Min));
+}
+
+void Locator_SymLog(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data) {
+    if (range.Min >= -1 && range.Max <= 1)
+        Locator_Default(ticker, range, pixels, formatter, formatter_data);
+    else if (range.Min * range.Max < 0) { // cross zero
+        const float pix_min = 0;
+        const float pix_max = pixels;
+        const float pix_p1 = CalcSymLogPixel(1, range, pixels);
+        const float pix_n1 = CalcSymLogPixel(-1, range, pixels);
+        int exp_min_p, exp_max_p, exp_step_p;
+        int exp_min_n, exp_max_n, exp_step_n;
+        CalcLogarithmicExponents(ImPlot3DRange(1, range.Max), ImAbs(pix_max - pix_p1), exp_min_p, exp_max_p, exp_step_p);
+        CalcLogarithmicExponents(ImPlot3DRange(range.Min, -1), ImAbs(pix_n1 - pix_min), exp_min_n, exp_max_n, exp_step_n);
+        int exp_step = ImMax(exp_step_n, exp_step_p);
+        ticker.AddTick(0, true, true, formatter, formatter_data);
+        AddTicksLogarithmic(ImPlot3DRange(1, range.Max), exp_min_p, exp_max_p, exp_step, ticker, formatter, formatter_data);
+        AddTicksLogarithmic(ImPlot3DRange(range.Min, -1), exp_min_n, exp_max_n, exp_step, ticker, formatter, formatter_data);
+    } else {
+        Locator_Log10(ticker, range, pixels, formatter, formatter_data);
     }
 }
 
@@ -1687,14 +1775,58 @@ void SetupAxisTicks(ImAxis3D idx, double v_min, double v_max, int n_ticks, const
     SetupAxisTicks(idx, temp.Data, n_ticks, labels, keep_default);
 }
 
+void SetupAxisScale(ImAxis3D idx, ImPlot3DScale scale) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
+                         "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
+    ImPlot3DPlot& plot = *gp.CurrentPlot;
+    ImPlot3DAxis& axis = plot.Axes[idx];
+    axis.Scale = scale;
+    switch (scale) {
+        case ImPlot3DScale_Log10:
+            axis.TransformForward = TransformForward_Log10;
+            axis.TransformInverse = TransformInverse_Log10;
+            axis.TransformData = nullptr;
+            axis.Locator = Locator_Log10;
+            axis.ConstraintRange = ImPlot3DRange(FLT_MIN, INFINITY);
+            break;
+        case ImPlot3DScale_SymLog:
+            axis.TransformForward = TransformForward_SymLog;
+            axis.TransformInverse = TransformInverse_SymLog;
+            axis.TransformData = nullptr;
+            axis.Locator = Locator_SymLog;
+            axis.ConstraintRange = ImPlot3DRange(-INFINITY, INFINITY);
+            break;
+        default:
+            axis.TransformForward = nullptr;
+            axis.TransformInverse = nullptr;
+            axis.TransformData = nullptr;
+            axis.Locator = nullptr;
+            axis.ConstraintRange = ImPlot3DRange(-INFINITY, INFINITY);
+            break;
+    }
+}
+
+void SetupAxisScale(ImAxis3D idx, ImPlot3DTransform forward, ImPlot3DTransform inverse, void* data) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
+                         "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
+    ImPlot3DPlot& plot = *gp.CurrentPlot;
+    ImPlot3DAxis& axis = plot.Axes[idx];
+    axis.Scale = IMPLOT3D_AUTO;
+    axis.TransformForward = forward;
+    axis.TransformInverse = inverse;
+    axis.TransformData = data;
+}
+
 void SetupAxisLimitsConstraints(ImAxis3D idx, double v_min, double v_max) {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
                          "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     ImPlot3DAxis& axis = plot.Axes[idx];
-    axis.ConstraintRange.Min = (float)v_min;
-    axis.ConstraintRange.Max = (float)v_max;
+    axis.ConstraintRange.Min = v_min;
+    axis.ConstraintRange.Max = v_max;
 }
 
 void SetupAxisZoomConstraints(ImAxis3D idx, double zoom_min, double zoom_max) {
@@ -1703,8 +1835,8 @@ void SetupAxisZoomConstraints(ImAxis3D idx, double zoom_min, double zoom_max) {
                          "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     ImPlot3DAxis& axis = plot.Axes[idx];
-    axis.ConstraintZoom.Min = (float)zoom_min;
-    axis.ConstraintZoom.Max = (float)zoom_max;
+    axis.ConstraintZoom.Min = zoom_min;
+    axis.ConstraintZoom.Max = zoom_max;
 }
 
 void SetupAxes(const char* x_label, const char* y_label, const char* z_label, ImPlot3DAxisFlags x_flags, ImPlot3DAxisFlags y_flags,
@@ -1809,7 +1941,7 @@ ImVec2 PlotToPixels(const ImPlot3DPoint& point) {
     return NDCToPixels(PlotToNDC(point));
 }
 
-ImVec2 PlotToPixels(double x, double y, double z) { return PlotToPixels(ImPlot3DPoint((float)x, (float)y, (float)z)); }
+ImVec2 PlotToPixels(double x, double y, double z) { return PlotToPixels(ImPlot3DPoint(x, y, z)); }
 
 ImPlot3DRay PixelsToPlotRay(const ImVec2& pix) {
     ImPlot3DContext& gp = *GImPlot3D;
@@ -1942,9 +2074,10 @@ ImPlot3DPoint NDCToPlot(const ImPlot3DPoint& point) {
     for (int i = 0; i < 3; i++) {
         ImPlot3DAxis& axis = plot.Axes[i];
         double ndc_range = 0.5 * axis.NDCScale;
-        double t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - point[i]) : (point[i] + ndc_range);
+        double ndc_point = point[i];
+        double t = ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_Invert) ? (ndc_range - ndc_point) : (ndc_point + ndc_range);
         t /= axis.NDCScale;
-        plot_point[i] = axis.Range.Min + t * (axis.Range.Max - axis.Range.Min);
+        plot_point[i] = axis.NDCToPlot(t);
     }
     return plot_point;
 }
@@ -2177,23 +2310,31 @@ void HandleInput(ImPlot3DPlot& plot) {
             float zoom = plot.GetViewScale();
             ImPlot3DPoint delta_NDC = plot.Rotation.Inverse() * (delta_pixels / zoom);
 
-            // Convert delta to plot space
-            ImPlot3DPoint delta_plot = delta_NDC * (plot.RangeMax() - plot.RangeMin()) / plot.GetBoxScale();
-
-            // Adjust delta for inverted axes
+            // Create points in NDC space representing the new shifted range
+            ImPlot3DPoint p_min_ndc, p_max_ndc;
             for (int i = 0; i < 3; i++) {
-                if (ImHasFlag(plot.Axes[i].Flags, ImPlot3DAxisFlags_Invert))
-                    delta_plot[i] *= -1;
+                double half_scale = 0.5 * plot.Axes[i].NDCScale;
+                p_min_ndc[i] = -half_scale - delta_NDC[i];
+                p_max_ndc[i] = half_scale - delta_NDC[i];
             }
+
+            // Convert these NDC points to Plot space to get the new range
+            // NDCToPlot handles axis inversions and non-linear transforms
+            ImPlot3DPoint p_min_plt = NDCToPlot(p_min_ndc);
+            ImPlot3DPoint p_max_plt = NDCToPlot(p_max_ndc);
 
             // Adjust plot range to translate the plot
             for (int i = 0; i < 3; i++) {
                 if (plot.Axes[i].Hovered) {
-                    bool increasing = delta_plot[i] < 0.0f;
-                    if (delta_plot[i] != 0.0f && !plot.Axes[i].IsPanLocked(increasing)) {
+                    double v1 = p_min_plt[i];
+                    double v2 = p_max_plt[i];
+                    double new_min = ImMin(v1, v2);
+                    double new_max = ImMax(v1, v2);
+
+                    bool increasing = new_min > plot.Axes[i].Range.Min;
+                    if ((new_min != plot.Axes[i].Range.Min || new_max != plot.Axes[i].Range.Max) && !plot.Axes[i].IsPanLocked(increasing)) {
                         // Update axis range
-                        plot.Axes[i].SetMin(plot.Axes[i].Range.Min - delta_plot[i]);
-                        plot.Axes[i].SetMax(plot.Axes[i].Range.Max - delta_plot[i]);
+                        plot.Axes[i].SetRange(new_min, new_max);
                         // Apply equal aspect ratio constraint
                         if (axis_equal)
                             plot.ApplyEqualAspect(i);
@@ -2208,26 +2349,57 @@ void HandleInput(ImPlot3DPlot& plot) {
             }
         } else if (plot.Axes[0].Hovered || plot.Axes[1].Hovered || plot.Axes[2].Hovered) {
             // Translate along plane/axis
+            //
+            // For transforms like log scale, we use the approach from ImPlot:
+            // Transform reference points with the mouse delta applied, which properly handles non-linear scales.
+            // The key: use points that lie on the interaction plane, not arbitrary box corners.
 
-            // Mouse delta in pixels
             ImVec2 mouse_delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
-            ImPlot3DPoint mouse_delta_plot = PixelsToPlotPlane(mouse_pos + mouse_delta, mouse_plane, false);
-            ImPlot3DPoint delta_plot = mouse_delta_plot - mouse_pos_plot;
+            // Create reference points on the interaction plane at the axis range extremes
+            // We use the current mouse position as a template, then vary each axis independently
+            ImPlot3DPoint ref_base = mouse_pos_plot;
 
-            // Apply translation to the selected axes
             for (int i = 0; i < 3; i++) {
                 if (plot.Axes[i].Hovered) {
-                    bool increasing = delta_plot[i] < 0.0f;
-                    if (delta_plot[i] != 0.0f && !plot.Axes[i].IsPanLocked(increasing)) {
-                        // Update axis range
-                        plot.Axes[i].SetMin(plot.Axes[i].Range.Min - delta_plot[i]);
-                        plot.Axes[i].SetMax(plot.Axes[i].Range.Max - delta_plot[i]);
+                    ImPlot3DAxis& axis = plot.Axes[i];
+
+                    // Create two reference points on the interaction plane:
+                    // - One at the minimum of this axis
+                    // - One at the maximum of this axis
+                    // Keep other coordinates the same (on the plane)
+                    ImPlot3DPoint p_min = ref_base;
+                    ImPlot3DPoint p_max = ref_base;
+                    p_min[i] = axis.Range.Min;
+                    p_max[i] = axis.Range.Max;
+
+                    // Transform to pixels, apply mouse delta, transform back
+                    ImVec2 pix_min = PlotToPixels(plot, p_min);
+                    ImVec2 pix_max = PlotToPixels(plot, p_max);
+
+                    pix_min.x -= mouse_delta.x;
+                    pix_min.y -= mouse_delta.y;
+                    pix_max.x -= mouse_delta.x;
+                    pix_max.y -= mouse_delta.y;
+
+                    // Project back to plot space via the interaction plane
+                    ImPlot3DPoint new_p_min = PixelsToPlotPlane(pix_min, mouse_plane, false);
+                    ImPlot3DPoint new_p_max = PixelsToPlotPlane(pix_max, mouse_plane, false);
+
+                    // Extract the new range for this axis
+                    double new_min = new_p_min[i];
+                    double new_max = new_p_max[i];
+
+                    // Check if we should update
+                    bool increasing = (new_min < axis.Range.Min);
+                    if ((new_min != axis.Range.Min || new_max != axis.Range.Max) && !axis.IsPanLocked(increasing)) {
+                        axis.SetRange(new_min, new_max);
+
                         // Apply equal aspect ratio constraint
                         if (axis_equal)
                             plot.ApplyEqualAspect(i);
                     }
-                    plot.Axes[i].Held = true;
+                    axis.Held = true;
                 }
                 if (!any_axis_held) {
                     plot.HeldEdgeIdx = hovered_edge_idx;
@@ -2334,7 +2506,13 @@ void HandleInput(ImPlot3DPlot& plot) {
         ImGui::SetKeyOwner(ImGuiKey_MouseWheelY, plot.ID);
         if (ImGui::IsMouseDown(ImGuiMouseButton_Middle) || IO.MouseWheel != 0.0f) {
             float delta = ImGui::IsMouseDown(ImGuiMouseButton_Middle) ? (-0.01f * IO.MouseDelta.y) : (-0.1f * IO.MouseWheel);
-            float zoom_factor = 1.0f + delta;
+            float zoom_rate = delta; // Positive = zoom in, negative = zoom out
+
+            // For transforms like log scale, we use the approach from ImPlot:
+            // Transform reference points with zoom expansion/contraction applied in pixel/NDC space,
+            // which properly handles non-linear scales.
+
+            const bool zoom_around_mouse = (hovered_axis != -1 || hovered_plane != -1);
 
             // Zoom all hovered axes independently
             ImAxis3D ref_axis = ImAxis3D_X;
@@ -2343,22 +2521,63 @@ void HandleInput(ImPlot3DPlot& plot) {
                     continue;
 
                 ImPlot3DAxis& axis = plot.Axes[i];
-                double size = axis.Range.Max - axis.Range.Min;
-                double new_size = size * zoom_factor;
 
-                const bool zoom_around_mouse = (hovered_axis != -1 || hovered_plane != -1);
-                if (zoom_around_mouse) {
-                    // Zoom around the mouse plot position
-                    double offset = mouse_pos_plot[i] - axis.Range.Min;
-                    double ratio = offset / size;
-                    axis.SetMin(mouse_pos_plot[i] - new_size * ratio);
-                    axis.SetMax(mouse_pos_plot[i] + new_size * (1.0f - ratio));
+                // Create reference points on the interaction plane at range extremes
+                ImPlot3DPoint p_min = mouse_pos_plot;
+                ImPlot3DPoint p_max = mouse_pos_plot;
+                p_min[i] = axis.Range.Min;
+                p_max[i] = axis.Range.Max;
+
+                // Transform to pixels
+                ImVec2 pix_min = PlotToPixels(plot, p_min);
+                ImVec2 pix_max = PlotToPixels(plot, p_max);
+
+                // Compute the pixel distance from mouse to each endpoint
+                ImVec2 mouse_pix = PlotToPixels(plot, mouse_pos_plot);
+                float dist_min =
+                    ImSqrt((pix_min.x - mouse_pix.x) * (pix_min.x - mouse_pix.x) + (pix_min.y - mouse_pix.y) * (pix_min.y - mouse_pix.y));
+                float dist_max =
+                    ImSqrt((pix_max.x - mouse_pix.x) * (pix_max.x - mouse_pix.x) + (pix_max.y - mouse_pix.y) * (pix_max.y - mouse_pix.y));
+
+                if (zoom_around_mouse && (dist_min > 0 || dist_max > 0)) {
+                    // Zoom around mouse: expand/contract distances from mouse position
+                    // Direction vectors from mouse to endpoints
+                    ImVec2 dir_min = pix_min - mouse_pix;
+                    ImVec2 dir_max = pix_max - mouse_pix;
+
+                    // Apply zoom by scaling the distances
+                    // Note: zoom_rate is negative when zooming in (MouseWheel > 0), so we add it
+                    pix_min = mouse_pix + dir_min * (1.0f + zoom_rate);
+                    pix_max = mouse_pix + dir_max * (1.0f + zoom_rate);
+
+                    // Project back to plot space via the plane
+                    ImPlot3DPoint new_p_min = PixelsToPlotPlane(pix_min, mouse_plane, false);
+                    ImPlot3DPoint new_p_max = PixelsToPlotPlane(pix_max, mouse_plane, false);
+
+                    // Extract the new range for this axis
+                    double new_min = new_p_min[i];
+                    double new_max = new_p_max[i];
+
+                    // Update the range
+                    axis.SetRange(new_min, new_max);
                 } else {
                     // Zoom around center
-                    double center = (axis.Range.Min + axis.Range.Max) * 0.5;
-                    axis.SetMin(center - new_size * 0.5f);
-                    axis.SetMax(center + new_size * 0.5f);
+                    double ndc_limit = 0.5 * axis.NDCScale;
+                    double zoom_factor = 1.0f + zoom_rate;
+
+                    // Create points in NDC space representing the new zoomed range
+                    ImPlot3DPoint p_min(0.0f, 0.0f, 0.0f);
+                    ImPlot3DPoint p_max(0.0f, 0.0f, 0.0f);
+                    p_min[i] = -ndc_limit * zoom_factor;
+                    p_max[i] = ndc_limit * zoom_factor;
+
+                    // Convert these NDC points to Plot space to get the new range
+                    ImPlot3DPoint plt_min = NDCToPlot(p_min);
+                    ImPlot3DPoint plt_max = NDCToPlot(p_max);
+
+                    axis.SetRange(plt_min[i], plt_max[i]);
                 }
+
                 axis.Held = true;
 
                 // Use a hovered axis as reference
@@ -3181,8 +3400,8 @@ bool ImPlot3DBox::ClipLineSegment(const ImPlot3DPoint& p0, const ImPlot3DPoint& 
         return false; // Far
 
     // Compute clipped points
-    p0_clipped = p0 + d * (float)t0;
-    p1_clipped = p0 + d * (float)t1;
+    p0_clipped = p0 + d * t0;
+    p1_clipped = p0 + d * t1;
 
     return true;
 }
@@ -3546,8 +3765,12 @@ bool ImPlot3DAxis::HasTickMarks() const { return !ImPlot3D::ImHasFlag(Flags, ImP
 bool ImPlot3DAxis::IsAutoFitting() const { return ImPlot3D::ImHasFlag(Flags, ImPlot3DAxisFlags_AutoFit); }
 
 void ImPlot3DAxis::ExtendFit(double value) {
-    FitExtents.Min = ImMin(FitExtents.Min, value);
-    FitExtents.Max = ImMax(FitExtents.Max, value);
+    // Only extend fit with values that are within the constraint range
+    // This is critical for log scale where negative/zero values should be ignored
+    if (!ImPlot3D::ImNanOrInf(value) && value >= ConstraintRange.Min && value <= ConstraintRange.Max) {
+        FitExtents.Min = ImMin(FitExtents.Min, value);
+        FitExtents.Max = ImMax(FitExtents.Max, value);
+    }
 }
 
 void ImPlot3DAxis::ApplyFit() {
@@ -3560,6 +3783,7 @@ void ImPlot3DAxis::ApplyFit() {
         Range.Min -= 0.5;
     }
     Constrain();
+    UpdateTransformCache();
     FitExtents.Min = HUGE_VAL;
     FitExtents.Max = -HUGE_VAL;
 }
