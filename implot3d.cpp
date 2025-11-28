@@ -2334,8 +2334,7 @@ void HandleInput(ImPlot3DPlot& plot) {
                     bool increasing = new_min > plot.Axes[i].Range.Min;
                     if ((new_min != plot.Axes[i].Range.Min || new_max != plot.Axes[i].Range.Max) && !plot.Axes[i].IsPanLocked(increasing)) {
                         // Update axis range
-                        plot.Axes[i].SetMin(new_min);
-                        plot.Axes[i].SetMax(new_max);
+                        plot.Axes[i].SetRange(new_min, new_max);
                         // Apply equal aspect ratio constraint
                         if (axis_equal)
                             plot.ApplyEqualAspect(i);
@@ -2394,8 +2393,7 @@ void HandleInput(ImPlot3DPlot& plot) {
                     // Check if we should update
                     bool increasing = (new_min < axis.Range.Min);
                     if ((new_min != axis.Range.Min || new_max != axis.Range.Max) && !axis.IsPanLocked(increasing)) {
-                        axis.SetMin(new_min);
-                        axis.SetMax(new_max);
+                        axis.SetRange(new_min, new_max);
 
                         // Apply equal aspect ratio constraint
                         if (axis_equal)
@@ -2561,8 +2559,7 @@ void HandleInput(ImPlot3DPlot& plot) {
                     double new_max = new_p_max[i];
 
                     // Update the range
-                    axis.SetMin(new_min);
-                    axis.SetMax(new_max);
+                    axis.SetRange(new_min, new_max);
                 } else {
                     // Zoom around center
                     double ndc_limit = 0.5 * axis.NDCScale;
@@ -2578,8 +2575,7 @@ void HandleInput(ImPlot3DPlot& plot) {
                     ImPlot3DPoint plt_min = NDCToPlot(p_min);
                     ImPlot3DPoint plt_max = NDCToPlot(p_max);
 
-                    axis.SetMin(plt_min[i]);
-                    axis.SetMax(plt_max[i]);
+                    axis.SetRange(plt_min[i], plt_max[i]);
                 }
 
                 axis.Held = true;

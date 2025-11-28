@@ -528,6 +528,8 @@ struct ImPlot3DAxis {
     }
 
     inline void SetRange(double v1, double v2) {
+        v1 = ImPlot3D::ImConstrainNan(ImPlot3D::ImConstrainInf(v1));
+        v2 = ImPlot3D::ImConstrainNan(ImPlot3D::ImConstrainInf(v2));
         Range.Min = ImMin(v1, v2);
         Range.Max = ImMax(v1, v2);
         Constrain();
