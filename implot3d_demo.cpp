@@ -1,22 +1,22 @@
-//--------------------------------------------------
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2024-2025 Breno Cunha Queiroz
+
 // ImPlot3D v0.3 WIP
-// implot3d_demo.cpp
-// Date: 2024-11-17
-// Author: Breno Cunha Queiroz (brenocq.com)
-//
+
 // Acknowledgments:
 //  ImPlot3D is heavily inspired by ImPlot
 //  (https://github.com/epezent/implot) by Evan Pezent,
 //  and follows a similar code style and structure to
 //  maintain consistency with ImPlot's API.
-//--------------------------------------------------
 
 // Table of Contents:
 // [SECTION] User Namespace
 // [SECTION] Helpers
 // [SECTION] Plots
 // [SECTION] Axes
+// [SECTION] Tools
 // [SECTION] Custom
+// [SECTION] Config
 // [SECTION] Demo Window
 // [SECTION] Style Editor
 // [SECTION] User Namespace Implementation
@@ -84,6 +84,22 @@ struct ScrollingBuffer {
         }
     }
 };
+
+// Custom axis formatter that adds metric prefixes (G, M, k, m, u, n)
+int MetricFormatter(double value, char* buff, int size, void* data) {
+    const char* unit = (const char*)data;
+    static double v[] = {1000000000, 1000000, 1000, 1, 0.001, 0.000001, 0.000000001};
+    static const char* p[] = {"G", "M", "k", "", "m", "u", "n"};
+    if (value == 0) {
+        return snprintf(buff, size, "0 %s", unit);
+    }
+    for (int i = 0; i < 7; ++i) {
+        if (fabs(value) >= v[i]) {
+            return snprintf(buff, size, "%g %s%s", value / v[i], p[i], unit);
+        }
+    }
+    return snprintf(buff, size, "%g %s%s", value / v[6], p[6], unit);
+}
 
 //-----------------------------------------------------------------------------
 // [SECTION] Plots
@@ -565,6 +581,217 @@ void DemoRealtimePlots() {
     }
 }
 
+void DemoPlotFlags() {
+    static ImPlot3DFlags flags = ImPlot3DFlags_None;
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoTitle);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide plot title");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoLegend);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide plot legend");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoMouseText);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Hide mouse position in plot coordinates");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoClip);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Disable 3D box clipping");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoMenus);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("The user will not be able to open context menus");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_Equal);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("X, Y, and Z axes will be constrained to have the same units/pixel");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoRotate);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Lock rotation interaction");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoPan);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Lock panning/translation interaction");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoZoom);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Lock zooming interaction");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoInputs);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Disable all user inputs");
+    }
+
+    if (ImPlot3D::BeginPlot("Plot Flags Demo", ImVec2(-1, 0), flags)) {
+        ImPlot3D::SetupAxes("X-axis", "Y-axis", "Z-axis");
+        ImPlot3D::SetupAxesLimits(-10, 10, -10, 10, -5, 5);
+
+        // Generate some sample data for demonstration
+        static float x[100], y[100], z[100];
+        static bool first = true;
+        if (first) {
+            for (int i = 0; i < 100; i++) {
+                float t = i * 0.1f;
+                x[i] = 3.0f * cosf(t);
+                y[i] = 3.0f * sinf(t);
+                z[i] = t - 5.0f;
+            }
+            first = false;
+        }
+
+        ImPlot3D::PlotLine("Helix", x, y, z, 100);
+
+        // Add some scatter points to show equal scaling effect
+        float scatter_x[8] = {-10, 10, -10, 10, -10, 10, -10, 10};
+        float scatter_y[8] = {-10, -10, 10, 10, -10, -10, 10, 10};
+        float scatter_z[8] = {-5, -5, -5, -5, 5, 5, 5, 5};
+        ImPlot3D::PlotScatter("Cube corners", scatter_x, scatter_y, scatter_z, 8);
+
+        ImPlot3D::EndPlot();
+    }
+}
+
+void DemoOffsetAndStride() {
+    static const int k_spirals = 11;
+    static const int k_points_per = 50;
+    static const int k_size = 3 * k_points_per * k_spirals;
+    static double interleaved_data[k_size];
+    for (int p = 0; p < k_points_per; ++p) {
+        for (int s = 0; s < k_spirals; ++s) {
+            double r = (double)s / (k_spirals - 1) * 0.2 + 0.2;
+            double theta = (double)p / k_points_per * 6.28;
+            interleaved_data[p * 3 * k_spirals + 3 * s + 0] = 0.5 + r * cos(theta);
+            interleaved_data[p * 3 * k_spirals + 3 * s + 1] = 0.5 + r * sin(theta);
+            interleaved_data[p * 3 * k_spirals + 3 * s + 2] = 0.5 + 0.5 * sin(2.0 * theta);
+        }
+    }
+    static int offset = 0;
+    ImGui::BulletText("Offsetting is useful for realtime plots (see above) and circular buffers.");
+    ImGui::BulletText("Striding is useful for interleaved data (e.g. audio) or plotting structs.");
+    ImGui::BulletText("Here, all spiral data is stored in a single interleaved buffer:");
+    ImGui::BulletText("[s0.x0 s0.y0 s0.z0 ... sn.x0 sn.y0 sn.z0 s0.x1 s0.y1 s0.z1 ... sn.x1 sn.y1 sn.z1 ... sn.xm sn.ym sn.zm]");
+    ImGui::BulletText("The offset value indicates which spiral point index is considered the first.");
+    ImGui::BulletText("Offsets can be negative and/or larger than the actual data count.");
+    ImGui::SliderInt("Offset", &offset, -2 * k_points_per, 2 * k_points_per);
+    if (ImPlot3D::BeginPlot("##strideoffset", ImVec2(-1, 0))) {
+        ImPlot3D::PushColormap(ImPlot3DColormap_Jet);
+        char buff[32];
+        for (int s = 0; s < k_spirals; ++s) {
+            snprintf(buff, sizeof(buff), "Spiral %d", s);
+            ImPlot3D::PlotLine(buff, &interleaved_data[s * 3 + 0], &interleaved_data[s * 3 + 1], &interleaved_data[s * 3 + 2], k_points_per, 0,
+                               offset, 3 * k_spirals * sizeof(double));
+        }
+        ImPlot3D::EndPlot();
+        ImPlot3D::PopColormap();
+    }
+}
+
+void DemoLegendOptions() {
+    static ImPlot3DLocation loc = ImPlot3DLocation_East;
+    ImGui::CheckboxFlags("North", (unsigned int*)&loc, ImPlot3DLocation_North);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("South", (unsigned int*)&loc, ImPlot3DLocation_South);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("West", (unsigned int*)&loc, ImPlot3DLocation_West);
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("East", (unsigned int*)&loc, ImPlot3DLocation_East);
+
+    static ImPlot3DLegendFlags flags = 0;
+
+    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_Horizontal);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Legend entries will be displayed horizontally");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_NoButtons);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Legend icons will not function as hide/show buttons");
+    }
+
+    CHECKBOX_FLAG(flags, ImPlot3DLegendFlags_NoHighlightItem);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Plot items will not be highlighted when their legend entry is hovered");
+    }
+
+    ImGui::SliderFloat2("LegendPadding", (float*)&ImPlot3D::GetStyle().LegendPadding, 0.0f, 20.0f, "%.0f");
+    ImGui::SliderFloat2("LegendInnerPadding", (float*)&ImPlot3D::GetStyle().LegendInnerPadding, 0.0f, 10.0f, "%.0f");
+    ImGui::SliderFloat2("LegendSpacing", (float*)&ImPlot3D::GetStyle().LegendSpacing, 0.0f, 5.0f, "%.0f");
+
+    if (ImPlot3D::BeginPlot("Legend Options Demo", ImVec2(-1, 0))) {
+        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
+        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
+        ImPlot3D::SetupLegend(loc, flags);
+
+        // Generate some 3D line data
+        static float t = 0;
+        t += ImGui::GetIO().DeltaTime * 0.5f;
+
+        constexpr int count = 50;
+        static float xs1[count], ys1[count], zs1[count];
+        static float xs2[count], ys2[count], zs2[count];
+        static float xs3[count], ys3[count], zs3[count];
+
+        for (int i = 0; i < count; i++) {
+            float phase = i * 0.1f + t;
+            xs1[i] = 0.8f * cosf(phase);
+            ys1[i] = 0.8f * sinf(phase);
+            zs1[i] = 0.5f * sinf(phase * 2);
+
+            xs2[i] = 0.6f * cosf(phase + 1.0f);
+            ys2[i] = 0.6f * sinf(phase + 1.0f);
+            zs2[i] = -0.3f * cosf(phase * 1.5f);
+
+            xs3[i] = 0.4f * sinf(phase);
+            ys3[i] = 0.4f * cosf(phase);
+            zs3[i] = 0.7f * cosf(phase * 0.8f);
+        }
+
+        ImPlot3D::PlotLine("Helix A", xs1, ys1, zs1, count);
+        ImPlot3D::PlotLine("Helix B##IDText", xs2, ys2, zs2, count); // Text after ## used for ID only
+        ImPlot3D::PlotLine("##NotListed", xs3, ys3, zs3, count);     // Plotted, but not added to legend
+
+        ImPlot3D::EndPlot();
+    }
+}
+
 void DemoMarkersAndText() {
     static float mk_size = ImPlot3D::GetStyle().MarkerSize;
     static float mk_weight = ImPlot3D::GetStyle().MarkerWeight;
@@ -716,8 +943,11 @@ void DemoBoxRotation() {
 }
 
 void DemoTickLabels() {
-    static bool custom_ticks = true;
+    static bool custom_fmt = true;
+    static bool custom_ticks = false;
     static bool custom_labels = true;
+    ImGui::Checkbox("Show Custom Format", &custom_fmt);
+    ImGui::SameLine();
     ImGui::Checkbox("Show Custom Ticks", &custom_ticks);
     if (custom_ticks) {
         ImGui::SameLine();
@@ -728,11 +958,15 @@ void DemoTickLabels() {
     static double letters_ticks[] = {0.0, 0.2, 0.4, 0.6, 0.8, 1.0};
     static const char* letters_labels[] = {"A", "B", "C", "D", "E", "F"};
     if (ImPlot3D::BeginPlot("##Ticks")) {
-        ImPlot3D::SetupAxesLimits(2, 5, 0, 1, 0, 1);
+        ImPlot3D::SetupAxesLimits(2, 5, 0, 1, 0, 1000);
+        if (custom_fmt) {
+            ImPlot3D::SetupAxisFormat(ImAxis3D_Y, MetricFormatter, (void*)"Hz");
+            ImPlot3D::SetupAxisFormat(ImAxis3D_Z, MetricFormatter, (void*)"m");
+        }
         if (custom_ticks) {
             ImPlot3D::SetupAxisTicks(ImAxis3D_X, &pi, 1, custom_labels ? pi_str : nullptr, true);
             ImPlot3D::SetupAxisTicks(ImAxis3D_Y, letters_ticks, 6, custom_labels ? letters_labels : nullptr, false);
-            ImPlot3D::SetupAxisTicks(ImAxis3D_Z, 0, 1, 6, custom_labels ? letters_labels : nullptr, false);
+            ImPlot3D::SetupAxisTicks(ImAxis3D_Z, 0, 1000, 6, custom_labels ? letters_labels : nullptr, false);
         }
         ImPlot3D::EndPlot();
     }
@@ -758,103 +992,152 @@ void DemoAxisConstraints() {
     }
 }
 
-void DemoPlotFlags() {
-    static ImPlot3DFlags flags = ImPlot3DFlags_None;
+void DemoEqualAxes() {
+    ImGui::BulletText("Equal constraint applies to all three axes (X, Y, Z)");
+    ImGui::BulletText("When enabled, the axes maintain the same units/pixel ratio");
 
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoTitle);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Hide plot title");
+    static double circle_xs[360], circle_ys[360], circle_zs[360];
+    static double helix_xs[360], helix_ys[360], helix_zs[360];
+    float square_xs[] = {-0.5f, 0.5f, 0.5f, -0.5f, -0.5f};
+    float square_ys[] = {-0.5f, -0.5f, 0.5f, 0.5f, -0.5f};
+    float square_zs[] = {-0.5f, -0.5f, -0.5f, -0.5f, -0.5f};
+    static bool initialized = false;
+    if (!initialized) {
+        for (int i = 0; i < 360; ++i) {
+            double angle = i * 2 * IM_PI / 359.0;
+            // Circle in XY plane at Z=0
+            circle_xs[i] = cos(angle);
+            circle_ys[i] = sin(angle);
+            circle_zs[i] = 0;
+            // Helix
+            helix_xs[i] = 0.5 * cos(angle);
+            helix_ys[i] = 0.5 * sin(angle);
+            helix_zs[i] = (double)i / 359.0 * 2.0 - 1.0;
+        }
+        initialized = true;
     }
 
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoLegend);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Hide plot legend");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoMouseText);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Hide mouse position in plot coordinates");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoClip);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Disable 3D box clipping");
-    }
-
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoMenus);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("The user will not be able to open context menus");
-    }
-
+    static ImPlot3DFlags flags = ImPlot3DFlags_Equal;
     CHECKBOX_FLAG(flags, ImPlot3DFlags_Equal);
+
+    if (ImPlot3D::BeginPlot("##EqualAxes", ImVec2(-1, 0), flags)) {
+        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
+        ImPlot3D::PlotLine("Circle", circle_xs, circle_ys, circle_zs, 360);
+        ImPlot3D::PlotLine("Helix", helix_xs, helix_ys, helix_zs, 360);
+        ImPlot3D::PlotLine("Square", square_xs, square_ys, square_zs, 5);
+        ImPlot3D::EndPlot();
+    }
+}
+
+void DemoAutoFittingData() {
+    ImGui::BulletText("Axes can be configured to auto-fit to data extents.");
+    ImGui::BulletText("Try panning and zooming to see the axes adjust.");
+    ImGui::BulletText("Disable AutoFit on an axis to fix its range.");
+
+    static ImPlot3DAxisFlags xflags = ImPlot3DAxisFlags_None;
+    static ImPlot3DAxisFlags yflags = ImPlot3DAxisFlags_None;
+    static ImPlot3DAxisFlags zflags = ImPlot3DAxisFlags_AutoFit;
+
+    ImGui::TextUnformatted("X: ");
     ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("X, Y, and Z axes will be constrained to have the same units/pixel");
+    ImGui::CheckboxFlags("ImPlot3DAxisFlags_AutoFit##X", (unsigned int*)&xflags, ImPlot3DAxisFlags_AutoFit);
+
+    ImGui::TextUnformatted("Y: ");
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("ImPlot3DAxisFlags_AutoFit##Y", (unsigned int*)&yflags, ImPlot3DAxisFlags_AutoFit);
+
+    ImGui::TextUnformatted("Z: ");
+    ImGui::SameLine();
+    ImGui::CheckboxFlags("ImPlot3DAxisFlags_AutoFit##Z", (unsigned int*)&zflags, ImPlot3DAxisFlags_AutoFit);
+
+    static double data_x[101], data_y[101], data_z[101];
+    static bool initialized = false;
+    if (!initialized) {
+        srand(0);
+        for (int i = 0; i < 101; ++i) {
+            data_x[i] = i * 0.1;
+            data_y[i] = i * 0.1;
+            data_z[i] = 1 + sin(i / 10.0);
+        }
+        initialized = true;
     }
 
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoRotate);
+    if (ImPlot3D::BeginPlot("##AutoFitting")) {
+        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis", xflags, yflags, zflags);
+        ImPlot3D::PlotLine("Wave", data_x, data_y, data_z, 101);
+        ImPlot3D::EndPlot();
+    }
+}
+
+//-----------------------------------------------------------------------------
+// [SECTION] Tools
+//-----------------------------------------------------------------------------
+
+void DemoMousePicking() {
+    static ImVector<ImPlot3DPoint> points;
+    static ImVector<ImPlot3DRay> rays;
+
+    ImGui::BulletText("Click anywhere in the plot to place points/rays.");
+
+    static int selected_plane = ImPlane3D_XY;
+    ImGui::RadioButton("XY-Plane", &selected_plane, ImPlane3D_XY);
     ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Lock rotation interaction");
+    ImGui::RadioButton("XZ-Plane", &selected_plane, ImPlane3D_XZ);
+    ImGui::SameLine();
+    ImGui::RadioButton("YZ-Plane", &selected_plane, ImPlane3D_YZ);
+
+    static bool mask_plane = true;
+    ImGui::Checkbox("Mask Plane", &mask_plane);
+    if (ImGui::Button("Clear")) {
+        points.clear();
+        rays.clear();
     }
 
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoPan);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Lock panning/translation interaction");
-    }
+    if (ImPlot3D::BeginPlot("Mouse Picking", ImVec2(-1, 0), ImPlot3DFlags_NoClip)) {
+        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
+        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
 
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoZoom);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Lock zooming interaction");
-    }
+        // Get mouse position and convert to ray
+        ImVec2 mouse_pos = ImGui::GetMousePos();
+        ImPlot3DRay ray = ImPlot3D::PixelsToPlotRay(mouse_pos);
 
-    CHECKBOX_FLAG(flags, ImPlot3DFlags_NoInputs);
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Disable all user inputs");
-    }
+        // Convert to selected plane
+        ImPlane3D plane = (ImPlane3D)selected_plane;
+        ImPlot3DPoint point = ImPlot3D::PixelsToPlotPlane(mouse_pos, plane, mask_plane);
 
-    if (ImPlot3D::BeginPlot("Plot Flags Demo", ImVec2(-1, 0), flags)) {
-        ImPlot3D::SetupAxes("X-axis", "Y-axis", "Z-axis");
-        ImPlot3D::SetupAxesLimits(-10, 10, -10, 10, -5, 5);
-
-        // Generate some sample data for demonstration
-        static float x[100], y[100], z[100];
-        static bool first = true;
-        if (first) {
-            for (int i = 0; i < 100; i++) {
-                float t = i * 0.1f;
-                x[i] = 3.0f * cosf(t);
-                y[i] = 3.0f * sinf(t);
-                z[i] = t - 5.0f;
-            }
-            first = false;
+        // Show intersection point
+        if (ImGui::IsItemHovered() && !point.IsNaN()) {
+            ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle, 5, ImVec4(1, 1, 0, 1));
+            ImPlot3D::PlotScatter("##Intersection", &point.x, &point.y, &point.z, 1);
         }
 
-        ImPlot3D::PlotLine("Helix", x, y, z, 100);
+        // Add point/ray on click
+        if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0) && !point.IsNaN()) {
+            points.push_back(point);
+            rays.push_back(ray);
+        }
 
-        // Add some scatter points to show equal scaling effect
-        float scatter_x[8] = {-10, 10, -10, 10, -10, 10, -10, 10};
-        float scatter_y[8] = {-10, -10, 10, 10, -10, -10, 10, 10};
-        float scatter_z[8] = {-5, -5, -5, -5, 5, 5, 5, 5};
-        ImPlot3D::PlotScatter("Cube corners", scatter_x, scatter_y, scatter_z, 8);
+        // Draw all placed points
+        if (!points.empty()) {
+            ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle, 3);
+            // Plot points
+            ImPlot3D::PlotScatter("Placed Points", &points[0].x, &points[0].y, &points[0].z, (int)points.Size, ImPlot3DScatterFlags_None, 0,
+                                  sizeof(ImPlot3DPoint));
+        }
+
+        // Draw all placed rays
+        if (!rays.empty()) {
+            ImVector<ImPlot3DPoint> ray_points;
+            ray_points.reserve(rays.Size * 2);
+            for (int i = 0; i < rays.Size; i++) {
+                ImPlot3DPoint p1 = points[i];
+                ImPlot3DPoint p2 = points[i] - rays[i].Direction; // Ray from added point to the camera
+                ray_points.push_back(p1);
+                ray_points.push_back(p2);
+            }
+            ImPlot3D::PlotLine("Placed Rays", &ray_points[0].x, &ray_points[0].y, &ray_points[0].z, (int)rays.Size * 2, ImPlot3DLineFlags_Segments, 0,
+                               sizeof(ImPlot3DPoint));
+        }
 
         ImPlot3D::EndPlot();
     }
@@ -909,6 +1192,267 @@ void DemoCustomRendering() {
             ImPlot3D::GetPlotDrawList()->AddLine(corners_px[i + 4], corners_px[(i + 1) % 4 + 4], col);
             ImPlot3D::GetPlotDrawList()->AddLine(corners_px[i], corners_px[i + 4], col);
         }
+        ImPlot3D::EndPlot();
+    }
+}
+
+void DemoCustomOverlay() {
+    ImGui::BulletText("Demonstrates custom 2D overlays using GetPlotRectPos/GetPlotRectSize.");
+    ImGui::BulletText("Shows mouse tooltip, line to closest point, and orientation gizmo.");
+
+    // Generate some 3D scatter data
+    static float xs[50], ys[50], zs[50];
+    static bool initialized = false;
+    if (!initialized) {
+        srand(0);
+        for (int i = 0; i < 50; i++) {
+            xs[i] = (float)rand() / (float)RAND_MAX;
+            ys[i] = (float)rand() / (float)RAND_MAX;
+            zs[i] = (float)rand() / (float)RAND_MAX;
+        }
+        initialized = true;
+    }
+
+    if (ImPlot3D::BeginPlot("##CustomOverlay", ImVec2(-1, 0))) {
+        ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
+        ImPlot3D::SetupAxesLimits(0, 1, 0, 1, 0, 1);
+        ImPlot3D::PlotScatter("Data", xs, ys, zs, 50);
+
+        ImDrawList* draw_list = ImPlot3D::GetPlotDrawList();
+        ImVec2 mouse_pos = ImGui::GetMousePos();
+        ImVec2 plot_pos = ImPlot3D::GetPlotRectPos();
+        ImVec2 plot_size = ImPlot3D::GetPlotRectSize();
+
+        // Check if mouse is over plot
+        bool is_hovered = ImGui::IsItemHovered();
+
+        if (is_hovered) {
+            // Find closest point to mouse in screen space
+            int closest_idx = -1;
+            float min_dist_sq = 1e10f; // Large value instead of FLT_MAX
+            ImVec2 closest_px;
+
+            for (int i = 0; i < 50; i++) {
+                ImVec2 point_px = ImPlot3D::PlotToPixels(xs[i], ys[i], zs[i]);
+                float dx = point_px.x - mouse_pos.x;
+                float dy = point_px.y - mouse_pos.y;
+                float dist_sq = dx * dx + dy * dy;
+                if (dist_sq < min_dist_sq) {
+                    min_dist_sq = dist_sq;
+                    closest_idx = i;
+                    closest_px = point_px;
+                }
+            }
+
+            // Draw line to closest point
+            if (closest_idx >= 0) {
+                draw_list->AddLine(mouse_pos, closest_px, IM_COL32(255, 255, 0, 255), 2.0f);
+
+                // Draw tooltip
+                ImGui::BeginTooltip();
+                ImGui::Text("Mouse: (%.1f, %.1f)", mouse_pos.x, mouse_pos.y);
+                ImGui::Text("Closest Point #%d", closest_idx);
+                ImGui::Text("Position: (%.3f, %.3f, %.3f)", xs[closest_idx], ys[closest_idx], zs[closest_idx]);
+                ImGui::Text("Distance: %.1f px", ImSqrt(min_dist_sq));
+                ImGui::EndTooltip();
+            }
+        }
+
+        // Draw orientation gizmo in bottom-right corner
+        ImPlot3DContext& gp = *GImPlot3D;
+        ImPlot3DPlot* plot = gp.CurrentPlot;
+        if (plot) {
+            ImVec2 gizmo_center = ImVec2(plot_pos.x + plot_size.x - 50, plot_pos.y + plot_size.y - 50);
+            float gizmo_size = 30.0f;
+
+            // Get rotation quaternion
+            ImPlot3DQuat rot = plot->Rotation;
+
+            // Define axis directions in plot space
+            ImPlot3DPoint axes[3] = {
+                ImPlot3DPoint(1, 0, 0), // X-axis (red)
+                ImPlot3DPoint(0, 1, 0), // Y-axis (green)
+                ImPlot3DPoint(0, 0, 1)  // Z-axis (blue)
+            };
+
+            ImU32 colors[3] = {
+                IM_COL32(200, 50, 50, 255), // Red
+                IM_COL32(50, 200, 50, 255), // Green
+                IM_COL32(50, 50, 200, 255)  // Blue
+            };
+
+            const char* labels[3] = {"X", "Y", "Z"};
+
+            // Draw gizmo background circle
+            draw_list->AddCircleFilled(gizmo_center, gizmo_size + 5, IM_COL32(0, 0, 0, 100));
+
+            // Draw each axis
+            for (int i = 0; i < 3; i++) {
+                // Rotate axis by quaternion
+                ImPlot3DPoint rotated = rot * axes[i];
+
+                // Project to 2D gizmo space (simple orthographic projection)
+                ImVec2 axis_end = ImVec2(gizmo_center.x + float(rotated.x) * gizmo_size,
+                                         gizmo_center.y - float(rotated.y) * gizmo_size // Flip Y for screen coords
+                );
+
+                // Draw line
+                draw_list->AddLine(gizmo_center, axis_end, colors[i], 2.0f);
+
+                // Draw circle at end
+                draw_list->AddCircleFilled(axis_end, 4.0f, colors[i]);
+
+                // Draw label
+                ImVec2 label_pos = ImVec2(axis_end.x + 8, axis_end.y - 8);
+                draw_list->AddText(label_pos, colors[i], labels[i]);
+            }
+        }
+
+        ImPlot3D::EndPlot();
+    }
+}
+
+void DemoCustomPerPointStyle() {
+    ImGui::BulletText("Demonstrates per-point coloring using colormap sampling.");
+    ImGui::BulletText("Each point calls SetNextMarkerStyle with a sampled color.");
+    ImGui::BulletText("All points share the same label for a single legend entry.");
+
+    static float marker_size = 4.0f;
+    static ImPlot3DColormap cmap = ImPlot3DColormap_Viridis;
+
+    ImGui::SliderFloat("Marker Size", &marker_size, 2.0f, 10.0f);
+    if (ImGui::BeginCombo("Colormap", ImPlot3D::GetColormapName(cmap))) {
+        ImPlot3DContext& gp = *GImPlot3D;
+        for (int i = 0; i < ImPlot3D::GetColormapCount(); i++) {
+            // Only show continuous colormaps
+            if (!gp.ColormapData.IsQual(i)) {
+                if (ImGui::Selectable(ImPlot3D::GetColormapName(i), cmap == i))
+                    cmap = i;
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    // Generate three stacked toruses with different color patterns
+    static float torus_data[3][400][4]; // 3 toruses, 400 points each, XYZT per point
+    static bool initialized = false;
+    if (!initialized) {
+        const float R = 0.6f; // Major radius
+        const float r = 0.2f; // Minor radius
+        const int u_samples = 20;
+        const int v_samples = 20;
+
+        for (int torus = 0; torus < 3; torus++) {
+            float z_offset = (2 - torus) * 0.6f;
+            int idx = 0;
+
+            for (int i = 0; i < u_samples; i++) {
+                float u = (float)i / u_samples * 2.0f * IM_PI;
+                for (int j = 0; j < v_samples; j++) {
+                    float v = (float)j / v_samples * 2.0f * IM_PI;
+
+                    // Parametric torus equations
+                    float x = (R + r * ImCos(v)) * ImCos(u);
+                    float y = (R + r * ImCos(v)) * ImSin(u);
+                    float z = r * ImSin(v) + z_offset;
+
+                    // Different color pattern for each torus
+                    float t;
+                    if (torus == 0) {
+                        // Color by height (Z coordinate)
+                        // Normalize Z to [0, 1] range for this torus
+                        t = (z - (z_offset - r)) / (2.0f * r);
+                    } else if (torus == 1) {
+                        // Color by radial distance from tube center
+                        // V parameter directly gives us position around tube
+                        // Map from [-r, +r] to [0, 1]
+                        t = (ImCos(v) + 1.0f) / 2.0f;
+                    } else {
+                        // Angular pattern: varies smoothly around the major circle
+                        // Creates wave-like color pattern
+                        t = (ImCos(u) + 1.0f) / 2.0f; // Maps [-1, 1] to [0, 1]
+                    }
+
+                    torus_data[torus][idx][0] = x;
+                    torus_data[torus][idx][1] = y;
+                    torus_data[torus][idx][2] = z;
+                    torus_data[torus][idx][3] = t;
+                    idx++;
+                }
+            }
+        }
+        initialized = true;
+    }
+
+    if (ImPlot3D::BeginPlot("##PerPointStyle", ImVec2(-1, 0))) {
+        ImPlot3D::SetupAxes("X", "Y", "Z");
+        ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -0.5, 1.5);
+
+        const char* labels[3] = {"Height-colored", "Radial-colored", "Angular-colored"};
+        const ImVec4 legend_colors[3] = {
+            ImVec4(1.0f, 0.0f, 0.0f, 1.0f), // Red
+            ImVec4(0.0f, 1.0f, 0.0f, 1.0f), // Green
+            ImVec4(0.0f, 0.0f, 1.0f, 1.0f)  // Blue
+        };
+
+        for (int torus = 0; torus < 3; torus++) {
+            const int point_count = 400;
+            for (int i = 0; i < point_count; i++) {
+                float x = torus_data[torus][i][0];
+                float y = torus_data[torus][i][1];
+                float z = torus_data[torus][i][2];
+                float t = torus_data[torus][i][3];
+
+                // Sample colormap and set marker style
+                ImVec4 color = ImPlot3D::SampleColormap(t, cmap);
+                ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle, marker_size, color, IMPLOT3D_AUTO, color);
+                ImPlot3D::PlotScatter(labels[torus], &x, &y, &z, 1);
+            }
+            // Override legend color with PlotDummy
+            ImPlot3D::SetNextLineStyle(legend_colors[torus]);
+            ImPlot3D::PlotDummy(labels[torus]);
+        }
+
+        ImPlot3D::EndPlot();
+    }
+}
+
+//-----------------------------------------------------------------------------
+// [SECTION] Config
+//-----------------------------------------------------------------------------
+
+void DemoConfig() {
+    ImGui::ShowFontSelector("Font");
+    ImGui::ShowStyleSelector("ImGui Style");
+    ImPlot3D::ShowStyleSelector("ImPlot3D Style");
+    ImPlot3D::ShowColormapSelector("ImPlot3D Colormap");
+    ImGui::Separator();
+
+    // Preview plot with 3D spirals
+    if (ImPlot3D::BeginPlot("Preview", ImVec2(-1, 0))) {
+        // Generate 10 spirals at different heights
+        static float xs[10][50], ys[10][50], zs[10][50];
+        static bool initialized = false;
+        if (!initialized) {
+            for (int i = 0; i < 10; ++i) {
+                for (int j = 0; j < 50; ++j) {
+                    float t = j / 49.0f;
+                    float angle = t * 4.0f * IM_PI;
+                    float radius = 0.3f + i * 0.05f;
+                    xs[i][j] = radius * ImCos(angle);
+                    ys[i][j] = radius * ImSin(angle);
+                    zs[i][j] = i / 9.0f;
+                }
+            }
+            initialized = true;
+        }
+
+        for (int i = 0; i < 10; ++i) {
+            ImGui::PushID(i);
+            ImPlot3D::PlotLine("##Spiral", xs[i], ys[i], zs[i], 50);
+            ImGui::PopID();
+        }
+
         ImPlot3D::EndPlot();
     }
 }
@@ -1005,6 +1549,8 @@ void ShowAllDemos() {
             // Plot Options
             ImGui::SeparatorText("Plot Options");
             DemoHeader("Plot Flags", DemoPlotFlags);
+            DemoHeader("Offset and Stride", DemoOffsetAndStride);
+            DemoHeader("Legend Options", DemoLegendOptions);
             DemoHeader("Markers and Text", DemoMarkersAndText);
             DemoHeader("NaN Values", DemoNaNValues);
             ImGui::EndTabItem();
@@ -1014,11 +1560,23 @@ void ShowAllDemos() {
             DemoHeader("Box Rotation", DemoBoxRotation);
             DemoHeader("Tick Labels", DemoTickLabels);
             DemoHeader("Axis Constraints", DemoAxisConstraints);
+            DemoHeader("Equal Axes", DemoEqualAxes);
+            DemoHeader("Auto-Fitting Data", DemoAutoFittingData);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Tools")) {
+            DemoHeader("Mouse Picking", DemoMousePicking);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Custom")) {
             DemoHeader("Custom Styles", DemoCustomStyles);
             DemoHeader("Custom Rendering", DemoCustomRendering);
+            DemoHeader("Custom Overlay", DemoCustomOverlay);
+            DemoHeader("Custom Per-Point Style", DemoCustomPerPointStyle);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Config")) {
+            DemoConfig();
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Help")) {
@@ -1032,6 +1590,7 @@ void ShowAllDemos() {
 void ShowDemoWindow(bool* p_open) {
     static bool show_implot3d_metrics = false;
     static bool show_implot3d_style_editor = false;
+    static bool show_implot3d_about = false;
     static bool show_imgui_metrics = false;
     static bool show_imgui_style_editor = false;
     static bool show_imgui_demo = false;
@@ -1043,6 +1602,8 @@ void ShowDemoWindow(bool* p_open) {
         ImPlot3D::ShowStyleEditor();
         ImGui::End();
     }
+    if (show_implot3d_about)
+        ImPlot3D::ShowAboutWindow(&show_implot3d_about);
     if (show_imgui_style_editor) {
         ImGui::Begin("Style Editor (ImGui)", &show_imgui_style_editor);
         ImGui::ShowStyleEditor();
@@ -1060,6 +1621,7 @@ void ShowDemoWindow(bool* p_open) {
         if (ImGui::BeginMenu("Tools")) {
             ImGui::MenuItem("Metrics", nullptr, &show_implot3d_metrics);
             ImGui::MenuItem("Style Editor", nullptr, &show_implot3d_style_editor);
+            ImGui::MenuItem("About ImPlot3D", nullptr, &show_implot3d_about);
             ImGui::Separator();
             ImGui::MenuItem("ImGui Metrics", nullptr, &show_imgui_metrics);
             ImGui::MenuItem("ImGui Style Editor", nullptr, &show_imgui_style_editor);
@@ -1075,20 +1637,6 @@ void ShowDemoWindow(bool* p_open) {
 //-----------------------------------------------------------------------------
 // [SECTION] Style Editor
 //-----------------------------------------------------------------------------
-
-bool ShowStyleSelector(const char* label) {
-    static int style_idx = -1;
-    if (ImGui::Combo(label, &style_idx, "Auto\0Classic\0Dark\0Light\0")) {
-        switch (style_idx) {
-            case 0: StyleColorsAuto(); break;
-            case 1: StyleColorsClassic(); break;
-            case 2: StyleColorsDark(); break;
-            case 3: StyleColorsLight(); break;
-        }
-        return true;
-    }
-    return false;
-}
 
 bool ColormapButton(const char* label, const ImVec2& size_arg, ImPlot3DColormap cmap) {
     ImGuiContext& G = *GImGui;
@@ -1394,6 +1942,86 @@ void ShowStyleEditor(ImPlot3DStyle* ref) {
 
         ImGui::EndTabBar();
     }
+}
+
+void ShowAboutWindow(bool* p_open) {
+    if (!ImGui::Begin("About ImPlot3D", p_open, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::Text("ImPlot3D %s (%d)", IMPLOT3D_VERSION, IMPLOT3D_VERSION_NUM);
+
+    ImGui::TextLinkOpenURL("Homepage", "https://github.com/brenocq/implot3d");
+    ImGui::SameLine();
+    ImGui::TextLinkOpenURL("Q&A", "https://github.com/brenocq/implot3d/discussions/categories/q-a");
+    ImGui::SameLine();
+    ImGui::TextLinkOpenURL("Releases", "https://github.com/brenocq/implot3d/releases");
+    ImGui::SameLine();
+    ImGui::TextLinkOpenURL("Sponsors", "https://github.com/sponsors/brenocq");
+
+    ImGui::Separator();
+    ImGui::Text("(c) 2024-2025 Breno Cunha Queiroz");
+    ImGui::Text("Developed by Breno Cunha Queiroz and all ImPlot3D contributors.");
+    ImGui::Text("ImPlot3D is licensed under the MIT License.");
+    ImGui::Text("If your company uses ImPlot3D, please consider sponsoring the project.");
+
+    static bool show_config_info = false;
+    ImGui::Checkbox("Config/Build Information", &show_config_info);
+    if (show_config_info) {
+        bool copy_to_clipboard = ImGui::Button("Copy to clipboard");
+        ImVec2 child_size = ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 18);
+        ImGui::BeginChild(ImGui::GetID("cfg_infos"), child_size, ImGuiChildFlags_FrameStyle);
+        if (copy_to_clipboard) {
+            ImGui::LogToClipboard();
+            ImGui::LogText("```cpp\n");
+        }
+
+        ImGui::Text("ImPlot3D %s (%d)", IMPLOT3D_VERSION, IMPLOT3D_VERSION_NUM);
+        ImGui::Separator();
+        ImGui::Text("sizeof(size_t): %d, sizeof(ImPlot3DPoint): %d", (int)sizeof(size_t), (int)sizeof(ImPlot3DPoint));
+
+#ifdef IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
+        ImGui::Text("define: IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS");
+#endif
+
+        ImGui::Text("define: __cplusplus=%d", (int)__cplusplus);
+#ifdef _WIN32
+        ImGui::Text("define: _WIN32");
+#endif
+#ifdef _WIN64
+        ImGui::Text("define: _WIN64");
+#endif
+#ifdef __linux__
+        ImGui::Text("define: __linux__");
+#endif
+#ifdef __APPLE__
+        ImGui::Text("define: __APPLE__");
+#endif
+#ifdef _MSC_VER
+        ImGui::Text("define: _MSC_VER=%d", _MSC_VER);
+#endif
+#ifdef __MINGW32__
+        ImGui::Text("define: __MINGW32__");
+#endif
+#ifdef __MINGW64__
+        ImGui::Text("define: __MINGW64__");
+#endif
+#ifdef __GNUC__
+        ImGui::Text("define: __GNUC__=%d", (int)__GNUC__);
+#endif
+#ifdef __clang_version__
+        ImGui::Text("define: __clang_version__=%s", __clang_version__);
+#endif
+
+        if (copy_to_clipboard) {
+            ImGui::LogText("```\n");
+            ImGui::LogFinish();
+        }
+        ImGui::EndChild();
+    }
+
+    ImGui::End();
 }
 
 } // namespace ImPlot3D

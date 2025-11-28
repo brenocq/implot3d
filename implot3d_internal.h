@@ -1,15 +1,13 @@
-//--------------------------------------------------
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2024-2025 Breno Cunha Queiroz
+
 // ImPlot3D v0.3 WIP
-// implot3d_internal.h
-// Date: 2024-11-17
-// Author: Breno Cunha Queiroz (brenocq.com)
-//
+
 // Acknowledgments:
 //  ImPlot3D is heavily inspired by ImPlot
 //  (https://github.com/epezent/implot) by Evan Pezent,
 //  and follows a similar code style and structure to
 //  maintain consistency with ImPlot's API.
-//--------------------------------------------------
 
 // Table of Contents:
 // [SECTION] Constants
@@ -58,6 +56,8 @@ template <typename TSet, typename TFlag> static inline bool ImHasFlag(TSet set, 
 // Flips a flag in a flagset
 template <typename TSet, typename TFlag> static inline void ImFlipFlag(TSet& set, TFlag flag) { ImHasFlag(set, flag) ? set &= ~flag : set |= flag; }
 template <typename T> static inline T ImRemap01(T x, T x0, T x1) { return (x1 - x0) ? ((x - x0) / (x1 - x0)) : 0; }
+// Returns always positive modulo (assumes r != 0)
+static inline int ImPosMod(int l, int r) { return (l % r + r) % r; }
 // Returns true if val is NAN
 static inline bool ImNan(double val) { return isnan(val); }
 // Returns true if val is NAN or INFINITY

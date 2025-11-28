@@ -1,15 +1,13 @@
-//--------------------------------------------------
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2024-2025 Breno Cunha Queiroz
+
 // ImPlot3D v0.3 WIP
-// implot3d_items.cpp
-// Date: 2024-11-26
-// Author: Breno Cunha Queiroz (brenocq.com)
-//
+
 // Acknowledgments:
 //  ImPlot3D is heavily inspired by ImPlot
 //  (https://github.com/epezent/implot) by Evan Pezent,
 //  and follows a similar code style and structure to
 //  maintain consistency with ImPlot's API.
-//--------------------------------------------------
 
 // Table of Contents:
 // [SECTION] Includes
@@ -909,7 +907,7 @@ template <typename T> IMPLOT3D_INLINE T IndexData(const T* data, int idx, int co
 }
 
 template <typename T> struct IndexerIdx {
-    IndexerIdx(const T* data, int count, int offset = 0, int stride = sizeof(T)) : Data(data), Count(count), Offset(offset), Stride(stride) {}
+    IndexerIdx(const T* data, int count, int offset = 0, int stride = sizeof(T)) : Data(data), Count(count), Offset(count ? ImPosMod(offset, count) : 0), Stride(stride) {}
     template <typename I> IMPLOT3D_INLINE double operator()(I idx) const { return (double)IndexData(Data, idx, Count, Offset, Stride); }
     const T* Data;
     int Count;
@@ -1477,6 +1475,11 @@ void PlotText(const char* text, double x, double y, double z, double angle, cons
     p.x += pix_offset.x;
     p.y += pix_offset.y;
     AddTextRotated(GetPlotDrawList(), p, (float)angle, GetStyleColorU32(ImPlot3DCol_InlayText), text);
+}
+
+void PlotDummy(const char* label_id, ImPlot3DDummyFlags flags) {
+    if (BeginItem(label_id, flags, ImPlot3DCol_Line))
+        EndItem();
 }
 
 } // namespace ImPlot3D

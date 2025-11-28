@@ -1,15 +1,13 @@
-//--------------------------------------------------
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2024-2025 Breno Cunha Queiroz
+
 // ImPlot3D v0.3 WIP
-// implot3d.cpp
-// Date: 2024-11-16
-// Author: Breno Cunha Queiroz (brenocq.com)
-//
+
 // Acknowledgments:
 //  ImPlot3D is heavily inspired by ImPlot
 //  (https://github.com/epezent/implot) by Evan Pezent,
 //  and follows a similar code style and structure to
 //  maintain consistency with ImPlot's API.
-//--------------------------------------------------
 
 // Table of Contents:
 // [SECTION] Includes
@@ -40,6 +38,7 @@
 // [SECTION] ImPlot3DPlot
 // [SECTION] ImPlot3DStyle
 // [SECTION] Metrics
+// [SECTION] Obsolete API
 
 /*
 API BREAKING CHANGES
@@ -49,6 +48,8 @@ Below is a change-log of API breaking changes only. If you are using one of the 
 When you are not sure about an old symbol or function name, try using the Search/Find function of your IDE to look for comments or references in all
 implot3d files. You can read releases logs https://github.com/brenocq/implot3d/releases for more details.
 
+- 2025/11/15 (0.3) - Renamed GetPlotPos() -> GetPlotRectPos() and GetPlotSize() -> GetPlotRectSize() for clarity in 3D context.
+                     Old functions are marked as deprecated and will be removed in v1.0.
 - 2025/10/22 (0.3) - **IMPORTANT** All plot coordinate types migrated from float to double precision to fix sorting issues with large values:
                        - ImPlot3DPoint members (x, y, z): float -> double
                        - ImPlot3DPoint operators: float parameters -> double parameters
@@ -78,8 +79,8 @@ implot3d files. You can read releases logs https://github.com/brenocq/implot3d/r
 #endif
 
 // We define this to avoid accidentally using the deprecated API
-#ifndef IMPLOT_DISABLE_OBSOLETE_FUNCTIONS
-#define IMPLOT_DISABLE_OBSOLETE_FUNCTIONS
+#ifndef IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
+#define IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
 #endif
 
 #include "implot3d.h"
@@ -1696,14 +1697,14 @@ void SetupAxisLimitsConstraints(ImAxis3D idx, double v_min, double v_max) {
     axis.ConstraintRange.Max = (float)v_max;
 }
 
-void SetupAxisZoomConstraints(ImAxis3D idx, double z_min, double z_max) {
+void SetupAxisZoomConstraints(ImAxis3D idx, double zoom_min, double zoom_max) {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr && !gp.CurrentPlot->SetupLocked,
                          "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     ImPlot3DAxis& axis = plot.Axes[idx];
-    axis.ConstraintZoom.Min = (float)z_min;
-    axis.ConstraintZoom.Max = (float)z_max;
+    axis.ConstraintZoom.Min = (float)zoom_min;
+    axis.ConstraintZoom.Max = (float)zoom_max;
 }
 
 void SetupAxes(const char* x_label, const char* y_label, const char* z_label, ImPlot3DAxisFlags x_flags, ImPlot3DAxisFlags y_flags,
@@ -1896,16 +1897,16 @@ ImPlot3DPoint PixelsToPlotPlane(const ImVec2& pix, ImPlane3D plane, bool mask) {
 
 ImPlot3DPoint PixelsToPlotPlane(double x, double y, ImPlane3D plane, bool mask) { return PixelsToPlotPlane(ImVec2((float)x, (float)y), plane, mask); }
 
-ImVec2 GetPlotPos() {
+ImVec2 GetPlotRectPos() {
     ImPlot3DContext& gp = *GImPlot3D;
-    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetPlotPos() needs to be called between BeginPlot() and EndPlot()!");
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetPlotRectPos() needs to be called between BeginPlot() and EndPlot()!");
     SetupLock();
     return gp.CurrentPlot->PlotRect.Min;
 }
 
-ImVec2 GetPlotSize() {
+ImVec2 GetPlotRectSize() {
     ImPlot3DContext& gp = *GImPlot3D;
-    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetPlotSize() needs to be called between BeginPlot() and EndPlot()!");
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "GetPlotRectSize() needs to be called between BeginPlot() and EndPlot()!");
     SetupLock();
     return gp.CurrentPlot->PlotRect.GetSize();
 }
@@ -1972,8 +1973,8 @@ ImPlot3DRay PixelsToNDCRay(const ImVec2& pix) {
     float y = -(pix.y - center.y) / zoom; // Invert y-axis
 
     // Define near and far points in NDC space along the z-axis
-    ImPlot3DPoint ndc_near = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, -10.0f);
-    ImPlot3DPoint ndc_far = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, 10.0f);
+    ImPlot3DPoint ndc_near = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, 10.0f);
+    ImPlot3DPoint ndc_far = plot.Rotation.Inverse() * ImPlot3DPoint(x, y, -10.0f);
 
     // Create the ray in NDC space
     ImPlot3DRay ndc_ray;
@@ -2623,6 +2624,37 @@ void StyleColorsClassic(ImPlot3DStyle* dst) {
     colors[ImPlot3DCol_AxisText] = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
     colors[ImPlot3DCol_AxisGrid] = ImVec4(0.90f, 0.90f, 0.90f, 0.25f);
     colors[ImPlot3DCol_AxisTick] = IMPLOT3D_AUTO_COL;
+}
+
+bool ShowStyleSelector(const char* label) {
+    static int style_idx = -1;
+    if (ImGui::Combo(label, &style_idx, "Auto\0Classic\0Dark\0Light\0")) {
+        switch (style_idx) {
+            case 0: StyleColorsAuto(); break;
+            case 1: StyleColorsClassic(); break;
+            case 2: StyleColorsDark(); break;
+            case 3: StyleColorsLight(); break;
+        }
+        return true;
+    }
+    return false;
+}
+
+bool ShowColormapSelector(const char* label) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    bool set = false;
+    if (ImGui::BeginCombo(label, gp.ColormapData.GetName(gp.Style.Colormap))) {
+        for (int i = 0; i < gp.ColormapData.Count; ++i) {
+            const char* name = gp.ColormapData.GetName(i);
+            if (ImGui::Selectable(name, gp.Style.Colormap == i)) {
+                gp.Style.Colormap = i;
+                BustItemCache();
+                set = true;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    return set;
 }
 
 void PushStyleColor(ImPlot3DCol idx, ImU32 col) {
@@ -3928,5 +3960,21 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
     }
     ImGui::End();
 }
+
+//-----------------------------------------------------------------------------
+// [SECTION] Obsolete API
+//-----------------------------------------------------------------------------
+
+#ifndef IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
+
+namespace ImPlot3D {
+
+// OBSOLETED in v0.3
+ImVec2 GetPlotPos() { return GetPlotRectPos(); }
+ImVec2 GetPlotSize() { return GetPlotRectSize(); }
+
+} // namespace ImPlot3D
+
+#endif // #ifndef IMPLOT3D_DISABLE_OBSOLETE_FUNCTIONS
 
 #endif // #ifndef IMGUI_DISABLE
