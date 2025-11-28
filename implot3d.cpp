@@ -2535,25 +2535,20 @@ void HandleInput(ImPlot3DPlot& plot) {
                 if (zoom_around_mouse && (dist_min > 0 || dist_max > 0)) {
                     // Zoom around mouse: expand/contract distances from mouse position
                     // Direction vectors from mouse to endpoints
-                    ImVec2 dir_min = ImVec2(pix_min.x - mouse_pix.x, pix_min.y - mouse_pix.y);
-                    ImVec2 dir_max = ImVec2(pix_max.x - mouse_pix.x, pix_max.y - mouse_pix.y);
+                    ImVec2 dir_min = pix_min - mouse_pix;
+                    ImVec2 dir_max = pix_max - mouse_pix;
 
                     // Apply zoom by scaling the distances
                     // Note: zoom_rate is negative when zooming in (MouseWheel > 0), so we add it
-                    pix_min.x = mouse_pix.x + dir_min.x * (1.0f + zoom_rate);
-                    pix_min.y = mouse_pix.y + dir_min.y * (1.0f + zoom_rate);
-                    pix_max.x = mouse_pix.x + dir_max.x * (1.0f + zoom_rate);
-                    pix_max.y = mouse_pix.y + dir_max.y * (1.0f + zoom_rate);
+                    pix_min = mouse_pix + dir_min * (1.0f + zoom_rate);
+                    pix_max = mouse_pix + dir_max * (1.0f + zoom_rate);
                 } else {
                     // Zoom around center
-                    ImVec2 center_pix = ImVec2((pix_min.x + pix_max.x) * 0.5f, (pix_min.y + pix_max.y) * 0.5f);
-                    ImVec2 dir_min = ImVec2(pix_min.x - center_pix.x, pix_min.y - center_pix.y);
-                    ImVec2 dir_max = ImVec2(pix_max.x - center_pix.x, pix_max.y - center_pix.y);
-
-                    pix_min.x = center_pix.x + dir_min.x * (1.0f + zoom_rate);
-                    pix_min.y = center_pix.y + dir_min.y * (1.0f + zoom_rate);
-                    pix_max.x = center_pix.x + dir_max.x * (1.0f + zoom_rate);
-                    pix_max.y = center_pix.y + dir_max.y * (1.0f + zoom_rate);
+                    ImVec2 center_pix = (pix_min + pix_max) * 0.5f;
+                    ImVec2 dir_min = pix_min - center_pix;
+                    ImVec2 dir_max = pix_max - center_pix;
+                    pix_min = center_pix + dir_min * (1.0f + zoom_rate);
+                    pix_max = center_pix + dir_max * (1.0f + zoom_rate);
                 }
 
                 // Project back to plot space via the plane
