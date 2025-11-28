@@ -69,7 +69,11 @@ static inline bool ImNanOrInf(double val) { return !(val >= -DBL_MAX && val <= D
 // Turns NANs to 0s
 static inline double ImConstrainNan(double val) { return ImNan(val) ? 0 : val; }
 // Turns infinity to floating point maximums
-static inline double ImConstrainInf(double val) { return val >= DBL_MAX ? DBL_MAX : val <= -DBL_MAX ? -DBL_MAX : val; }
+// Clamped to half DBL_MAX to prevent overflow in size calculations (Max - Min)
+static inline double ImConstrainInf(double val) {
+    const double max_val = DBL_MAX * 0.5;
+    return val >= max_val ? max_val : val <= -max_val ? -max_val : val;
+}
 // True if two numbers are approximately equal using units in the last place.
 static inline bool ImAlmostEqual(double v1, double v2, int ulp = 2) {
     return ImAbs(v1 - v2) < DBL_EPSILON * ImAbs(v1 + v2) * ulp || ImAbs(v1 - v2) < DBL_MIN;
@@ -617,20 +621,17 @@ struct ImPlot3DAxis {
     inline double PlotToNDC(double plt) const {
         if (TransformForward != nullptr) {
             double s = TransformForward(plt, TransformData);
-            double t = (s - ScaledRange.Min) / (ScaledRange.Max - ScaledRange.Min);
-            plt = Range.Min + Range.Size() * t;
+            return (s - ScaledRange.Min) / (ScaledRange.Max - ScaledRange.Min);
         }
         return (plt - Range.Min) / (Range.Max - Range.Min);
     }
 
-    inline double NDCToPlot(double ndc) const {
-        double plt = Range.Min + ndc * (Range.Max - Range.Min);
+    inline double NDCToPlot(double t) const {
         if (TransformInverse != nullptr) {
-            double t = (plt - Range.Min) / Range.Size();
             double s = t * (ScaledRange.Max - ScaledRange.Min) + ScaledRange.Min;
-            plt = TransformInverse(s, TransformData);
+            return TransformInverse(s, TransformData);
         }
-        return plt;
+        return Range.Min + t * (Range.Max - Range.Min);
     }
 
     inline bool IsRangeLocked() const { return RangeCond == ImPlot3DCond_Always; }
