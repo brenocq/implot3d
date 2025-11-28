@@ -2542,26 +2542,37 @@ void HandleInput(ImPlot3DPlot& plot) {
                     // Note: zoom_rate is negative when zooming in (MouseWheel > 0), so we add it
                     pix_min = mouse_pix + dir_min * (1.0f + zoom_rate);
                     pix_max = mouse_pix + dir_max * (1.0f + zoom_rate);
+
+                    // Project back to plot space via the plane
+                    ImPlot3DPoint new_p_min = PixelsToPlotPlane(pix_min, mouse_plane, false);
+                    ImPlot3DPoint new_p_max = PixelsToPlotPlane(pix_max, mouse_plane, false);
+
+                    // Extract the new range for this axis
+                    double new_min = new_p_min[i];
+                    double new_max = new_p_max[i];
+
+                    // Update the range
+                    axis.SetMin(new_min);
+                    axis.SetMax(new_max);
                 } else {
                     // Zoom around center
-                    ImVec2 center_pix = (pix_min + pix_max) * 0.5f;
-                    ImVec2 dir_min = pix_min - center_pix;
-                    ImVec2 dir_max = pix_max - center_pix;
-                    pix_min = center_pix + dir_min * (1.0f + zoom_rate);
-                    pix_max = center_pix + dir_max * (1.0f + zoom_rate);
+                    double ndc_limit = 0.5 * axis.NDCScale;
+                    double zoom_factor = 1.0f + zoom_rate;
+
+                    // Create points in NDC space representing the new zoomed range
+                    ImPlot3DPoint p_min(0.0f, 0.0f, 0.0f);
+                    ImPlot3DPoint p_max(0.0f, 0.0f, 0.0f);
+                    p_min[i] = -ndc_limit * zoom_factor;
+                    p_max[i] = ndc_limit * zoom_factor;
+
+                    // Convert these NDC points to Plot space to get the new range
+                    ImPlot3DPoint plt_min = NDCToPlot(p_min);
+                    ImPlot3DPoint plt_max = NDCToPlot(p_max);
+
+                    axis.SetMin(plt_min[i]);
+                    axis.SetMax(plt_max[i]);
                 }
 
-                // Project back to plot space via the plane
-                ImPlot3DPoint new_p_min = PixelsToPlotPlane(pix_min, mouse_plane, false);
-                ImPlot3DPoint new_p_max = PixelsToPlotPlane(pix_max, mouse_plane, false);
-
-                // Extract the new range for this axis
-                double new_min = new_p_min[i];
-                double new_max = new_p_max[i];
-
-                // Update the range
-                axis.SetMin(new_min);
-                axis.SetMax(new_max);
                 axis.Held = true;
 
                 // Use a hovered axis as reference
