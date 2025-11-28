@@ -558,7 +558,7 @@ struct ImPlot3DAxis {
         if (_min >= Range.Max)
             return false;
 
-        Range.Min = (float)_min;
+        Range.Min = _min;
         UpdateTransformCache();
         return true;
     }
@@ -581,7 +581,7 @@ struct ImPlot3DAxis {
         if (_max <= Range.Min)
             return false;
 
-        Range.Max = (float)_max;
+        Range.Max = _max;
         UpdateTransformCache();
         return true;
     }
@@ -610,8 +610,8 @@ struct ImPlot3DAxis {
 
     inline void UpdateTransformCache() {
         if (TransformForward != nullptr) {
-            ScaledRange.Min = (float)TransformForward(Range.Min, TransformData);
-            ScaledRange.Max = (float)TransformForward(Range.Max, TransformData);
+            ScaledRange.Min = TransformForward(Range.Min, TransformData);
+            ScaledRange.Max = TransformForward(Range.Max, TransformData);
         } else {
             ScaledRange.Min = Range.Min;
             ScaledRange.Max = Range.Max;

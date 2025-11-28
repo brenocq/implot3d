@@ -1190,7 +1190,7 @@ int Formatter_Default(double value, char* buff, int size, void* data) {
 double NiceNum(double x, bool round) {
     double f;
     double nf;
-    int expv = (int)floor(ImLog10((float)x));
+    int expv = (int)floor(ImLog10(x));
     f = x / ImPow(10.0, (double)expv);
     if (round)
         if (f < 1.5)
@@ -1825,8 +1825,8 @@ void SetupAxisLimitsConstraints(ImAxis3D idx, double v_min, double v_max) {
                          "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     ImPlot3DAxis& axis = plot.Axes[idx];
-    axis.ConstraintRange.Min = (float)v_min;
-    axis.ConstraintRange.Max = (float)v_max;
+    axis.ConstraintRange.Min = v_min;
+    axis.ConstraintRange.Max = v_max;
 }
 
 void SetupAxisZoomConstraints(ImAxis3D idx, double zoom_min, double zoom_max) {
@@ -1835,8 +1835,8 @@ void SetupAxisZoomConstraints(ImAxis3D idx, double zoom_min, double zoom_max) {
                          "Setup needs to be called after BeginPlot and before any setup locking functions (e.g. PlotX)!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
     ImPlot3DAxis& axis = plot.Axes[idx];
-    axis.ConstraintZoom.Min = (float)zoom_min;
-    axis.ConstraintZoom.Max = (float)zoom_max;
+    axis.ConstraintZoom.Min = zoom_min;
+    axis.ConstraintZoom.Max = zoom_max;
 }
 
 void SetupAxes(const char* x_label, const char* y_label, const char* z_label, ImPlot3DAxisFlags x_flags, ImPlot3DAxisFlags y_flags,
@@ -1941,7 +1941,7 @@ ImVec2 PlotToPixels(const ImPlot3DPoint& point) {
     return NDCToPixels(PlotToNDC(point));
 }
 
-ImVec2 PlotToPixels(double x, double y, double z) { return PlotToPixels(ImPlot3DPoint((float)x, (float)y, (float)z)); }
+ImVec2 PlotToPixels(double x, double y, double z) { return PlotToPixels(ImPlot3DPoint(x, y, z)); }
 
 ImPlot3DRay PixelsToPlotRay(const ImVec2& pix) {
     ImPlot3DContext& gp = *GImPlot3D;
@@ -3400,8 +3400,8 @@ bool ImPlot3DBox::ClipLineSegment(const ImPlot3DPoint& p0, const ImPlot3DPoint& 
         return false; // Far
 
     // Compute clipped points
-    p0_clipped = p0 + d * (float)t0;
-    p1_clipped = p0 + d * (float)t1;
+    p0_clipped = p0 + d * t0;
+    p1_clipped = p0 + d * t1;
 
     return true;
 }
