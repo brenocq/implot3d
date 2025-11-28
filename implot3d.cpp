@@ -2310,23 +2310,32 @@ void HandleInput(ImPlot3DPlot& plot) {
             float zoom = plot.GetViewScale();
             ImPlot3DPoint delta_NDC = plot.Rotation.Inverse() * (delta_pixels / zoom);
 
-            // Convert delta to plot space
-            ImPlot3DPoint delta_plot = delta_NDC * (plot.RangeMax() - plot.RangeMin()) / plot.GetBoxScale();
-
-            // Adjust delta for inverted axes
+            // Create points in NDC space representing the new shifted range
+            ImPlot3DPoint p_min_ndc, p_max_ndc;
             for (int i = 0; i < 3; i++) {
-                if (ImHasFlag(plot.Axes[i].Flags, ImPlot3DAxisFlags_Invert))
-                    delta_plot[i] *= -1;
+                double half_scale = 0.5 * plot.Axes[i].NDCScale;
+                p_min_ndc[i] = -half_scale - delta_NDC[i];
+                p_max_ndc[i] = half_scale - delta_NDC[i];
             }
+
+            // Convert these NDC points to Plot space to get the new range
+            // NDCToPlot handles axis inversions and non-linear transforms
+            ImPlot3DPoint p_min_plt = NDCToPlot(p_min_ndc);
+            ImPlot3DPoint p_max_plt = NDCToPlot(p_max_ndc);
 
             // Adjust plot range to translate the plot
             for (int i = 0; i < 3; i++) {
                 if (plot.Axes[i].Hovered) {
-                    bool increasing = delta_plot[i] < 0.0f;
-                    if (delta_plot[i] != 0.0f && !plot.Axes[i].IsPanLocked(increasing)) {
+                    double v1 = p_min_plt[i];
+                    double v2 = p_max_plt[i];
+                    double new_min = ImMin(v1, v2);
+                    double new_max = ImMax(v1, v2);
+
+                    bool increasing = new_min > plot.Axes[i].Range.Min;
+                    if ((new_min != plot.Axes[i].Range.Min || new_max != plot.Axes[i].Range.Max) && !plot.Axes[i].IsPanLocked(increasing)) {
                         // Update axis range
-                        plot.Axes[i].SetMin(plot.Axes[i].Range.Min - delta_plot[i]);
-                        plot.Axes[i].SetMax(plot.Axes[i].Range.Max - delta_plot[i]);
+                        plot.Axes[i].SetMin(new_min);
+                        plot.Axes[i].SetMax(new_max);
                         // Apply equal aspect ratio constraint
                         if (axis_equal)
                             plot.ApplyEqualAspect(i);
