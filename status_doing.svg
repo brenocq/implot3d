@@ -1,0 +1,159 @@
+
+    <svg width="130" height="110" xmlns="http://www.w3.org/2000/svg">
+        
+<style>
+    :root {
+         --border-color: #d1d9e0;
+         --fgColor-default: #1f2328;
+         --fgColor-accent: #0969da;
+         --fgColor-muted: #59636e;
+         --fgColor-success: #1a7f37;
+         --fgColor-danger: #d1242f;
+         --fgColor-done: #8250df;
+         --bgColor-neutral-muted: #818b981f;
+         --bgColor-success: #1f883d;
+         --text-large: 1rem;
+         --text-medium: 0.875rem;
+         --text-small: 0.75rem;
+         --text-weight-light: 300;
+         --text-weight-normal: 400;
+         --text-weight-medium: 500;
+         --text-weight-semibold: 600;
+     }
+
+    text {
+        font-family: Arial, sans-serif;
+        font-size: var(--text-medium);
+    }
+
+    text.title {
+        fill: var(--fgColor-default);
+        font-size: var(--text-large);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.small {
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.medium {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.muted {
+        fill: var(--fgColor-muted);
+    }
+
+    text.counter {
+        fill: var(--fgColor-muted);
+        font-size: 40px;
+        text-anchor: middle;
+    }
+
+    text.button {
+        font-size: 14px;
+        fill: var(--fgColor-default);
+    }
+
+    text.label {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.label-muted {
+        fill: var(--fgColor-muted);
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    rect.labelBg {
+        fill-opacity: 1.0;
+    }
+
+    rect.labelBg-muted {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 0.5px;
+    }
+
+    rect.card {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 1.5px;
+        rx: 6px;
+        ry: 6px;
+    }
+
+    rect.progress-bg {
+        fill: var(--bgColor-neutral-muted);
+    }
+
+    rect.progress-fill {
+        fill: var(--bgColor-success);
+    }
+
+    .icon-open {
+        fill: var(--fgColor-success);
+    }
+
+    .icon-closed {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-completed {
+        fill: var(--fgColor-done);
+    }
+
+    .icon-danger {
+        fill: var(--fgColor-danger);
+    }
+
+    .icon-muted {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-default {
+        fill: var(--fgColor-default);
+    }
+
+    @media (prefers-color-scheme: light) {
+        text.label {
+            fill: #000000;
+        }
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --border-color: #3d444d;
+            --fgColor-default: #d1d7e0;
+            --fgColor-muted: #9198a1;
+            --fgColor-accent: #478be6;
+            --fgColor-success: #57ab5a;
+            --fgColor-danger: #e5534b;
+            --fgColor-done: #986ee2;
+            --bgColor-neutral-muted: #656c7633;
+            --bgColor-success: #347d39;
+            --button-background-color: #2a313c;
+        }
+
+        rect.labelBg {
+            fill-opacity: 0.2;
+        }
+    }
+</style>
+
+        <!-- Card Background -->
+        <rect class="card" x="0" y="0" width="130" height="110"/>
+
+        <!-- Label -->
+        <g transform="translate(65.0, 20)">
+            <rect class="labelBg" x="-51.0" y="0" width="102" height="24" rx="12" fill="#F1C40F" stroke="#F1C40F" stroke-width="0.5"/>
+            <text class="label" x="0" y="17" font-weight="bold" fill="#F1C40F" text-anchor="middle">status:doing</text>
+        </g>
+
+        <!-- Count -->
+        <text class="counter" x="65.0" y="90">3</text>
+    </svg>
+    
