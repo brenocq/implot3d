@@ -1,12 +1,12 @@
 # Contributing to ImPlot3D
 
-First off, thank you for considering contributing to ImPlot3D\! This project is growing quickly, and we welcome your help. Whether you have ideas to share, bugs to report, or features to implement, your contributions are highly valued.
+First off, thank you for considering contributing to ImPlot3D! This project is growing quickly, and we welcome your help. Whether you have ideas to share, bugs to report, or features to implement, your contributions are highly valued.
 
 ## How to Contribute
 
 There are several ways you can contribute to the project, and we appreciate all of them.
 
-### 1\. Propose Ideas and Discuss Features
+### 1. Propose Ideas and Discuss Features
 
 Your feedback is crucial in guiding the development of ImPlot3D.
 
@@ -14,13 +14,13 @@ Your feedback is crucial in guiding the development of ImPlot3D.
   - **Discuss**: Leave comments on existing issues to help refine ideas.
   - **Request a Feature**: If you have a new idea, please open a [feature request issue](https://github.com/brenocq/implot3d/issues/new?template=feature_request.md).
 
-### 2\. Report Bugs
+### 2. Report Bugs
 
 If you encounter a bug, please help us by reporting it.
 
-  - **Open a Bug Report**: Use the [bug report template](https://github.com/brenocq/implot3d/issues/new?template=bug_report.md) to create an issue. Please include as much detail as possible, such as reproduction steps, screenshots, videos, and any relevant logs.
+  - **Open a Bug Report**: Use the [bug report template](https://github.com/brenocq/implot3d/issues/new?template=bug_report.md) to create an issue. Please include as much detail as possible, such as reproduction steps, screenshots, videos.
 
-### 3\. Implement Features or Fix Bugs
+### 3. Implement Features or Fix Bugs
 
 If you're ready to write some code, we'd love your help.
 
@@ -38,7 +38,7 @@ To ensure the codebase remains consistent, high-quality, and easy to maintain, p
 
 ### Code Style and Formatting
 
-  - **C++ Best Practices**: Adhere to idiomatic C++ and maintain high code quality.
+  - **C++ Best Practices**: Adhere to idiomatic C++ and maintain high code quality. Do not use the C++ standard library. Only use C++ features available in C++11. 
   - **Maintain ImGui/ImPlot3D Style**: Ensure new code integrates seamlessly with the existing codebase's style and API patterns.
   - **Formatting**: Use **`clang-format`** to format your code before committing. This ensures a consistent style across the entire project.
 
@@ -55,7 +55,6 @@ Follow the **[Conventional Commits](https://www.conventionalcommits.org/)** spec
   - **style**: Changes that do not affect the meaning of the code (e.g., `clang-format`).
   - **test**: Adding missing tests or correcting existing tests.
   - **chore**: Changes to the build process or auxiliary tools.
-  - **merge**: Merging branches or pull requests.
 
 **Examples:**
 
@@ -72,5 +71,6 @@ chore: update ImGui dependency to latest version
 ### Documentation and Demos
 
   - **Public APIs**: All new public APIs should be clearly documented with comments in the header files.
+  - **Breaking Changes**: We should avoid modifying the public/internal APIs as much as possible. If a breaking change in unnavoidable, update the `API BREAKING CHANGES` log in `implot3d.cpp` documenting the breaking change and instructions on how to migrate the code. If possible, mark the function as obsolete instead of deleting it.
   - **Complex Logic**: Add comments to explain any complex or non-obvious implementation details.
   - **Demos**: When you add a new feature, please include a demonstration in `implot3d_demo.cpp` to showcase its usage.
