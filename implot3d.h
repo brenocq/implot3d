@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2024-2025 Breno Cunha Queiroz
 
-// ImPlot3D v0.3
+// ImPlot3D v0.4 WIP
 
 // Acknowledgments:
 //  ImPlot3D is heavily inspired by ImPlot
@@ -44,8 +44,8 @@
 #define IMPLOT3D_API
 #endif
 
-#define IMPLOT3D_VERSION "0.3"                // ImPlot3D version
-#define IMPLOT3D_VERSION_NUM 300              // Integer encoded version
+#define IMPLOT3D_VERSION "0.4 WIP"            // ImPlot3D version
+#define IMPLOT3D_VERSION_NUM 400              // Integer encoded version
 #define IMPLOT3D_AUTO -1                      // Deduce variable automatically
 #define IMPLOT3D_AUTO_COL ImVec4(0, 0, 0, -1) // Deduce color automatically
 #define IMPLOT3D_TMP template <typename T> IMPLOT3D_API
