@@ -301,6 +301,12 @@ void SetNextMarkerStyle(ImPlot3DMarker marker, float size, const ImVec4& fill, f
     n.MarkerWeight = weight;
 }
 
+void SetNextQuiverStyle(float size, const ImVec4& col) {
+    ImPlot3DContext& gp = *GImPlot3D;
+    gp.NextItemData.QuiverSize = size;
+    gp.NextItemData.Colors[ImPlot3DCol_Fill] = col;
+
+}
 //-----------------------------------------------------------------------------
 // [SECTION] Draw Utils
 //-----------------------------------------------------------------------------
@@ -439,6 +445,524 @@ template <class _Getter> struct RendererMarkersLine : RendererBase {
     const ImU32 Col;
     mutable ImVec2 UV0;
     mutable ImVec2 UV1;
+};
+
+
+
+// Static arrow mesh data, I'm not sure if this should be in the _meshes file...
+#define VECTOR3D_VTX_COUNT 13
+#define VECTOR3D_IDX_COUNT 66
+
+ImPlot3DPoint vector3d_vtx[VECTOR3D_VTX_COUNT] = {
+    {0.248488f, 0.037431f, -0.029385f}, // 0
+    {-0.357405f, 0.037431f, -0.029385f}, // 1
+    {0.248488f, -0.037431f, -0.029385f}, // 2
+    {-0.357405f, -0.037431f, -0.029385f}, // 3
+    {0.248488f, 0.037431f, 0.029385f}, // 4
+    {-0.357405f, 0.037431f, 0.029385f}, // 5
+    {0.248488f, -0.037431f, 0.029385f}, // 6
+    {-0.357405f, -0.037431f, 0.029385f}, // 7
+    {0.248488f, -0.074141f, -0.072994f}, // 8
+    {0.248488f, -0.074141f, 0.072994f}, // 9
+    {0.248488f, 0.074141f, -0.072994f}, // 10
+    {0.248488f, 0.074141f, 0.072994f}, // 11
+    {0.518142f, 0.000000f, -0.000000f}, // 12
+};
+
+unsigned int vector3d_idx[VECTOR3D_IDX_COUNT] = {
+    6, 8, 9,
+    2, 7, 3,
+    6, 5, 7,
+    1, 7, 5,
+    0, 3, 1,
+    4, 1, 5,
+    10, 11, 12,
+    6, 11, 4,
+    0, 8, 2,
+    4, 10, 0,
+    8, 10, 12,
+    11, 9, 12,
+    9, 8, 12,
+    6, 2, 8,
+    2, 6, 7,
+    6, 4, 5,
+    1, 3, 7,
+    0, 2, 3,
+    4, 0, 1,
+    6, 9, 11,
+    0, 10, 8,
+    4, 11, 10,
+};
+
+template <class _Getter>
+struct RendererVector3DFillColorCodedNormalized : RendererBase {
+
+    
+    RendererVector3DFillColorCodedNormalized(const _Getter& getter, float size, double scaleMin, double scaleMax)
+        : RendererBase(getter.Count, VECTOR3D_IDX_COUNT, VECTOR3D_VTX_COUNT),
+          Getter(getter), Size(size), ScaleMin(scaleMin), ScaleMax(scaleMax) {}
+    
+    void Init(ImDrawList3D& draw_list_3d) const { 
+        UV = draw_list_3d._SharedData->TexUvWhitePixel; 
+    }
+
+    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
+        ImPlot3DQuiver quiver = Getter(prim);
+        ImPlot3DPoint p_base(quiver.x, quiver.y, quiver.z);
+
+        if (!cull_box.Contains(p_base))
+            return false;
+
+        // Calculate magnitude from mag2 (squared magnitude)
+        double mag = sqrt(quiver.mag2);
+
+        double scale_factor = Size;
+
+        double dir_x = quiver.u;
+        double dir_y = quiver.v;
+        double dir_z = quiver.w;
+
+        double t = ImClamp(ImRemap01(mag, ScaleMin, ScaleMax), 0.0, 1.0);
+        ImVec4 color = SampleColormap((float)t);
+
+        //  I want to void dealing with rotation matrices or quaternions, so i will just use
+        //  basic geometry to compute the rotated vertices, its basically 2D rotations applied twice
+        //  we compute first the rotation about the z axis, then the rotation about the y axis
+        //  and such, we have thetaZ and thetaY
+        //  Also note that, the tip of the arrow must be pointing to +X
+        float len = ImSqrt(dir_x * dir_x + dir_y * dir_y + dir_z * dir_z);
+
+        float nx = dir_x / len;
+        float ny = dir_y / len;
+        float nz = dir_z / len;
+
+        float thetaZ = ImAtan2((float)ny, (float)nx);
+        float cosZ = ImCos(thetaZ);
+        float sinZ = ImSin(thetaZ);
+
+        // Now, this is the projection of the direction vector onto the YZ plane
+        float xy_len = ImSqrt(nx * nx + ny * ny);
+        float thetaY = ImAtan2(nz, xy_len);  // We dont negate it because the implot coordinate system puts +Z upwards
+        float cosY = ImCos(thetaY);
+        float sinY = ImSin(thetaY);
+
+    
+
+        for (int i = 0; i < VECTOR3D_VTX_COUNT; i++) {
+            ImPlot3DPoint vtx = vector3d_vtx[i];
+
+ 
+            ImPlot3DPoint p_world;
+
+            // This is just Rz * Ry * vtx 
+            float rotatedX = vtx.x * cosZ - vtx.y * sinZ;
+            float rotatedY = vtx.x * sinZ + vtx.y * cosZ;
+            float rotatedZ = vtx.z;
+            float finalX = rotatedX * cosY - rotatedZ * sinY;
+            float finalY = rotatedY;
+            float finalZ = rotatedX * sinY + rotatedZ * cosY;
+
+            p_world.x = p_base.x + finalX * scale_factor ;
+            p_world.y = p_base.y + finalY * scale_factor ;
+            p_world.z = p_base.z + finalZ * scale_factor ;
+
+            
+            ImVec2 p_screen = PlotToPixels(p_world);
+
+            draw_list_3d._VtxWritePtr[0].pos.x = p_screen.x;
+            draw_list_3d._VtxWritePtr[0].pos.y = p_screen.y;
+            draw_list_3d._VtxWritePtr[0].uv = UV;
+            draw_list_3d._VtxWritePtr[0].col = ImColor(color); // Red color for now
+            draw_list_3d._VtxWritePtr++;
+        }
+
+
+        for (int i = 0; i < VECTOR3D_IDX_COUNT / 3; i++) {
+            int idx0 = vector3d_idx[i * 3];
+            int idx1 = vector3d_idx[i * 3 + 1];
+            int idx2 = vector3d_idx[i * 3 + 2];
+
+            draw_list_3d._IdxWritePtr[0] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx0);
+            draw_list_3d._IdxWritePtr[1] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx1);
+            draw_list_3d._IdxWritePtr[2] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx2);
+            draw_list_3d._IdxWritePtr += 3;
+
+            // Calculate depth for this triangle using the centroid in world space
+            ImPlot3DPoint v0 = vector3d_vtx[idx0];
+            ImPlot3DPoint v1 = vector3d_vtx[idx1];
+            ImPlot3DPoint v2 = vector3d_vtx[idx2];
+
+            ImPlot3DPoint centroid;
+            centroid.x = p_base.x + (v0.x + v1.x + v2.x) * scale_factor / 3.0;
+            centroid.y = p_base.y + (v0.y + v1.y + v2.y) * scale_factor / 3.0;
+            centroid.z = p_base.z + (v0.z + v1.z + v2.z) * scale_factor / 3.0;
+
+            draw_list_3d._ZWritePtr[0] = GetPointDepth(centroid);
+            draw_list_3d._ZWritePtr++;
+        }
+
+        // Update vertex count
+        draw_list_3d._VtxCurrentIdx += (ImDrawIdx)VECTOR3D_VTX_COUNT;
+        return true;
+    }
+    
+    const _Getter& Getter;
+    const float Size;
+    const double ScaleMin, ScaleMax;
+    mutable ImVec2 UV;
+};
+
+template <class _Getter>
+struct RendererVector3DFillColorCodedScaled : RendererBase {
+
+    
+    RendererVector3DFillColorCodedScaled(const _Getter& getter, float size, double scaleMin, double scaleMax)
+        : RendererBase(getter.Count, VECTOR3D_IDX_COUNT, VECTOR3D_VTX_COUNT),
+          Getter(getter), Size(size), ScaleMin(scaleMin), ScaleMax(scaleMax) {}
+    
+    void Init(ImDrawList3D& draw_list_3d) const { 
+        UV = draw_list_3d._SharedData->TexUvWhitePixel; 
+    }
+
+    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
+        ImPlot3DQuiver quiver = Getter(prim);
+        ImPlot3DPoint p_base(quiver.x, quiver.y, quiver.z);
+
+        if (!cull_box.Contains(p_base))
+            return false;
+
+        // Calculate magnitude from mag2 (squared magnitude)
+        double mag = sqrt(quiver.mag2);
+
+
+
+        double dir_x = quiver.u;
+        double dir_y = quiver.v;
+        double dir_z = quiver.w;
+
+        double t = ImClamp(ImRemap01(mag, ScaleMin, ScaleMax), 0.0, 1.0);
+        ImVec4 color = SampleColormap((float)t);
+        double scale_factor = Size * t;
+
+        // I want to void dealing with rotation matrices or quaternions, so i will just use
+        // basic geometry to compute the rotated vertices, its basically 2D rotations applied twice
+        // we compute first the rotation about the z axis, then the rotation about the y axis
+        // and such, we have thetaZ and thetaY
+        // Also note that, the tip of the arrow must be pointing to +X
+        float len = ImSqrt(dir_x * dir_x + dir_y * dir_y + dir_z * dir_z);
+
+        float nx = dir_x / len;
+        float ny = dir_y / len;
+        float nz = dir_z / len;
+
+        float thetaZ = ImAtan2((float)ny, (float)nx);
+        float cosZ = ImCos(thetaZ);
+        float sinZ = ImSin(thetaZ);
+
+        // Now, this is the projection of the direction vector onto the YZ plane
+        float xy_len = ImSqrt(nx * nx + ny * ny);
+        float thetaY = ImAtan2(nz, xy_len);  // We don't negate it because the implot coordinate system inverts the Z axis
+        float cosY = ImCos(thetaY);
+        float sinY = ImSin(thetaY);
+
+    
+
+        for (int i = 0; i < VECTOR3D_VTX_COUNT; i++) {
+            ImPlot3DPoint vtx = vector3d_vtx[i];
+
+ 
+            ImPlot3DPoint p_world;
+
+            // This is just Rz * Ry * vtx 
+            float rotatedX = vtx.x * cosZ - vtx.y * sinZ;
+            float rotatedY = vtx.x * sinZ + vtx.y * cosZ;
+            float rotatedZ = vtx.z;
+            float finalX = rotatedX * cosY - rotatedZ * sinY;
+            float finalY = rotatedY;
+            float finalZ = rotatedX * sinY + rotatedZ * cosY;
+
+            p_world.x = p_base.x + finalX * scale_factor;
+            p_world.y = p_base.y + finalY * scale_factor;
+            p_world.z = p_base.z + finalZ * scale_factor;
+
+            
+            ImVec2 p_screen = PlotToPixels(p_world);
+
+            draw_list_3d._VtxWritePtr[0].pos.x = p_screen.x;
+            draw_list_3d._VtxWritePtr[0].pos.y = p_screen.y;
+            draw_list_3d._VtxWritePtr[0].uv = UV;
+            draw_list_3d._VtxWritePtr[0].col = ImColor(color); 
+            draw_list_3d._VtxWritePtr++;
+        }
+
+
+        for (int i = 0; i < VECTOR3D_IDX_COUNT / 3; i++) {
+            int idx0 = vector3d_idx[i * 3];
+            int idx1 = vector3d_idx[i * 3 + 1];
+            int idx2 = vector3d_idx[i * 3 + 2];
+
+            draw_list_3d._IdxWritePtr[0] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx0);
+            draw_list_3d._IdxWritePtr[1] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx1);
+            draw_list_3d._IdxWritePtr[2] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx2);
+            draw_list_3d._IdxWritePtr += 3;
+
+            // Calculate depth for this triangle using the centroid in world space
+            ImPlot3DPoint v0 = vector3d_vtx[idx0];
+            ImPlot3DPoint v1 = vector3d_vtx[idx1];
+            ImPlot3DPoint v2 = vector3d_vtx[idx2];
+
+            ImPlot3DPoint centroid;
+            centroid.x = p_base.x + (v0.x + v1.x + v2.x) * scale_factor / 3.0;
+            centroid.y = p_base.y + (v0.y + v1.y + v2.y) * scale_factor / 3.0;
+            centroid.z = p_base.z + (v0.z + v1.z + v2.z) * scale_factor / 3.0;
+
+            draw_list_3d._ZWritePtr[0] = GetPointDepth(centroid);
+            draw_list_3d._ZWritePtr++;
+        }
+
+        // Update vertex count
+        draw_list_3d._VtxCurrentIdx += (ImDrawIdx)VECTOR3D_VTX_COUNT;
+        return true;
+    }
+    
+    const _Getter& Getter;
+    const float Size;
+    const double ScaleMin, ScaleMax;
+    mutable ImVec2 UV;
+};
+
+template <class _Getter>
+struct RendererVector3DFillNormalized : RendererBase {
+
+    
+    RendererVector3DFillNormalized(const _Getter& getter, float size,ImU32 col)
+        : RendererBase(getter.Count, VECTOR3D_IDX_COUNT, VECTOR3D_VTX_COUNT),
+          Getter(getter), Size(size), Col(col) {}
+    
+    void Init(ImDrawList3D& draw_list_3d) const { 
+        UV = draw_list_3d._SharedData->TexUvWhitePixel; 
+    }
+
+    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
+        ImPlot3DQuiver quiver = Getter(prim);
+        ImPlot3DPoint p_base(quiver.x, quiver.y, quiver.z);
+
+        if (!cull_box.Contains(p_base))
+            return false;
+
+
+        double scale_factor = Size;
+
+        double dir_x = quiver.u;
+        double dir_y = quiver.v;
+        double dir_z = quiver.w;
+
+
+        //  I want to void dealing with rotation matrices or quaternions, so i will just use
+        //  basic geometry to compute the rotated vertices, its basically 2D rotations applied twice
+        //  we compute first the rotation about the z axis, then the rotation about the y axis
+        //  and such, we have thetaZ and thetaY
+        //  Also note that, the tip of the arrow must be pointing to +X
+        float len = ImSqrt(dir_x * dir_x + dir_y * dir_y + dir_z * dir_z);
+
+        float nx = dir_x / len;
+        float ny = dir_y / len;
+        float nz = dir_z / len;
+
+        float thetaZ = ImAtan2((float)ny, (float)nx);
+        float cosZ = ImCos(thetaZ);
+        float sinZ = ImSin(thetaZ);
+
+        // Now, this is the projection of the direction vector onto the YZ plane
+        float xy_len = ImSqrt(nx * nx + ny * ny);
+        float thetaY = ImAtan2(nz, xy_len);  // We dont negate it because the implot coordinate system puts +Z upwards
+        float cosY = ImCos(thetaY);
+        float sinY = ImSin(thetaY);
+
+    
+
+        for (int i = 0; i < VECTOR3D_VTX_COUNT; i++) {
+            ImPlot3DPoint vtx = vector3d_vtx[i];
+
+ 
+            ImPlot3DPoint p_world;
+
+            //  This is just Rz * Ry * vtx 
+            float rotatedX = vtx.x * cosZ - vtx.y * sinZ;
+            float rotatedY = vtx.x * sinZ + vtx.y * cosZ;
+            float rotatedZ = vtx.z;
+            float finalX = rotatedX * cosY - rotatedZ * sinY;
+            float finalY = rotatedY;
+            float finalZ = rotatedX * sinY + rotatedZ * cosY;
+
+            p_world.x = p_base.x + finalX * scale_factor ;
+            p_world.y = p_base.y + finalY * scale_factor ;
+            p_world.z = p_base.z + finalZ * scale_factor ;
+
+            
+            ImVec2 p_screen = PlotToPixels(p_world);
+
+            draw_list_3d._VtxWritePtr[0].pos.x = p_screen.x;
+            draw_list_3d._VtxWritePtr[0].pos.y = p_screen.y;
+            draw_list_3d._VtxWritePtr[0].uv = UV;
+            draw_list_3d._VtxWritePtr[0].col = Col; 
+            draw_list_3d._VtxWritePtr++;
+        }
+
+
+        for (int i = 0; i < VECTOR3D_IDX_COUNT / 3; i++) {
+            int idx0 = vector3d_idx[i * 3];
+            int idx1 = vector3d_idx[i * 3 + 1];
+            int idx2 = vector3d_idx[i * 3 + 2];
+
+            draw_list_3d._IdxWritePtr[0] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx0);
+            draw_list_3d._IdxWritePtr[1] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx1);
+            draw_list_3d._IdxWritePtr[2] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx2);
+            draw_list_3d._IdxWritePtr += 3;
+
+            // Calculate depth for this triangle using the centroid in world space
+            ImPlot3DPoint v0 = vector3d_vtx[idx0];
+            ImPlot3DPoint v1 = vector3d_vtx[idx1];
+            ImPlot3DPoint v2 = vector3d_vtx[idx2];
+
+            ImPlot3DPoint centroid;
+            centroid.x = p_base.x + (v0.x + v1.x + v2.x) * scale_factor / 3.0;
+            centroid.y = p_base.y + (v0.y + v1.y + v2.y) * scale_factor / 3.0;
+            centroid.z = p_base.z + (v0.z + v1.z + v2.z) * scale_factor / 3.0;
+
+            draw_list_3d._ZWritePtr[0] = GetPointDepth(centroid);
+            draw_list_3d._ZWritePtr++;
+        }
+
+        // Update vertex count
+        draw_list_3d._VtxCurrentIdx += (ImDrawIdx)VECTOR3D_VTX_COUNT;
+        return true;
+    }
+    
+    const _Getter& Getter;
+    const float Size;
+    const ImU32 Col;
+
+    mutable ImVec2 UV;
+};
+
+template <class _Getter>
+struct RendererVector3DFill : RendererBase {
+
+    
+    RendererVector3DFill(const _Getter& getter, float size, ImU32 col,double scaleMin, double scaleMax)
+        : RendererBase(getter.Count, VECTOR3D_IDX_COUNT, VECTOR3D_VTX_COUNT),
+          Getter(getter), Size(size), Col(col), ScaleMin(scaleMin), ScaleMax(scaleMax) {}
+    
+    void Init(ImDrawList3D& draw_list_3d) const { 
+        UV = draw_list_3d._SharedData->TexUvWhitePixel; 
+    }
+
+    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
+        ImPlot3DQuiver quiver = Getter(prim);
+        ImPlot3DPoint p_base(quiver.x, quiver.y, quiver.z);
+
+        if (!cull_box.Contains(p_base))
+            return false;
+
+        // Calculate magnitude from mag2 (squared magnitude)
+        double mag = sqrt(quiver.mag2);
+
+        double t = ImClamp(ImRemap01(mag, ScaleMin, ScaleMax), 0.0, 1.0);
+
+        double dir_x = quiver.u;
+        double dir_y = quiver.v;
+        double dir_z = quiver.w;
+
+
+        double scale_factor = Size * t;
+
+        // I want to void dealing with rotation matrices or quaternions, so i will just use
+        // basic geometry to compute the rotated vertices, its basically 2D rotations applied twice
+        // we compute first the rotation about the z axis, then the rotation about the y axis
+        // and such, we have thetaZ and thetaY
+        // Also note that, the tip of the arrow must be pointing to +X
+        float len = ImSqrt(dir_x * dir_x + dir_y * dir_y + dir_z * dir_z);
+
+        float nx = dir_x / len;
+        float ny = dir_y / len;
+        float nz = dir_z / len;
+
+        float thetaZ = ImAtan2((float)ny, (float)nx);
+        float cosZ = ImCos(thetaZ);
+        float sinZ = ImSin(thetaZ);
+
+        // Now, this is the projection of the direction vector onto the YZ plane
+        float xy_len = ImSqrt(nx * nx + ny * ny);
+        float thetaY = ImAtan2(nz, xy_len);  // We don't negate it because the implot coordinate system inverts the Z axis
+        float cosY = ImCos(thetaY);
+        float sinY = ImSin(thetaY);
+
+    
+
+        for (int i = 0; i < VECTOR3D_VTX_COUNT; i++) {
+            ImPlot3DPoint vtx = vector3d_vtx[i];
+
+ 
+            ImPlot3DPoint p_world;
+
+            //This is just Rz * Ry * vtx 
+            float rotatedX = vtx.x * cosZ - vtx.y * sinZ;
+            float rotatedY = vtx.x * sinZ + vtx.y * cosZ;
+            float rotatedZ = vtx.z;
+            float finalX = rotatedX * cosY - rotatedZ * sinY;
+            float finalY = rotatedY;
+            float finalZ = rotatedX * sinY + rotatedZ * cosY;
+
+            p_world.x = p_base.x + finalX * scale_factor;
+            p_world.y = p_base.y + finalY * scale_factor;
+            p_world.z = p_base.z + finalZ * scale_factor;
+
+            
+            ImVec2 p_screen = PlotToPixels(p_world);
+
+            draw_list_3d._VtxWritePtr[0].pos.x = p_screen.x;
+            draw_list_3d._VtxWritePtr[0].pos.y = p_screen.y;
+            draw_list_3d._VtxWritePtr[0].uv = UV;
+            draw_list_3d._VtxWritePtr[0].col = Col;
+            draw_list_3d._VtxWritePtr++;
+        }
+
+
+        for (int i = 0; i < VECTOR3D_IDX_COUNT / 3; i++) {
+            int idx0 = vector3d_idx[i * 3];
+            int idx1 = vector3d_idx[i * 3 + 1];
+            int idx2 = vector3d_idx[i * 3 + 2];
+
+            draw_list_3d._IdxWritePtr[0] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx0);
+            draw_list_3d._IdxWritePtr[1] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx1);
+            draw_list_3d._IdxWritePtr[2] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + idx2);
+            draw_list_3d._IdxWritePtr += 3;
+
+            // Calculate depth for this triangle using the centroid in world space
+            ImPlot3DPoint v0 = vector3d_vtx[idx0];
+            ImPlot3DPoint v1 = vector3d_vtx[idx1];
+            ImPlot3DPoint v2 = vector3d_vtx[idx2];
+
+            ImPlot3DPoint centroid;
+            centroid.x = p_base.x + (v0.x + v1.x + v2.x) * scale_factor / 3.0;
+            centroid.y = p_base.y + (v0.y + v1.y + v2.y) * scale_factor / 3.0;
+            centroid.z = p_base.z + (v0.z + v1.z + v2.z) * scale_factor / 3.0;
+
+            draw_list_3d._ZWritePtr[0] = GetPointDepth(centroid);
+            draw_list_3d._ZWritePtr++;
+        }
+
+        // Update vertex count
+        draw_list_3d._VtxCurrentIdx += (ImDrawIdx)VECTOR3D_VTX_COUNT;
+        return true;
+    }
+    
+    const _Getter& Getter;
+    const float Size;
+    const ImU32 Col;
+    const double ScaleMin, ScaleMax;
+    mutable ImVec2 UV;
 };
 
 template <class _Getter> struct RendererLineStrip : RendererBase {
@@ -929,6 +1453,28 @@ template <typename _IndexerX, typename _IndexerY, typename _IndexerZ> struct Get
     const int Count;
 };
 
+template <typename _IndexerX, typename _IndexerY, typename _IndexerZ, typename _IndexerU, typename _IndexerV, typename _IndexerW>
+struct GetterXYZUVW {
+    GetterXYZUVW(_IndexerX x, _IndexerY y, _IndexerZ z, _IndexerU u, _IndexerV v, _IndexerW w, int count) 
+        : IndxerX(x), IndxerY(y), IndxerZ(z), IndxerU(u), IndxerV(v), IndxerW(w), Count(count) { }
+    
+    template <typename I> IMPLOT3D_INLINE ImPlot3DQuiver operator()(I idx) const {
+        double u_val = IndxerU(idx);
+        double v_val = IndxerV(idx);
+        double w_val = IndxerW(idx);
+        double mag = sqrt(u_val*u_val + v_val*v_val + w_val*w_val);
+        return ImPlot3DQuiver(IndxerX(idx), IndxerY(idx), IndxerZ(idx), u_val, v_val, w_val, mag);
+    }
+    
+    const _IndexerX IndxerX;
+    const _IndexerY IndxerY;
+    const _IndexerZ IndxerZ;
+    const _IndexerU IndxerU;
+    const _IndexerV IndxerV;
+    const _IndexerW IndxerW;  
+    const int Count;
+};
+
 template <typename _Getter> struct GetterLoop {
     GetterLoop(_Getter getter) : Getter(getter), Count(getter.Count + 1) {}
     template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const {
@@ -1149,6 +1695,40 @@ template <typename _Getter> void RenderMarkers(const _Getter& getter, ImPlot3DMa
     }
 }
 
+
+
+//-----------------------------------------------------------------------------
+// [SECTION] Vectors
+//-----------------------------------------------------------------------------
+
+template <typename _Getter>
+void RenderVectors(const _Getter& getter, float size, double scaleMin, double scaleMax, bool color_coded, bool normalized, ImU32 color = 0) {
+
+    // For efficiency reasons, we have 4 different renderers depending on whether the vectors are color-coded and/or normalized
+    // This avoids checking the flags for each vector during rendering
+    if (color_coded && normalized) {
+         RenderPrimitives<RendererVector3DFillColorCodedNormalized>(getter, size, scaleMin, scaleMax);
+
+      
+    }
+    else if (color_coded && !normalized) {
+        RenderPrimitives<RendererVector3DFillColorCodedScaled>(getter, size, scaleMin, scaleMax);
+
+    }
+    else if (!color_coded && normalized) {
+        RenderPrimitives<RendererVector3DFillNormalized>(getter, size, color);
+        
+    }
+    else {
+
+        RenderPrimitives<RendererVector3DFill>(getter, size, color,scaleMin, scaleMax);
+        
+
+    }
+
+}
+
+
 //-----------------------------------------------------------------------------
 // [SECTION] PlotScatter
 //-----------------------------------------------------------------------------
@@ -1177,6 +1757,46 @@ void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, in
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
     template IMPLOT3D_API void PlotScatter<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DScatterFlags flags,    \
                                               int offset, int stride);
+CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
+#undef INSTANTIATE_MACRO
+
+
+//-----------------------------------------------------------------------------
+// [SECTION] PlotQuiver (Vector Field)
+//-----------------------------------------------------------------------------
+template <typename Getter>
+void PlotQuiverEx(const char* label_id, const Getter& getter, const double scaleMin, const double scaleMax, ImPlot3DQuiverFlags flags){
+     if (BeginItemEx(label_id, getter, flags,ImPlot3DCol_Fill)) { 
+        if (getter.Count <= 0) {
+            EndItem();
+            return;
+        }
+        const ImPlot3DNextItemData& s = GetItemData();
+        const ImU32 col_fill = ImGui::GetColorU32(s.Colors[ImPlot3DCol_Fill]);
+
+       
+        RenderVectors<Getter>(getter, s.QuiverSize, scaleMin, scaleMax, ImHasFlag(flags, ImPlot3DQuiverFlags_Colored), ImHasFlag(flags, ImPlot3DQuiverFlags_Normalize), col_fill);
+        
+        EndItem();
+    }
+
+}
+
+template <typename T>
+void PlotQuiver(const char* label_id, const T* xs, const T* ys, const T* zs, const T* us, const T* vs, const T* ws, int count, const T scaleMin, const T scaleMax, ImPlot3DQuiverFlags flags, int offset, int stride) {
+    GetterXYZUVW<IndexerIdx<T>,IndexerIdx<T>,IndexerIdx<T>,IndexerIdx<T>,IndexerIdx<T>,IndexerIdx<T>> getter(
+        IndexerIdx<T>(xs,count,offset,stride),
+        IndexerIdx<T>(ys,count,offset,stride),
+        IndexerIdx<T>(zs,count,offset,stride),
+        IndexerIdx<T>(us,count,offset,stride),
+        IndexerIdx<T>(vs,count,offset,stride),
+        IndexerIdx<T>(ws,count,offset,stride),
+        count);
+    return PlotQuiverEx(label_id, getter, scaleMin, scaleMax, flags);
+}
+
+#define INSTANTIATE_MACRO(T) \
+    template IMPLOT3D_API void PlotQuiver<T>(const char* label_id, const T* xs, const T* ys, const T* zs, const T* us, const T* vs, const T* ws, int count, const T scaleMin, const T scaleMax, ImPlot3DQuiverFlags flags, int offset, int stride);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 

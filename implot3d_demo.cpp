@@ -152,6 +152,64 @@ void DemoScatterPlots() {
     }
 }
 
+void DemoQuiverPlots(){
+    static float xs[1000], ys[1000], zs[1000], us[1000], vs[1000], ws[1000];
+    for (int i = 0; i < 10; ++i) {
+        for(int j = 0; j < 10; ++j){
+            for(int k = 0; k < 10; ++k){
+                int idx = i*100 + j*10 + k;  
+                float x = ((float)i * 1.0f) - 5.0f;
+                float y = ((float)j * 1.0f) - 5.0f;
+                float z = ((float)k * 1.0f) - 5.0f;
+                xs[idx] = x;    
+                ys[idx] = y;
+                zs[idx] = z;
+
+                float r = sqrtf(x*x + y*y);  
+                us[idx] = -y;   
+                vs[idx] = x;    
+                ws[idx] = r;    
+            }
+        }
+    }
+
+ 
+    static float scale_min = 0.00f;
+    static float scale_max = 2.5f;
+    static float baseSize = 1.0f;
+    static ImPlot3DColormap map = ImPlot3DColormap_Viridis;
+
+    
+    ImGui::Text("Vector Scale");
+    ImGui::SetNextItemWidth(225);
+    ImGui::DragFloatRange2("Min / Max",&scale_min, &scale_max, 0.01f, -20, 20,nullptr,nullptr,ImGuiSliderFlags_AlwaysClamp);
+    if (scale_max <= scale_min + 0.01f) {
+        scale_max = scale_min + 0.01f;
+    }
+    
+    ImGui::SetNextItemWidth(225);
+    ImGui::DragFloat("Base Size",&baseSize,0.1f,0,100);
+    
+
+    static ImPlot3DQuiverFlags qv_flags = ImPlot3DQuiverFlags_Colored;
+    ImGui::CheckboxFlags("ImPlot3DQuiverFlags_Normalize", (unsigned int*)&qv_flags, ImPlot3DQuiverFlags_Normalize);
+    ImGui::CheckboxFlags("ImPlot3DQuiverFlags_Colored", (unsigned int*)&qv_flags, ImPlot3DQuiverFlags_Colored);
+
+    ImPlot3D::PushColormap(map);
+    if (ImPlot3D::BeginPlot("Quiver Plot", ImVec2(ImGui::GetTextLineHeight()*28, ImGui::GetTextLineHeight()*28))) {
+        ImPlot3D::SetupAxisTicks(ImAxis3D_X,-5.0, 5.0, 11);
+        ImPlot3D::SetupAxisTicks(ImAxis3D_Y,-5.0, 5.0, 11);
+        ImPlot3D::SetupAxisTicks(ImAxis3D_Z,-5.0, 5.0, 11);
+        ImPlot3D::SetNextQuiverStyle(baseSize,ImPlot3D::GetColormapColor(1)); 
+        ImPlot3D::SetupAxes("x","y","z");
+        ImPlot3D::PlotQuiver("Magnitude", xs, ys, zs, us, vs, ws, 1000, scale_min, scale_max, qv_flags);
+        ImPlot3D::EndPlot();
+    }
+    ImGui::SameLine();
+    ImPlot3D::PopColormap();
+}
+
+
 void DemoTrianglePlots() {
     // Pyramid coordinates
     // Apex
@@ -1576,6 +1634,7 @@ void ShowAllDemos() {
             ImGui::SeparatorText("Plot Types");
             DemoHeader("Line Plots", DemoLinePlots);
             DemoHeader("Scatter Plots", DemoScatterPlots);
+            DemoHeader("Quiver Plots", DemoQuiverPlots);
             DemoHeader("Triangle Plots", DemoTrianglePlots);
             DemoHeader("Quad Plots", DemoQuadPlots);
             DemoHeader("Surface Plots", DemoSurfacePlots);

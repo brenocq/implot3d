@@ -58,6 +58,7 @@
 struct ImPlot3DContext;
 struct ImPlot3DStyle;
 struct ImPlot3DPoint;
+struct ImPlot3DQuiver;
 struct ImPlot3DRay;
 struct ImPlot3DPlane;
 struct ImPlot3DBox;
@@ -79,6 +80,7 @@ typedef int ImPlot3DColormap; // -> ImPlot3DColormap_          // Enum: Colormap
 typedef int ImPlot3DFlags;         // -> ImPlot3DFlags_         // Flags: for BeginPlot()
 typedef int ImPlot3DItemFlags;     // -> ImPlot3DItemFlags_     // Flags: Item flags
 typedef int ImPlot3DScatterFlags;  // -> ImPlot3DScatterFlags_  // Flags: Scatter plot flags
+typedef int ImPlot3DQuiverFlags;   // -> ImPlot3DQuiverFlags_   // Flags: Quiver plot flags
 typedef int ImPlot3DLineFlags;     // -> ImPlot3DLineFlags_     // Flags: Line plot flags
 typedef int ImPlot3DTriangleFlags; // -> ImPlot3DTriangleFlags_ // Flags: Triangle plot flags
 typedef int ImPlot3DQuadFlags;     // -> ImPlot3DQuadFlags_     // Flags: Quad plot flags
@@ -193,6 +195,12 @@ enum ImPlot3DScatterFlags_ {
     ImPlot3DScatterFlags_None = 0, // Default
     ImPlot3DScatterFlags_NoLegend = ImPlot3DItemFlags_NoLegend,
     ImPlot3DScatterFlags_NoFit = ImPlot3DItemFlags_NoFit,
+};
+// Flags for PlotQuiver
+enum ImPlot3DQuiverFlags_ {
+    ImPlot3DQuiverFlags_None       = 0,         // default
+    ImPlot3DQuiverFlags_Normalize  = 1 << 10,   // all arrows will be normalized to the same length
+    ImPlot3DQuiverFlags_Colored    = 1 << 11    // arrow colors will be mapped to their magnitudes
 };
 
 // Flags for PlotLine
@@ -504,6 +512,10 @@ IMPLOT3D_API void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags fla
 IMPLOT3D_TMP void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DScatterFlags flags = 0, int offset = 0,
                               int stride = sizeof(T));
 
+// Plots a standard 3D Vector Field arrow plot. It has a direction and magnitude.
+IMPLOT3D_TMP void PlotQuiver(const char* label_id, const T* xs, const T* ys,const T* zs, const T* us, const T* vs,const T* ws, int count,const T scaleMin, const T scaleMax, ImPlot3DQuiverFlags flags = 0, int offset= 0, int stride=sizeof(T));
+
+
 // Plots a line in 3D. Consecutive points are connected with line segments
 IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DLineFlags flags = 0, int offset = 0,
                            int stride = sizeof(T));
@@ -618,7 +630,8 @@ IMPLOT3D_API void SetNextFillStyle(const ImVec4& col = IMPLOT3D_AUTO_COL, float 
 // Set the marker style for the next item only
 IMPLOT3D_API void SetNextMarkerStyle(ImPlot3DMarker marker = IMPLOT3D_AUTO, float size = IMPLOT3D_AUTO, const ImVec4& fill = IMPLOT3D_AUTO_COL,
                                      float weight = IMPLOT3D_AUTO, const ImVec4& outline = IMPLOT3D_AUTO_COL);
-
+// Set the quiver style for the next item only
+IMPLOT3D_API void SetNextQuiverStyle(float size, const ImVec4& col = IMPLOT3D_AUTO_COL);
 // Get color
 IMPLOT3D_API ImVec4 GetStyleColorVec4(ImPlot3DCol idx);
 IMPLOT3D_API ImU32 GetStyleColorU32(ImPlot3DCol idx);
@@ -769,6 +782,28 @@ struct ImPlot3DPoint {
                                // types and ImPlot3DPoint
 #endif
 };
+
+//-----------------------------------------------------------------------------
+// [SECTION] ImPlot3DQuiver -
+//-----------------------------------------------------------------------------
+struct ImPlot3DQuiver {
+    double x, y, z;
+    double u, v, w;
+    double mag2;
+    IMPLOT3D_API constexpr ImPlot3DQuiver(double _x, double _y, double _z, double _u, double _v, double _w) : x(_x), y(_y), z(_z), u(_u), v(_v), w(_w), mag2((_u*_u + _v*_v + _w*_w)) { }
+    IMPLOT3D_API constexpr ImPlot3DQuiver(double _x, double _y, double _z, double _u, double _v, double _w, double _mag2) : x(_x), y(_y), z(_z), u(_u), v(_v), w(_w), mag2(_mag2) { }  
+    IMPLOT3D_API double& operator[] (size_t idx)             { IM_ASSERT(idx == 0 || idx == 1 || idx == 2 || idx == 3 || idx == 4); return ((double*)(void*)(char*)this)[idx]; }
+    IMPLOT3D_API double  operator[] (size_t idx) const       { IM_ASSERT(idx == 0 || idx == 1 || idx == 2 || idx == 3 || idx == 4); return ((const double*)(const void*)(const char*)this)[idx]; }
+
+    operator ImPlot3DPoint() const {  //Conversion to point on the origin of the vector
+        return ImPlot3DPoint(x, y, z);
+    }
+#ifdef IMPLOT3D_QUIVER_CLASS_EXTRA
+    IMPLOT3D_QUIVER_CLASS_EXTRA // Define additional constructors and implicit cast operators in imconfig.h to convert back and forth between your math
+                               // types and ImPlot3DQuiver
+#endif
+};
+IM_MSVC_RUNTIME_CHECKS_RESTORE
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImPlot3DRay
