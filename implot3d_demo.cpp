@@ -26,6 +26,7 @@
 #define IMPLOT_DISABLE_OBSOLETE_FUNCTIONS
 #endif
 
+#include "implot.h"
 #include "implot3d.h"
 #include "implot3d_internal.h"
 
@@ -106,49 +107,114 @@ int MetricFormatter(double value, char* buff, int size, void* data) {
 //-----------------------------------------------------------------------------
 
 void DemoLinePlots() {
-    static float xs1[1001], ys1[1001], zs1[1001];
+    static ImU32 colors1[1001], colors2[20];
+    static float scale_min = FLT_MAX;
+    static float scale_max = -FLT_MAX;
+    const char* colormaps[] = { "Viridis", "Plasma", "Hot", "Cool", "Pink", "Jet", "Twilight", "RdBu", "BrBG", "PiYG", "Spectral", "Greys" };
+    static int sel_colormap = 5; // Jet by default
+
+    static float xs1[1001], ys1[1001], zs1[1001], vs1[1001];
     for (int i = 0; i < 1001; i++) {
         xs1[i] = i * 0.001f;
         ys1[i] = 0.5f + 0.5f * cosf(50 * (xs1[i] + (float)ImGui::GetTime() / 10));
         zs1[i] = 0.5f + 0.5f * sinf(50 * (xs1[i] + (float)ImGui::GetTime() / 10));
+        vs1[i] = sin(i * 0.15f);
+        scale_min = (scale_min > vs1[i]) ? vs1[i] : scale_min;
+        scale_max = (scale_max < vs1[i]) ? vs1[i] : scale_max;
     }
-    static double xs2[20], ys2[20], zs2[20];
+    static float xs2[20], ys2[20], zs2[20], vs2[20];
     for (int i = 0; i < 20; i++) {
         xs2[i] = i * 1 / 19.0f;
         ys2[i] = xs2[i] * xs2[i];
         zs2[i] = xs2[i] * ys2[i];
+        vs2[i] = cos(i * 0.15f);
     }
-    if (ImPlot3D::BeginPlot("Line Plots")) {
-        ImPlot3D::SetupAxes("x", "y", "z");
-        ImPlot3D::PlotLine("f(x)", xs1, ys1, zs1, 1001);
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle);
-        ImPlot3D::PlotLine("g(x)", xs2, ys2, zs2, 20, ImPlot3DLineFlags_Segments);
-        ImPlot3D::EndPlot();
+
+    static bool ppc_color = false;
+    ImGui::Checkbox("Per Point Custom Color", &ppc_color);
+    if(!ppc_color) {
+        if (ImPlot3D::BeginPlot("Line Plots")) {
+            ImPlot3D::SetupAxes("x", "y", "z");
+            ImPlot3D::PlotLine("f(x)", xs1, ys1, zs1, 1001);
+            ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle);
+            ImPlot3D::PlotLine("g(x)", xs2, ys2, zs2, 20, ImPlot3DLineFlags_Segments);
+            ImPlot3D::EndPlot();
+        }
+    }
+    else {
+        ImGui::Combo("##ScatterColormap", &sel_colormap, colormaps, IM_ARRAYSIZE(colormaps));
+        ImGui::SameLine();
+        ImGui::Text("Choose colormap");
+        ImGui::DragFloatRange2("Min / Max", &scale_min, &scale_max, 0.05);
+        ImPlot3DColormap cmap = ImPlot3D::GetColormapIndex(colormaps[sel_colormap]);
+        ImPlot3D::ConvertValueToColor(vs1, colors1, 1001, scale_min, scale_max, cmap);
+        ImPlot3D::ConvertValueToColor(vs2, colors2, 20, scale_min, scale_max, cmap);
+        ImPlot::ColormapScale("##Z-Scale", scale_min, scale_max, ImVec2(60, 400), "%.2f", 0, cmap);
+        ImGui::SameLine();
+        if (ImPlot3D::BeginPlot("Line Plots with Per Point Custom Colors")) {
+            ImPlot3D::SetupAxes("x", "y", "z");
+            ImPlot3D::PlotLine("f(x)", xs1, ys1, zs1, colors1, 1001, ImPlot3DLineFlags_PerPointCustomColor);
+            ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle);
+            ImPlot3D::PlotLine("g(x)", xs2, ys2, zs2, colors2, 20, ImPlot3DLineFlags_Segments | ImPlot3DLineFlags_PerPointCustomColor);
+            ImPlot3D::EndPlot();
+        }
     }
 }
 
 void DemoScatterPlots() {
+    static ImU32 colors1[100], colors2[50];
+    static float scale_min = FLT_MAX;
+    static float scale_max = -FLT_MAX;
+    const char* colormaps[] = { "Viridis", "Plasma", "Hot", "Cool", "Pink", "Jet", "Twilight", "RdBu", "BrBG", "PiYG", "Spectral", "Greys" };
+    static int sel_colormap = 5; // Jet by default
+
     srand(0);
-    static float xs1[100], ys1[100], zs1[100];
+    static float xs1[100], ys1[100], zs1[100], vs1[100];
     for (int i = 0; i < 100; i++) {
         xs1[i] = i * 0.01f;
         ys1[i] = xs1[i] + 0.1f * ((float)rand() / (float)RAND_MAX);
         zs1[i] = xs1[i] + 0.1f * ((float)rand() / (float)RAND_MAX);
+        vs1[i] = cos(i * 0.1f);
+        scale_min = (scale_min > vs1[i]) ? vs1[i] : scale_min;
+        scale_max = (scale_max < vs1[i]) ? vs1[i] : scale_max;
     }
-    static float xs2[50], ys2[50], zs2[50];
+    static float xs2[50], ys2[50], zs2[50], vs2[50];
     for (int i = 0; i < 50; i++) {
         xs2[i] = 0.25f + 0.2f * ((float)rand() / (float)RAND_MAX);
         ys2[i] = 0.50f + 0.2f * ((float)rand() / (float)RAND_MAX);
         zs2[i] = 0.75f + 0.2f * ((float)rand() / (float)RAND_MAX);
+        vs2[i] = cos(i * 0.1f);
     }
 
-    if (ImPlot3D::BeginPlot("Scatter Plots")) {
-        ImPlot3D::PlotScatter("Data 1", xs1, ys1, zs1, 100);
-        ImPlot3D::PushStyleVar(ImPlot3DStyleVar_FillAlpha, 0.25f);
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, 6, ImPlot3D::GetColormapColor(1), IMPLOT3D_AUTO, ImPlot3D::GetColormapColor(1));
-        ImPlot3D::PlotScatter("Data 2", xs2, ys2, zs2, 50);
-        ImPlot3D::PopStyleVar();
-        ImPlot3D::EndPlot();
+    static bool ppc_color = false;
+    ImGui::Checkbox("Per Point Custom Color", &ppc_color);
+    if (!ppc_color) {
+        if (ImPlot3D::BeginPlot("Scatter Plots")) {
+            ImPlot3D::PlotScatter("Data 1", xs1, ys1, zs1, 100);
+            ImPlot3D::PushStyleVar(ImPlot3DStyleVar_FillAlpha, 0.25f);
+            ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, 6, ImPlot3D::GetColormapColor(1), IMPLOT3D_AUTO, ImPlot3D::GetColormapColor(1));
+            ImPlot3D::PlotScatter("Data 2", xs2, ys2, zs2, 50);
+            ImPlot3D::PopStyleVar();
+            ImPlot3D::EndPlot();
+        }
+    }
+    else {
+        ImGui::Combo("##ScatterColormap", &sel_colormap, colormaps, IM_ARRAYSIZE(colormaps));
+        ImGui::SameLine();
+        ImGui::Text("Choose colormap");
+        ImGui::DragFloatRange2("Min / Max", &scale_min, &scale_max, 0.05);
+        ImPlot3DColormap cmap = ImPlot3D::GetColormapIndex(colormaps[sel_colormap]);
+        ImPlot3D::ConvertValueToColor(vs1, colors1, 100, scale_min, scale_max, cmap);
+        ImPlot3D::ConvertValueToColor(vs2, colors2, 50, scale_min, scale_max, cmap);
+        ImPlot::ColormapScale("##Z-Scale", scale_min, scale_max, ImVec2(60, 400), "%.2f", 0, cmap);
+        ImGui::SameLine();
+        if (ImPlot3D::BeginPlot("Scatter Plots with Per Point Custom Colors")) {
+            ImPlot3D::PlotScatter("Data 1", xs1, ys1, zs1, colors1, 100, ImPlot3DScatterFlags_PerPointCustomColor);
+            ImPlot3D::PushStyleVar(ImPlot3DStyleVar_FillAlpha, 0.25f);
+            ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, 6);
+            ImPlot3D::PlotScatter("Data 2", xs2, ys2, zs2, colors2, 50, ImPlot3DScatterFlags_PerPointCustomColor);
+            ImPlot3D::EndPlot();
+        }
     }
 }
 
@@ -314,7 +380,7 @@ void DemoQuadPlots() {
 
 void DemoSurfacePlots() {
     constexpr int N = 20;
-    static float xs[N * N], ys[N * N], zs[N * N];
+    static float xs[N * N], ys[N * N], zs[N * N], vs[N * N];
     static float t = 0.0f;
     t += ImGui::GetIO().DeltaTime;
 
@@ -323,6 +389,12 @@ void DemoSurfacePlots() {
     constexpr float max_val = 1.0f;
     constexpr float step = (max_val - min_val) / (N - 1);
 
+    // Define parameters for per-point color
+	ImU32 colors[N * N];
+	static float scale_min = FLT_MAX;
+	static float scale_max = -FLT_MAX;
+    ImPlot3DColormap cmap;
+
     // Populate the xs, ys, and zs arrays
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < N; j++) {
@@ -330,9 +402,12 @@ void DemoSurfacePlots() {
             xs[idx] = min_val + j * step;                                             // X values are constant along rows
             ys[idx] = min_val + i * step;                                             // Y values are constant along columns
             zs[idx] = ImSin(2 * t + ImSqrt((xs[idx] * xs[idx] + ys[idx] * ys[idx]))); // z = sin(2t + sqrt(x^2 + y^2))
+            vs[idx] = ImSin(10 * ImSqrt((xs[idx] * xs[idx] + ys[idx] * ys[idx])));
+            scale_min = (scale_min > vs[i]) ? vs[i] : scale_min;
+            scale_max = (scale_max < vs[i]) ? vs[i] : scale_max;
         }
     }
-
+    
     // Choose fill color
     ImGui::Text("Fill color");
     static int selected_fill = 1; // Colormap by default
@@ -381,6 +456,7 @@ void DemoSurfacePlots() {
     CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoLines);
     CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoFill);
     CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_NoMarkers);
+    CHECKBOX_FLAG(flags, ImPlot3DSurfaceFlags_PerPointCustomColor);
 
     // Begin the plot
     if (selected_fill == 1)
@@ -401,9 +477,18 @@ void DemoSurfacePlots() {
 
         // Plot the surface
         if (custom_range)
-            ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, (double)range_min, (double)range_max, flags);
+            if(flags &  ImPlot3DSurfaceFlags_PerPointCustomColor)
+                ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, colors, N, N, (double)range_min, (double)range_max, flags);
+			else
+                ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, (double)range_min, (double)range_max, flags);
         else
-            ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, 0.0, 0.0, flags);
+            if (flags & ImPlot3DSurfaceFlags_PerPointCustomColor) {
+                // Map values to colors
+                ImPlot3D::ConvertValueToColor(vs, colors, N * N, scale_min, scale_max, ImPlot3D::GetColormapIndex(colormaps[sel_colormap]));
+                ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, colors, N, N, 0.0, 0.0, flags);
+            }
+			else
+                ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, 0.0, 0.0, flags);
 
         // End the plot
         ImPlot3D::PopStyleVar();

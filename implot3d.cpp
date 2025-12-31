@@ -3069,6 +3069,15 @@ ImU32 SampleColormapU32(float t, ImPlot3DColormap cmap) {
 
 ImVec4 SampleColormap(float t, ImPlot3DColormap cmap) { return ImGui::ColorConvertU32ToFloat4(SampleColormapU32(t, cmap)); }
 
+template <typename T>
+void ConvertValueToColor(T* value, ImU32* cs, int count, float v_min, float v_max, ImPlot3DColormap colormap) {
+    for (int i = 0; i < count; i++)
+        cs[i] = SampleColormapU32(ImClamp(ImRemap01(static_cast<float>(value[i]), v_min, v_max), 0.0f, 1.0f), colormap);
+}
+template void ConvertValueToColor<double>(double* value, ImU32* cs, int count, float v_min, float v_max, ImPlot3DColormap colormap);
+template void ConvertValueToColor<float>(float* value, ImU32* cs, int count, float v_min, float v_max, ImPlot3DColormap colormap);
+template void ConvertValueToColor<int>(int* value, ImU32* cs, int count, float v_min, float v_max, ImPlot3DColormap colormap);
+
 void RenderColorBar(const ImU32* colors, int size, ImDrawList& DrawList, const ImRect& bounds, bool vert, bool reversed, bool continuous) {
     const int n = continuous ? size - 1 : size;
     ImU32 col1, col2;
