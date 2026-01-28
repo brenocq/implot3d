@@ -296,7 +296,7 @@ ImVec2 CalcLegendSize(ImPlot3DItemGroup& items, const ImVec2& pad, const ImVec2&
     return legend_size;
 }
 
-void ShowLegendEntries(ImPlot3DItemGroup& items, const ImRect& legend_bb, bool hovered, const ImVec2& pad, const ImVec2& spacing, bool vertical,
+void ShowLegendEntries(ImPlot3DItemGroup& items, const ImRect& legend_bb, bool /*hovered*/, const ImVec2& pad, const ImVec2& spacing, bool vertical,
                        ImDrawList& draw_list) {
     const float txt_ht = ImGui::GetTextLineHeight();
     const float icon_size = txt_ht;
@@ -520,7 +520,7 @@ int Active3DFacesToAxisLookupIndex(const bool* active_faces) {
     return ((int)active_faces[0] << 2) | ((int)active_faces[1] << 1) | ((int)active_faces[2]);
 }
 
-int GetMouseOverPlane(const ImPlot3DPlot& plot, const bool* active_faces, const ImVec2* corners_pix, int* plane_out = nullptr) {
+int GetMouseOverPlane(const ImPlot3DPlot& /*plot*/, const bool* active_faces, const ImVec2* corners_pix, int* plane_out = nullptr) {
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 mouse_pos = io.MousePos;
     if (plane_out)
@@ -545,7 +545,7 @@ int GetMouseOverPlane(const ImPlot3DPlot& plot, const bool* active_faces, const 
     return -1; // Not over any active plane
 }
 
-int GetMouseOverAxis(const ImPlot3DPlot& plot, const bool* active_faces, const ImVec2* corners_pix, const int plane_2d, int* edge_out = nullptr) {
+int GetMouseOverAxis(const ImPlot3DPlot& /*plot*/, const bool* active_faces, const ImVec2* corners_pix, const int plane_2d, int* edge_out = nullptr) {
     const float axis_proximity_threshold = 15.0f; // Distance in pixels to consider the mouse "close" to an axis
 
     ImGuiIO& io = ImGui::GetIO();
