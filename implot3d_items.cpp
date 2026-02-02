@@ -138,7 +138,7 @@ namespace ImPlot3D {
 static const float ITEM_HIGHLIGHT_LINE_SCALE = 2.0f;
 static const float ITEM_HIGHLIGHT_MARK_SCALE = 1.25f;
 
-bool BeginItem(const char* label_id, ImPlot3DItemFlags flags, ImPlot3DCol recolor_from) {
+bool BeginItem(const char* label_id, ImPlot3DItemFlags flags, const ImVec4& item_col) {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "PlotX() needs to be called between BeginPlot() and EndPlot()!");
 
@@ -147,6 +147,7 @@ bool BeginItem(const char* label_id, ImPlot3DItemFlags flags, ImPlot3DCol recolo
 
     ImPlot3DStyle& style = gp.Style;
     ImPlot3DNextItemData& n = gp.NextItemData;
+    ImPlot3DSpec& s = n.Spec;
 
     // Register item
     bool just_created;
@@ -155,52 +156,33 @@ bool BeginItem(const char* label_id, ImPlot3DItemFlags flags, ImPlot3DCol recolo
     gp.CurrentItem = item;
 
     // Set/override item color
-    if (recolor_from != -1) {
-        if (!IsColorAuto(n.Colors[recolor_from]))
-            item->Color = ImGui::ColorConvertFloat4ToU32(n.Colors[recolor_from]);
-        else if (!IsColorAuto(gp.Style.Colors[recolor_from]))
-            item->Color = ImGui::ColorConvertFloat4ToU32(gp.Style.Colors[recolor_from]);
-        else if (just_created)
-            item->Color = NextColormapColorU32();
+    if (!IsColorAuto(item_col)) {
+        item->Color = ImGui::ColorConvertFloat4ToU32(item_col);
     } else if (just_created) {
         item->Color = NextColormapColorU32();
     }
 
     // Set next item color
     ImVec4 item_color = ImGui::ColorConvertU32ToFloat4(item->Color);
-    n.IsAutoLine = IsColorAuto(n.Colors[ImPlot3DCol_Line]) && IsColorAuto(ImPlot3DCol_Line);
-    n.IsAutoFill = IsColorAuto(n.Colors[ImPlot3DCol_Fill]) && IsColorAuto(ImPlot3DCol_Fill);
-    n.Colors[ImPlot3DCol_Line] = IsColorAuto(n.Colors[ImPlot3DCol_Line])
-                                     ? (IsColorAuto(ImPlot3DCol_Line) ? item_color : gp.Style.Colors[ImPlot3DCol_Line])
-                                     : n.Colors[ImPlot3DCol_Line];
-    n.Colors[ImPlot3DCol_Fill] = IsColorAuto(n.Colors[ImPlot3DCol_Fill])
-                                     ? (IsColorAuto(ImPlot3DCol_Fill) ? item_color : gp.Style.Colors[ImPlot3DCol_Fill])
-                                     : n.Colors[ImPlot3DCol_Fill];
-    n.Colors[ImPlot3DCol_MarkerOutline] =
-        IsColorAuto(n.Colors[ImPlot3DCol_MarkerOutline])
-            ? (IsColorAuto(ImPlot3DCol_MarkerOutline) ? n.Colors[ImPlot3DCol_Line] : gp.Style.Colors[ImPlot3DCol_MarkerOutline])
-            : n.Colors[ImPlot3DCol_MarkerOutline];
-    n.Colors[ImPlot3DCol_MarkerFill] =
-        IsColorAuto(n.Colors[ImPlot3DCol_MarkerFill])
-            ? (IsColorAuto(ImPlot3DCol_MarkerFill) ? n.Colors[ImPlot3DCol_Line] : gp.Style.Colors[ImPlot3DCol_MarkerFill])
-            : n.Colors[ImPlot3DCol_MarkerFill];
+    n.IsAutoLine = IsColorAuto(s.LineColor);
+    n.IsAutoFill = IsColorAuto(s.FillColor);
+    s.LineColor = IsColorAuto(s.LineColor) ? item_color : s.LineColor;
+    s.FillColor = IsColorAuto(s.FillColor) ? s.LineColor : s.FillColor;
 
     // Set size & weight
-    n.LineWeight = n.LineWeight < 0.0f ? style.LineWeight : n.LineWeight;
-    n.Marker = n.Marker < 0 ? style.Marker : n.Marker;
-    n.MarkerSize = n.MarkerSize < 0.0f ? style.MarkerSize : n.MarkerSize;
-    n.MarkerWeight = n.MarkerWeight < 0.0f ? style.MarkerWeight : n.MarkerWeight;
-    n.FillAlpha = n.FillAlpha < 0 ? gp.Style.FillAlpha : n.FillAlpha;
+    s.LineWeight = s.LineWeight < 0.0f ? style.LineWeight : s.LineWeight;
+    s.Marker = s.Marker < 0 ? style.Marker : s.Marker;
+    s.Size = s.Size < 0.0f ? style.MarkerSize : s.Size;
+    s.FillAlpha = s.FillAlpha < 0 ? gp.Style.FillAlpha : s.FillAlpha;
 
     // Apply alpha modifiers
-    n.Colors[ImPlot3DCol_Fill].w *= n.FillAlpha;
-    n.Colors[ImPlot3DCol_MarkerFill].w *= n.FillAlpha;
+    s.FillColor.w *= s.FillAlpha;
 
     // Set render flags
-    n.RenderLine = n.Colors[ImPlot3DCol_Line].w > 0 && n.LineWeight > 0;
-    n.RenderFill = n.Colors[ImPlot3DCol_Fill].w > 0;
-    n.RenderMarkerFill = n.Colors[ImPlot3DCol_MarkerFill].w > 0;
-    n.RenderMarkerLine = n.Colors[ImPlot3DCol_MarkerOutline].w > 0 && n.MarkerWeight > 0;
+    n.RenderLine = s.LineColor.w > 0 && s.LineWeight > 0;
+    n.RenderFill = s.FillColor.w > 0;
+    n.RenderMarkerLine = s.LineColor.w > 0 && s.LineWeight > 0;
+    n.RenderMarkerFill = s.FillColor.w > 0;
 
     // Don't render if item is hidden
     if (!item->Show) {
@@ -210,9 +192,8 @@ bool BeginItem(const char* label_id, ImPlot3DItemFlags flags, ImPlot3DCol recolo
         // Legend hover highlight
         if (item->LegendHovered) {
             if (!ImHasFlag(gp.CurrentItems->Legend.Flags, ImPlot3DLegendFlags_NoHighlightItem)) {
-                n.LineWeight *= ITEM_HIGHLIGHT_LINE_SCALE;
-                n.MarkerSize *= ITEM_HIGHLIGHT_MARK_SCALE;
-                n.MarkerWeight *= ITEM_HIGHLIGHT_LINE_SCALE;
+                s.LineWeight *= ITEM_HIGHLIGHT_LINE_SCALE;
+                s.Size *= ITEM_HIGHLIGHT_MARK_SCALE;
             }
         }
     }
@@ -221,8 +202,8 @@ bool BeginItem(const char* label_id, ImPlot3DItemFlags flags, ImPlot3DCol recolo
 }
 
 template <typename _Getter>
-bool BeginItemEx(const char* label_id, const _Getter& getter, ImPlot3DItemFlags flags = 0, ImPlot3DCol recolor_from = IMPLOT3D_AUTO) {
-    if (BeginItem(label_id, flags, recolor_from)) {
+bool BeginItemEx(const char* label_id, const _Getter& getter, ImPlot3DItemFlags flags = 0, const ImVec4& color = IMPLOT3D_AUTO_COL) {
+    if (BeginItem(label_id, flags, color)) {
         ImPlot3DContext& gp = *GImPlot3D;
         ImPlot3DPlot& plot = *gp.CurrentPlot;
         if (plot.FitThisFrame && !ImHasFlag(flags, ImPlot3DItemFlags_NoFit)) {
@@ -280,25 +261,28 @@ void BustItemCache() {
 void SetNextLineStyle(const ImVec4& col, float weight) {
     ImPlot3DContext& gp = *GImPlot3D;
     ImPlot3DNextItemData& n = gp.NextItemData;
-    n.Colors[ImPlot3DCol_Line] = col;
-    n.LineWeight = weight;
+    ImPlot3DSpec& spec = n.Spec;
+    spec.LineColor = col;
+    spec.LineWeight = weight;
 }
 
 void SetNextFillStyle(const ImVec4& col, float alpha) {
     ImPlot3DContext& gp = *GImPlot3D;
     ImPlot3DNextItemData& n = gp.NextItemData;
-    n.Colors[ImPlot3DCol_Fill] = col;
-    n.FillAlpha = alpha;
+    ImPlot3DSpec& spec = n.Spec;
+    spec.FillColor = col;
+    spec.FillAlpha = alpha;
 }
 
 void SetNextMarkerStyle(ImPlot3DMarker marker, float size, const ImVec4& fill, float weight, const ImVec4& outline) {
     ImPlot3DContext& gp = *GImPlot3D;
     ImPlot3DNextItemData& n = gp.NextItemData;
-    n.Marker = marker;
-    n.Colors[ImPlot3DCol_MarkerFill] = fill;
-    n.MarkerSize = size;
-    n.Colors[ImPlot3DCol_MarkerOutline] = outline;
-    n.MarkerWeight = weight;
+    ImPlot3DSpec& spec = n.Spec;
+    spec.Marker = marker;
+    spec.FillColor = fill;
+    spec.Size = size;
+    spec.LineColor = outline;
+    spec.LineWeight = weight;
 }
 
 //-----------------------------------------------------------------------------
@@ -814,7 +798,7 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
         ImU32 cols[4] = {Col, Col, Col, Col};
         const ImPlot3DNextItemData& n = GetItemData();
         if (n.IsAutoFill) {
-            float alpha = GImPlot3D->NextItemData.FillAlpha;
+            float alpha = GImPlot3D->NextItemData.Spec.FillAlpha;
             double min = Min;
             double max = Max;
             if (ScaleMin != 0.0 || ScaleMax != 0.0) {
@@ -1154,13 +1138,14 @@ template <typename _Getter> void RenderMarkers(const _Getter& getter, ImPlot3DMa
 //-----------------------------------------------------------------------------
 
 template <typename Getter> void PlotScatterEx(const char* label_id, const Getter& getter, ImPlot3DScatterFlags flags) {
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_MarkerOutline)) {
-        const ImPlot3DNextItemData& n = GetItemData();
-        ImPlot3DMarker marker = n.Marker == ImPlot3DMarker_None ? ImPlot3DMarker_Circle : n.Marker;
-        const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-        const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
+    const ImPlot3DNextItemData& n = GetItemData();
+    const ImPlot3DSpec& s = n.Spec;
+    if (BeginItemEx(label_id, getter, flags, s.LineColor)) {
+        ImPlot3DMarker marker = s.Marker == ImPlot3DMarker_None ? ImPlot3DMarker_Circle : s.Marker;
+        const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+        const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
         if (marker != ImPlot3DMarker_None)
-            RenderMarkers<Getter>(getter, marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+            RenderMarkers<Getter>(getter, marker, s.Size, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         EndItem();
     }
 }
@@ -1185,30 +1170,31 @@ CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 //-----------------------------------------------------------------------------
 
 template <typename _Getter> void PlotLineEx(const char* label_id, const _Getter& getter, ImPlot3DLineFlags flags) {
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Line)) {
-        const ImPlot3DNextItemData& n = GetItemData();
+    const ImPlot3DNextItemData& n = GetItemData();
+    const ImPlot3DSpec& s = n.Spec;
+    if (BeginItemEx(label_id, getter, flags, s.LineColor)) {
         if (getter.Count >= 2 && n.RenderLine) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
             if (ImHasFlag(flags, ImPlot3DLineFlags_Segments)) {
-                RenderPrimitives<RendererLineSegments>(getter, col_line, n.LineWeight);
+                RenderPrimitives<RendererLineSegments>(getter, col_line, s.LineWeight);
             } else if (ImHasFlag(flags, ImPlot3DLineFlags_Loop)) {
                 if (ImHasFlag(flags, ImPlot3DLineFlags_SkipNaN))
-                    RenderPrimitives<RendererLineStripSkip>(GetterLoop<_Getter>(getter), col_line, n.LineWeight);
+                    RenderPrimitives<RendererLineStripSkip>(GetterLoop<_Getter>(getter), col_line, s.LineWeight);
                 else
-                    RenderPrimitives<RendererLineStrip>(GetterLoop<_Getter>(getter), col_line, n.LineWeight);
+                    RenderPrimitives<RendererLineStrip>(GetterLoop<_Getter>(getter), col_line, s.LineWeight);
             } else {
                 if (ImHasFlag(flags, ImPlot3DLineFlags_SkipNaN))
-                    RenderPrimitives<RendererLineStripSkip>(getter, col_line, n.LineWeight);
+                    RenderPrimitives<RendererLineStripSkip>(getter, col_line, s.LineWeight);
                 else
-                    RenderPrimitives<RendererLineStrip>(getter, col_line, n.LineWeight);
+                    RenderPrimitives<RendererLineStrip>(getter, col_line, s.LineWeight);
             }
         }
 
         // Render markers
-        if (n.Marker != ImPlot3DMarker_None) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
-            RenderMarkers<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+        if (s.Marker != ImPlot3DMarker_None) {
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
+            RenderMarkers<_Getter>(getter, s.Marker, s.Size, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         }
         EndItem();
     }
@@ -1233,26 +1219,26 @@ CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 //-----------------------------------------------------------------------------
 
 template <typename _Getter> void PlotTriangleEx(const char* label_id, const _Getter& getter, ImPlot3DTriangleFlags flags) {
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Fill)) {
-        const ImPlot3DNextItemData& n = GetItemData();
-
+    const ImPlot3DNextItemData& n = GetItemData();
+    const ImPlot3DSpec& s = n.Spec;
+    if (BeginItemEx(label_id, getter, flags, s.FillColor)) {
         // Render fill
         if (getter.Count >= 3 && n.RenderFill && !ImHasFlag(flags, ImPlot3DTriangleFlags_NoFill)) {
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
             RenderPrimitives<RendererTriangleFill>(getter, col_fill);
         }
 
         // Render lines
         if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(flags, ImPlot3DTriangleFlags_NoLines)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
-            RenderPrimitives<RendererLineSegments>(GetterTriangleLines<_Getter>(getter), col_line, n.LineWeight);
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            RenderPrimitives<RendererLineSegments>(GetterTriangleLines<_Getter>(getter), col_line, s.LineWeight);
         }
 
         // Render markers
-        if (n.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DTriangleFlags_NoMarkers)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
-            RenderMarkers<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+        if (s.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DTriangleFlags_NoMarkers)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
+            RenderMarkers<_Getter>(getter, s.Marker, s.Size, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         }
 
         EndItem();
@@ -1279,26 +1265,26 @@ CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 //-----------------------------------------------------------------------------
 
 template <typename _Getter> void PlotQuadEx(const char* label_id, const _Getter& getter, ImPlot3DQuadFlags flags) {
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Fill)) {
-        const ImPlot3DNextItemData& n = GetItemData();
-
+    const ImPlot3DNextItemData& n = GetItemData();
+    const ImPlot3DSpec& s = n.Spec;
+    if (BeginItemEx(label_id, getter, flags, s.FillColor)) {
         // Render fill
         if (getter.Count >= 4 && n.RenderFill && !ImHasFlag(flags, ImPlot3DQuadFlags_NoFill)) {
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
             RenderPrimitives<RendererQuadFill>(getter, col_fill);
         }
 
         // Render lines
         if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(flags, ImPlot3DQuadFlags_NoLines)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
-            RenderPrimitives<RendererLineSegments>(GetterQuadLines<_Getter>(getter), col_line, n.LineWeight);
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            RenderPrimitives<RendererLineSegments>(GetterQuadLines<_Getter>(getter), col_line, s.LineWeight);
         }
 
         // Render markers
-        if (n.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DQuadFlags_NoMarkers)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
-            RenderMarkers<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+        if (s.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DQuadFlags_NoMarkers)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
+            RenderMarkers<_Getter>(getter, s.Marker, s.Size, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         }
 
         EndItem();
@@ -1325,26 +1311,26 @@ CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 
 template <typename _Getter> void PlotSurfaceEx(const char* label_id, const _Getter& getter, int x_count, int y_count, double scale_min,
                                                double scale_max, ImPlot3DSurfaceFlags flags) {
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Fill)) {
-        const ImPlot3DNextItemData& n = GetItemData();
-
+    const ImPlot3DNextItemData& n = GetItemData();
+    const ImPlot3DSpec& s = n.Spec;
+    if (BeginItemEx(label_id, getter, flags, s.FillColor)) {
         // Render fill
         if (getter.Count >= 4 && n.RenderFill && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoFill)) {
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
             RenderPrimitives<RendererSurfaceFill>(getter, x_count, y_count, col_fill, scale_min, scale_max);
         }
 
         // Render lines
         if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoLines)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
-            RenderPrimitives<RendererLineSegments>(GetterSurfaceLines<_Getter>(getter, x_count, y_count), col_line, n.LineWeight);
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            RenderPrimitives<RendererLineSegments>(GetterSurfaceLines<_Getter>(getter, x_count, y_count), col_line, s.LineWeight);
         }
 
         // Render markers
-        if (n.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoMarkers)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
-            RenderMarkers<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+        if (s.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoMarkers)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
+            RenderMarkers<_Getter>(getter, s.Marker, s.Size, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         }
 
         EndItem();
@@ -1374,26 +1360,28 @@ CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 void PlotMesh(const char* label_id, const ImPlot3DPoint* vtx, const unsigned int* idx, int vtx_count, int idx_count, ImPlot3DMeshFlags flags) {
     Getter3DPoints getter(vtx, vtx_count);                     // Get vertices
     GetterMeshTriangles getter_triangles(vtx, idx, idx_count); // Get triangle vertices
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Fill)) {
-        const ImPlot3DNextItemData& n = GetItemData();
+
+    const ImPlot3DNextItemData& n = GetItemData();
+    const ImPlot3DSpec& s = n.Spec;
+    if (BeginItemEx(label_id, getter, flags, s.FillColor)) {
 
         // Render fill
         if (getter.Count >= 3 && n.RenderFill && !ImHasFlag(flags, ImPlot3DMeshFlags_NoFill)) {
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
             RenderPrimitives<RendererTriangleFill>(getter_triangles, col_fill);
         }
 
         // Render lines
         if (getter.Count >= 2 && n.RenderLine && !n.IsAutoLine && !ImHasFlag(flags, ImPlot3DMeshFlags_NoLines)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
-            RenderPrimitives<RendererLineSegments>(GetterTriangleLines<GetterMeshTriangles>(getter_triangles), col_line, n.LineWeight);
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            RenderPrimitives<RendererLineSegments>(GetterTriangleLines<GetterMeshTriangles>(getter_triangles), col_line, s.LineWeight);
         }
 
         // Render markers
-        if (n.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DMeshFlags_NoMarkers)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
-            RenderMarkers(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+        if (s.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DMeshFlags_NoMarkers)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
+            RenderMarkers(getter, s.Marker, s.Size, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         }
 
         EndItem();
@@ -1479,7 +1467,9 @@ void PlotText(const char* text, double x, double y, double z, double angle, cons
 }
 
 void PlotDummy(const char* label_id, ImPlot3DDummyFlags flags) {
-    if (BeginItem(label_id, flags, ImPlot3DCol_Line))
+    const ImPlot3DNextItemData& n = GetItemData();
+    const ImPlot3DSpec& s = n.Spec;
+    if (BeginItem(label_id, flags, s.LineColor))
         EndItem();
 }
 

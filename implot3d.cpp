@@ -48,6 +48,9 @@ Below is a change-log of API breaking changes only. If you are using one of the 
 When you are not sure about an old symbol or function name, try using the Search/Find function of your IDE to look for comments or references in all
 implot3d files. You can read releases logs https://github.com/brenocq/implot3d/releases for more details.
 
+- 2026/02/02 (0.4) - Item colors removed from ImPlot3DCol_, it's no longer possible to push/pop individual item colors.
+- 2026/02/02 (0.4) - ImPlot3DStyle::MarkerWeight was removed. The marker line weight is now controlled by ImPlot3DStyle::LineWeight.
+
 - 2025/11/15 (0.3) - Renamed GetPlotPos() -> GetPlotRectPos() and GetPlotSize() -> GetPlotRectSize() for clarity in 3D context.
                      Old functions are marked as deprecated and will be removed in v1.0.
 - 2025/10/22 (0.3) - **IMPORTANT** All plot coordinate types migrated from float to double precision to fix sorting issues with large values:
@@ -2733,11 +2736,10 @@ struct ImPlot3DStyleVarInfo {
 
 static const ImPlot3DStyleVarInfo GPlot3DStyleVarInfo[] = {
     // Item style
-    {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, LineWeight)},   // ImPlot3DStyleVar_LineWeight
-    {ImGuiDataType_S32, 1, (ImU32)offsetof(ImPlot3DStyle, Marker)},         // ImPlot3DStyleVar_Marker
-    {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, MarkerSize)},   // ImPlot3DStyleVar_MarkerSize
-    {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, MarkerWeight)}, // ImPlot3DStyleVar_MarkerWeight
-    {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, FillAlpha)},    // ImPlot3DStyleVar_FillAlpha
+    {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, LineWeight)}, // ImPlot3DStyleVar_LineWeight
+    {ImGuiDataType_S32, 1, (ImU32)offsetof(ImPlot3DStyle, Marker)},       // ImPlot3DStyleVar_Marker
+    {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, MarkerSize)}, // ImPlot3DStyleVar_MarkerSize
+    {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, FillAlpha)},  // ImPlot3DStyleVar_FillAlpha
 
     // Plot style
     {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotDefaultSize)}, // ImPlot3DStyleVar_Plot3DDefaultSize
@@ -2765,10 +2767,6 @@ void StyleColorsAuto(ImPlot3DStyle* dst) {
     ImPlot3DStyle* style = dst ? dst : &ImPlot3D::GetStyle();
     ImVec4* colors = style->Colors;
 
-    colors[ImPlot3DCol_Line] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_Fill] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerOutline] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerFill] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_TitleText] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_InlayText] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_FrameBg] = IMPLOT3D_AUTO_COL;
@@ -2786,10 +2784,6 @@ void StyleColorsDark(ImPlot3DStyle* dst) {
     ImPlot3DStyle* style = dst ? dst : &ImPlot3D::GetStyle();
     ImVec4* colors = style->Colors;
 
-    colors[ImPlot3DCol_Line] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_Fill] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerOutline] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerFill] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_TitleText] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     colors[ImPlot3DCol_InlayText] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     colors[ImPlot3DCol_FrameBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.07f);
@@ -2807,10 +2801,6 @@ void StyleColorsLight(ImPlot3DStyle* dst) {
     ImPlot3DStyle* style = dst ? dst : &ImPlot3D::GetStyle();
     ImVec4* colors = style->Colors;
 
-    colors[ImPlot3DCol_Line] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_Fill] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerOutline] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerFill] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_TitleText] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
     colors[ImPlot3DCol_InlayText] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
     colors[ImPlot3DCol_FrameBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
@@ -2828,10 +2818,6 @@ void StyleColorsClassic(ImPlot3DStyle* dst) {
     ImPlot3DStyle* style = dst ? dst : &ImPlot3D::GetStyle();
     ImVec4* colors = style->Colors;
 
-    colors[ImPlot3DCol_Line] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_Fill] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerOutline] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerFill] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_TitleText] = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
     colors[ImPlot3DCol_InlayText] = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
     colors[ImPlot3DCol_FrameBg] = ImVec4(0.43f, 0.43f, 0.43f, 0.39f);
@@ -3218,10 +3204,6 @@ bool IsColorAuto(ImPlot3DCol idx) { return IsColorAuto(GImPlot3D->Style.Colors[i
 
 ImVec4 GetAutoColor(ImPlot3DCol idx) {
     switch (idx) {
-        case ImPlot3DCol_Line: return IMPLOT3D_AUTO_COL;          // Plot dependent
-        case ImPlot3DCol_Fill: return IMPLOT3D_AUTO_COL;          // Plot dependent
-        case ImPlot3DCol_MarkerOutline: return IMPLOT3D_AUTO_COL; // Plot dependent
-        case ImPlot3DCol_MarkerFill: return IMPLOT3D_AUTO_COL;    // Plot dependent
         case ImPlot3DCol_TitleText: return ImGui::GetStyleColorVec4(ImGuiCol_Text);
         case ImPlot3DCol_InlayText: return ImGui::GetStyleColorVec4(ImGuiCol_Text);
         case ImPlot3DCol_FrameBg: return ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
@@ -3239,8 +3221,7 @@ ImVec4 GetAutoColor(ImPlot3DCol idx) {
 
 const char* GetStyleColorName(ImPlot3DCol idx) {
     static const char* color_names[ImPlot3DCol_COUNT] = {
-        "Line",       "Fill",     "MarkerOutline", "MarkerFill", "TitleText", "InlayText", "FrameBg",  "PlotBg",
-        "PlotBorder", "LegendBg", "LegendBorder",  "LegendText", "AxisText",  "AxisGrid",  "AxisTick",
+        "TitleText", "InlayText", "FrameBg", "PlotBg", "PlotBorder", "LegendBg", "LegendBorder", "LegendText", "AxisText", "AxisGrid", "AxisTick",
     };
     return color_names[idx];
 }
@@ -3838,7 +3819,6 @@ ImPlot3DStyle::ImPlot3DStyle() {
     LineWeight = 1.0f;
     Marker = ImPlot3DMarker_None;
     MarkerSize = 4.0f;
-    MarkerWeight = 1.0f;
     FillAlpha = 1.0f;
     // Plot style
     PlotDefaultSize = ImVec2(400, 400);

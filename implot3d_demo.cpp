@@ -426,8 +426,8 @@ void DemoMeshPlots() {
     ImGui::ColorEdit4("Fill Color##Mesh", (float*)&fill_color);
 
     // Choose marker color
-    static ImVec4 marker_color = ImVec4(0.5f, 0.5f, 0.2f, 0.6f);
-    ImGui::ColorEdit4("Marker Color##Mesh", (float*)&marker_color);
+    // static ImVec4 marker_color = ImVec4(0.5f, 0.5f, 0.2f, 0.6f);
+    // ImGui::ColorEdit4("Marker Color##Mesh", (float*)&marker_color);
 
     // Mesh flags
     static ImPlot3DMeshFlags flags = ImPlot3DMeshFlags_NoMarkers;
@@ -445,7 +445,7 @@ void DemoMeshPlots() {
         ImPlot3D::SetNextLineStyle(line_color);
 
         // Set marker style
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, 3, marker_color, IMPLOT3D_AUTO, marker_color);
+        // ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, 3, marker_color, IMPLOT3D_AUTO, marker_color);
 
         // Plot mesh
         if (mesh_id == 0)
@@ -794,7 +794,7 @@ void DemoLegendOptions() {
 
 void DemoMarkersAndText() {
     static float mk_size = ImPlot3D::GetStyle().MarkerSize;
-    static float mk_weight = ImPlot3D::GetStyle().MarkerWeight;
+    static float mk_weight = ImPlot3D::GetStyle().LineWeight;
     ImGui::DragFloat("Marker Size", &mk_size, 0.1f, 2.0f, 10.0f, "%.2f px");
     ImGui::DragFloat("Marker Weight", &mk_weight, 0.05f, 0.5f, 3.0f, "%.2f px");
 
@@ -1759,7 +1759,6 @@ void ShowStyleEditor(ImPlot3DStyle* ref) {
             ImGui::Text("Item Styling");
             ImGui::SliderFloat("LineWeight", &style.LineWeight, 0.0f, 5.0f, "%.1f");
             ImGui::SliderFloat("MarkerSize", &style.MarkerSize, 2.0f, 10.0f, "%.1f");
-            ImGui::SliderFloat("MarkerWeight", &style.MarkerWeight, 0.0f, 5.0f, "%.1f");
             ImGui::SliderFloat("FillAlpha", &style.FillAlpha, 0.0f, 1.0f, "%.2f");
             ImGui::Text("Plot Styling");
             ImGui::SliderFloat2("PlotDefaultSize", (float*)&style.PlotDefaultSize, 0.0f, 1000, "%.0f");
@@ -2076,10 +2075,6 @@ void StyleSeaborn() {
     ImPlot3DStyle& style = ImPlot3D::GetStyle();
 
     ImVec4* colors = style.Colors;
-    colors[ImPlot3DCol_Line] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_Fill] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerOutline] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerFill] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_FrameBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     colors[ImPlot3DCol_PlotBg] = ImVec4(0.92f, 0.92f, 0.95f, 1.00f);
     colors[ImPlot3DCol_PlotBorder] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
@@ -2094,7 +2089,6 @@ void StyleSeaborn() {
     style.LineWeight = 1.5;
     style.Marker = ImPlot3DMarker_None;
     style.MarkerSize = 4;
-    style.MarkerWeight = 1;
     style.FillAlpha = 1.0f;
     style.PlotPadding = ImVec2(12, 12);
     style.LabelPadding = ImVec2(5, 5);

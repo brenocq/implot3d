@@ -13,6 +13,7 @@
 // [SECTION] Macros and Defines
 // [SECTION] Forward declarations and basic types
 // [SECTION] Flags & Enumerations
+// [SECTION] Specs API
 // [SECTION] Callbacks
 // [SECTION] Context
 // [SECTION] Begin/End Plot
@@ -20,7 +21,6 @@
 // [SECTION] Plot Items
 // [SECTION] Plot Utils
 // [SECTION] Miscellaneous
-// [SECTION] Specs API
 // [SECTION] Styles API (legacy)
 // [SECTION] Demo
 // [SECTION] Debugging
@@ -125,11 +125,6 @@ enum ImPlot3DCond_ {
 };
 
 enum ImPlot3DCol_ {
-    // Item colors
-    ImPlot3DCol_Line = 0,      // Line color
-    ImPlot3DCol_Fill,          // Fill color
-    ImPlot3DCol_MarkerOutline, // Marker outline color
-    ImPlot3DCol_MarkerFill,    // Marker fill color
     // Plot colors
     ImPlot3DCol_TitleText,  // Title color
     ImPlot3DCol_InlayText,  // Color for texts appearing inside of plots
@@ -150,11 +145,10 @@ enum ImPlot3DCol_ {
 // Plot styling variables
 enum ImPlot3DStyleVar_ {
     // Item style
-    ImPlot3DStyleVar_LineWeight,   // float, plot item line weight in pixels
-    ImPlot3DStyleVar_Marker,       // int,   marker specification
-    ImPlot3DStyleVar_MarkerSize,   // float, marker size in pixels (roughly the marker's "radius")
-    ImPlot3DStyleVar_MarkerWeight, // float, plot outline weight of markers in pixels
-    ImPlot3DStyleVar_FillAlpha,    // float, alpha modifier applied to all plot item fills
+    ImPlot3DStyleVar_LineWeight, // float, plot item line weight in pixels
+    ImPlot3DStyleVar_Marker,     // int,   marker specification
+    ImPlot3DStyleVar_MarkerSize, // float, marker size in pixels (roughly the marker's "radius")
+    ImPlot3DStyleVar_FillAlpha,  // float, alpha modifier applied to all plot item fills
     // Plot style
     ImPlot3DStyleVar_PlotDefaultSize, // ImVec2, default size used when ImVec2(0,0) is passed to BeginPlot
     ImPlot3DStyleVar_PlotMinSize,     // ImVec2, minimum size plot frame can be when shrunk
@@ -354,6 +348,87 @@ enum ImPlot3DProp_ {
 };
 
 //-----------------------------------------------------------------------------
+// [SECTION] Specs API
+//-----------------------------------------------------------------------------
+
+// Plot item styling specification. Provide these to PlotX functions to override styling, specify
+// offsetting or stride, or set optional flags. This struct can be used in the following ways:
+//
+// 1. By declaring and defining a struct instance:
+//
+//    ImPlot3DSpec spec;
+//    spec.LineColor = ImVec4(1,0,0,1);
+//    spec.LineWeight = 2.0f;
+//    spec.Marker = ImPlot3DMarker_Circle;
+//    spec.Flags = ImPlot3DItemFlags_NoLegend | ImPlot3DLineFlags_Segments;
+//    ImPlot3D::PlotLine("MyLine", xs, ys, zs, 100, spec);
+//
+// 2. Inline using ImProp,value pairs (order does NOT matter):
+//
+//    ImPlot3D::PlotLine("MyLine", xs, ys, zs, 100, {
+//      ImPlot3DProp_LineColor, ImVec4(1,0,0,1),
+//      ImPlot3DProp_LineWeight, 2.0f,
+//      ImPlot3DProp_Marker, ImPlot3DMarker_Circle,
+//      ImPlot3DProp_Flags, ImPlot3DItemFlags_NoLegend | ImPlot3DLineFlags_Segments
+//    });
+struct ImPlot3DSpec {
+    ImVec4 LineColor = IMPLOT3D_AUTO_COL;        // Line color (applies to lines, marker edges); IMPLOT_AUTO_COL will use next Colormap color
+    float LineWeight = 1.0f;                     // Line weight in pixels (applies to lines, marker edges)
+    ImVec4 FillColor = IMPLOT3D_AUTO_COL;        // Fill color (applies to shaded regions, marker faces); IMPLOT_AUTO_COL will use next Colormap color
+    float FillAlpha = IMPLOT3D_AUTO;             // Alpha multiplier (applies to FillColor)
+    ImPlot3DMarker Marker = ImPlot3DMarker_Auto; // Marker type; specify ImPlot3DMarker_Auto to use the next unused marker
+    float Size = IMPLOT3D_AUTO;                  // Size of markers (radius) *in pixels*
+    int Offset = 0;                              // Data index offset
+    int Stride = IMPLOT3D_AUTO;                  // Data stride in bytes; IMPLOT_AUTO will result in sizeof(T) where T is the type passed to PlotX
+    ImPlot3DItemFlags Flags =
+        ImPlot3DItemFlags_None; // Optional item flags; can be composed from common ImPlot3DItemFlags and/or specialized ImPlot3DXFlags
+
+    ImPlot3DSpec() {}
+
+    // Construct a plot item specification from (ImPlot3DProp,value) pairs in any order
+    // E.g. ImPlot3DSpec(ImPlot3DProp_LineColor, my_color, ImPlot3DProp_Marker, ImPlot3DMarker_Circle)
+    template <typename... Args> ImPlot3DSpec(Args... args) {
+        static_assert((sizeof...(Args)) % 2 == 0, "Odd number of arguments! You must provide (ImPlot3DProp,value) pairs!");
+        SetProp(args...);
+    }
+
+    // Set properties from (ImPlot3DProp,value) pairs in any order
+    // E.g. SetProp(ImPlot3DProp_LineColor, my_color, ImPlot3DProp_Marker, ImPlot3DMarker_Circle)
+    template <typename Arg, typename... Args> void SetProp(ImPlot3DProp prop, Arg arg, Args... args) {
+        static_assert((sizeof...(Args)) % 2 == 0, "Odd number of arguments! You must provide (ImPlot3DProp,value) pairs!");
+        SetProp(prop, arg);
+        SetProp(args...);
+    }
+
+    // Set a property from a scalar value.
+    template <typename T> void SetProp(ImPlot3DProp prop, T v) {
+        switch (prop) {
+            case ImPlot3DProp_LineColor: LineColor = ImGui::ColorConvertU32ToFloat4((ImU32)v); return;
+            case ImPlot3DProp_LineWeight: LineWeight = (float)v; return;
+            case ImPlot3DProp_FillColor: FillColor = ImGui::ColorConvertU32ToFloat4((ImU32)v); return;
+            case ImPlot3DProp_FillAlpha: FillAlpha = (float)v; return;
+            case ImPlot3DProp_Marker: Marker = (ImPlot3DMarker)v; return;
+            case ImPlot3DProp_Size: Size = (float)v; return;
+            case ImPlot3DProp_Offset: Offset = (int)v; return;
+            case ImPlot3DProp_Stride: Stride = (int)v; return;
+            case ImPlot3DProp_Flags: Flags = (ImPlot3DItemFlags)v; return;
+            default: break;
+        }
+        IM_ASSERT(0 && "User provided an ImPlot3DProp which cannot be set from scalar value!");
+    }
+
+    // Set a property from an ImVec4 value.
+    void SetProp(ImPlot3DProp prop, const ImVec4& v) {
+        switch (prop) {
+            case ImPlot3DProp_LineColor: LineColor = v; return;
+            case ImPlot3DProp_FillColor: FillColor = v; return;
+            default: break;
+        }
+        IM_ASSERT(0 && "User provided an ImPlot3DProp which cannot be set from ImVec4 value!");
+    }
+};
+
+//-----------------------------------------------------------------------------
 // [SECTION] Callbacks
 //-----------------------------------------------------------------------------
 
@@ -508,7 +583,7 @@ IMPLOT3D_API void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags fla
 //    struct Vector3f { float X, Y, Z; };
 //    ...
 //    Vector3f data[42];
-//    ImPlot3D::PlotLine("line", &data[0].X, &data[0].Y, &data[0].Z, 42, 0, 0, sizeof(Vector3f));
+//    ImPlot3D::PlotLine("line", &data[0].X, &data[0].Y, &data[0].Z, 42, {ImPlot3DProp_Stride, sizeof(Vector2f)});
 //
 // 2. If your data is in separate arrays or requires computation, you can copy/transform
 //    it into temporary float or double arrays before plotting.
@@ -597,87 +672,6 @@ IMPLOT3D_API ImVec2 GetPlotRectSize();
 
 // Returns the ImDrawList used for rendering plot items. Use this to add custom rendering inside plots
 IMPLOT3D_API ImDrawList* GetPlotDrawList();
-
-//-----------------------------------------------------------------------------
-// [SECTION] Specs API
-//-----------------------------------------------------------------------------
-
-// Plot item styling specification. Provide these to PlotX functions to override styling, specify
-// offsetting or stride, or set optional flags. This struct can be used in the following ways:
-//
-// 1. By declaring and defining a struct instance:
-//
-//    ImPlot3DSpec spec;
-//    spec.LineColor = ImVec4(1,0,0,1);
-//    spec.LineWeight = 2.0f;
-//    spec.Marker = ImPlot3DMarker_Circle;
-//    spec.Flags = ImPlot3DItemFlags_NoLegend | ImPlot3DLineFlags_Segments;
-//    ImPlot3D::PlotLine("MyLine", xs, ys, zs, 100, spec);
-//
-// 2. Inline using ImProp,value pairs (order does NOT matter):
-//
-//    ImPlot3D::PlotLine("MyLine", xs, ys, zs, 100, {
-//      ImPlot3DProp_LineColor, ImVec4(1,0,0,1),
-//      ImPlot3DProp_LineWeight, 2.0f,
-//      ImPlot3DProp_Marker, ImPlot3DMarker_Circle,
-//      ImPlot3DProp_Flags, ImPlot3DItemFlags_NoLegend | ImPlot3DLineFlags_Segments
-//    });
-struct ImPlot3DSpec {
-    ImVec4 LineColor = IMPLOT3D_AUTO_COL;        // Line color (applies to lines, marker edges); IMPLOT_AUTO_COL will use next Colormap color
-    float LineWeight = 1.0f;                     // Line weight in pixels (applies to lines, marker edges)
-    ImVec4 FillColor = IMPLOT3D_AUTO_COL;        // Fill color (applies to shaded regions, marker faces); IMPLOT_AUTO_COL will use next Colormap color
-    float FillAlpha = 1.0f;                      // Alpha multiplier (applies to FillColor)
-    ImPlot3DMarker Marker = ImPlot3DMarker_Auto; // Marker type; specify ImPlot3DMarker_Auto to use the next unused marker
-    float Size = 4;                              // Size of markers (radius) *in pixels*
-    int Offset = 0;                              // Data index offset
-    int Stride = IMPLOT3D_AUTO;                  // Data stride in bytes; IMPLOT_AUTO will result in sizeof(T) where T is the type passed to PlotX
-    ImPlot3DItemFlags Flags =
-        ImPlot3DItemFlags_None; // Optional item flags; can be composed from common ImPlot3DItemFlags and/or specialized ImPlot3DXFlags
-
-    ImPlot3DSpec() {}
-
-    // Construct a plot item specification from (ImPlot3DProp,value) pairs in any order
-    // E.g. ImPlot3DSpec(ImPlot3DProp_LineColor, my_color, ImPlot3DProp_Marker, ImPlot3DMarker_Circle)
-    template <typename... Args> ImPlot3DSpec(Args... args) {
-        static_assert((sizeof...(Args)) % 2 == 0, "Odd number of arguments! You must provide (ImPlot3DProp,value) pairs!");
-        SetProp(args...);
-    }
-
-    // Set properties from (ImPlot3DProp,value) pairs in any order
-    // E.g. SetProp(ImPlot3DProp_LineColor, my_color, ImPlot3DProp_Marker, ImPlot3DMarker_Circle)
-    template <typename Arg, typename... Args> void SetProp(ImPlot3DProp prop, Arg arg, Args... args) {
-        static_assert((sizeof...(Args)) % 2 == 0, "Odd number of arguments! You must provide (ImPlot3DProp,value) pairs!");
-        SetProp(prop, arg);
-        SetProp(args...);
-    }
-
-    // Set a property from a scalar value.
-    template <typename T> void SetProp(ImPlot3DProp prop, T v) {
-        switch (prop) {
-            case ImPlot3DProp_LineColor: LineColor = ImGui::ColorConvertU32ToFloat4((ImU32)v); return;
-            case ImPlot3DProp_LineWeight: LineWeight = (float)v; return;
-            case ImPlot3DProp_FillColor: FillColor = ImGui::ColorConvertU32ToFloat4((ImU32)v); return;
-            case ImPlot3DProp_FillAlpha: FillAlpha = (float)v; return;
-            case ImPlot3DProp_Marker: Marker = (ImPlot3DMarker)v; return;
-            case ImPlot3DProp_Size: Size = (float)v; return;
-            case ImPlot3DProp_Offset: Offset = (int)v; return;
-            case ImPlot3DProp_Stride: Stride = (int)v; return;
-            case ImPlot3DProp_Flags: Flags = (ImPlot3DItemFlags)v; return;
-            default: break;
-        }
-        IM_ASSERT(0 && "User provided an ImPlot3DProp which cannot be set from scalar value!");
-    }
-
-    // Set a property from an ImVec4 value.
-    void SetProp(ImPlot3DProp prop, const ImVec4& v) {
-        switch (prop) {
-            case ImPlot3DProp_LineColor: LineColor = v; return;
-            case ImPlot3DProp_FillColor: FillColor = v; return;
-            default: break;
-        }
-        IM_ASSERT(0 && "User provided an ImPlot3DProp which cannot be set from ImVec4 value!");
-    }
-};
 
 //-----------------------------------------------------------------------------
 // [SECTION] Styles API (legacy)
@@ -993,11 +987,10 @@ struct ImPlot3DQuat {
 
 struct ImPlot3DStyle {
     // Item style
-    float LineWeight;   // Line weight in pixels
-    int Marker;         // Default marker type (ImPlot3DMarker_None)
-    float MarkerSize;   // Marker size in pixels (roughly the marker's "radius")
-    float MarkerWeight; // Marker outline weight in pixels
-    float FillAlpha;    // Alpha modifier applied to plot fills
+    float LineWeight; // Line weight in pixels
+    int Marker;       // Default marker type (ImPlot3DMarker_None)
+    float MarkerSize; // Marker size in pixels (roughly the marker's "radius")
+    float FillAlpha;  // Alpha modifier applied to plot fills
     // Plot style
     ImVec2 PlotDefaultSize; // Default size used when ImVec2(0,0) is passed to BeginPlot
     ImVec2 PlotMinSize;     // Minimum size plot frame can be when shrunk
