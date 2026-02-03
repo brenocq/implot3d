@@ -48,6 +48,50 @@ Below is a change-log of API breaking changes only. If you are using one of the 
 When you are not sure about an old symbol or function name, try using the Search/Find function of your IDE to look for comments or references in all
 implot3d files. You can read releases logs https://github.com/brenocq/implot3d/releases for more details.
 
+- 2026/02/03 (0.4) - ImPlotSpec was made the default and _only_ way of styling plot items. The SetNextXXXStyle functions have been removed.
+                      - SetNextLineStyle has been removed, styling should be set via ImPlot3DSpec.
+                         - Before:
+                           ```
+                           ImPlot3D::SetNextLineStyle(line_color, line_weight);
+                           ImPlot3D::PlotLine(xs, ys, zs, count);
+                           ```
+                         - After
+                           ```
+                           ImPlot3DSpec spec;
+                           spec.LineColor = line_color;
+                           spec.LineWeight = line_weight;
+                           ImPlot3D::PlotLine(xs, ys, zs, count, spec);
+                           ```
+                      - SetNextFillStyle has been removed, styling should be set via ImPlot3DSpec.
+                         - Before:
+                           ```
+                           ImPlot3D::SetNextFillStyle(fill_color, fill_alpha);
+                           ImPlot3D::PlotTriangle(xs, ys, zs, count);
+                           ```
+                         - After
+                           ```
+                           ImPlot3DSpec spec;
+                           spec.FillColor = fill_color;
+                           spec.FillAlpha = fill_alpha;
+                           ImPlot3D::PlotLine(xs, ys, zs, count, spec);
+                           ```
+                      - SetNextMarkerStyle has been removed, styling should be set via ImPlot3DSpec.
+                         - Before:
+                           ```
+                           ImPlot3D::SetNextMarkerStyle(marker, marker_size, fill_color, line_weight, marker_outline_color);
+                           ImPlot3D::PlotScatter(xs, ys, zs, count);
+                           ```
+                         - After
+                           ```
+                           ImPlot3DSpec spec;
+                           spec.Marker = marker;
+                           spec.Size = marker_size;
+                           spec.FillColor = fill_color;
+                           spec.LineWeight = line_weight;
+                           spec.LineColor = marker_outline_color;
+                           ImPlot3D::PlotLine(xs, ys, zs, count, spec);
+                           ```
+                        - Flags, Offset and Stride should also be set via ImPlot3DSpec now.
 - 2026/02/02 (0.4) - Item colors removed from ImPlot3DCol_, it's no longer possible to push/pop individual item colors.
 - 2026/02/02 (0.4) - ImPlot3DStyle::MarkerWeight was removed. The marker line weight is now controlled by ImPlot3DStyle::LineWeight.
 
@@ -2955,6 +2999,14 @@ void PopStyleVar(int count) {
 ImVec4 GetStyleColorVec4(ImPlot3DCol idx) { return IsColorAuto(idx) ? GetAutoColor(idx) : GImPlot3D->Style.Colors[idx]; }
 
 ImU32 GetStyleColorU32(ImPlot3DCol idx) { return ImGui::ColorConvertFloat4ToU32(ImPlot3D::GetStyleColorVec4(idx)); }
+
+ImPlot3DMarker NextMarker() {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentItems != nullptr, "NextMarker() needs to be called between BeginPlot() and EndPlot()!");
+    const int idx = gp.CurrentItems->MarkerIdx % ImPlot3DMarker_COUNT;
+    ++gp.CurrentItems->MarkerIdx;
+    return idx;
+}
 
 //------------------------------------------------------------------------------
 // [SECTION] Colormaps

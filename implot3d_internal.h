@@ -12,6 +12,7 @@
 // Table of Contents:
 // [SECTION] Constants
 // [SECTION] Generic Helpers
+// [SECTION] Internal Enumerations
 // [SECTION] Forward Declarations
 // [SECTION] Callbacks
 // [SECTION] Structs
@@ -112,6 +113,14 @@ template <typename T> void FillRange(ImVector<T>& buffer, int n, T vmin, T vmax)
 }
 
 } // namespace ImPlot3D
+
+//-----------------------------------------------------------------------------
+// [SECTION] Internal Enumerations
+//-----------------------------------------------------------------------------
+
+enum ImPlot3DMarkerInternal_ {
+    ImPlot3DMarker_Invalid = -3,
+};
 
 //-----------------------------------------------------------------------------
 // [SECTION] Forward Declarations
@@ -311,6 +320,7 @@ struct ImPlot3DColormapData {
 struct ImPlot3DItem {
     ImGuiID ID;
     ImU32 Color;
+    ImPlot3DMarker Marker;
     int NameOffset;
     bool Show;
     bool LegendHovered;
@@ -319,6 +329,7 @@ struct ImPlot3DItem {
     ImPlot3DItem() {
         ID = 0;
         Color = IM_COL32_WHITE;
+        Marker = ImPlot3DMarker_None;
         NameOffset = -1;
         Show = true;
         LegendHovered = false;
@@ -356,8 +367,12 @@ struct ImPlot3DItemGroup {
     ImPool<ImPlot3DItem> ItemPool;
     ImPlot3DLegend Legend;
     int ColormapIdx;
+    ImPlot3DMarker MarkerIdx;
 
-    ImPlot3DItemGroup() { ColormapIdx = 0; }
+    ImPlot3DItemGroup() {
+        ColormapIdx = 0;
+        MarkerIdx = 0;
+    }
 
     int GetItemCount() const { return ItemPool.GetBufSize(); }
     ImGuiID GetItemID(const char* label_id) { return ImGui::GetID(label_id); }
@@ -373,6 +388,7 @@ struct ImPlot3DItemGroup {
         ItemPool.Clear();
         Legend.Reset();
         ColormapIdx = 0;
+        MarkerIdx = 0;
     }
 };
 
@@ -837,7 +853,9 @@ IMPLOT3D_API void RenderColorBar(const ImU32* colors, int size, ImDrawList& Draw
 // [SECTION] Item Utils
 //-----------------------------------------------------------------------------
 
-IMPLOT3D_API bool BeginItem(const char* label_id, ImPlot3DItemFlags flags = 0, ImPlot3DCol recolor_from = IMPLOT3D_AUTO);
+// Begins a new item. Returns false if the item should not be plotted
+IMPLOT3D_API bool BeginItem(const char* label_id, const ImPlot3DSpec& spec = ImPlot3DSpec(), const ImVec4& item_col = IMPLOT3D_AUTO_COL,
+                            ImPlot3DMarker item_mkr = ImPlot3DMarker_Invalid);
 IMPLOT3D_API void EndItem();
 
 // Register or get an existing item from the current plot

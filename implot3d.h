@@ -592,30 +592,26 @@ IMPLOT3D_API void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags fla
 // if you try plotting extremely large 64-bit integral types. Proceed with caution!
 
 // Plots a scatter plot in 3D. Points are rendered as markers at the specified coordinates
-IMPLOT3D_TMP void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DScatterFlags flags = 0, int offset = 0,
-                              int stride = sizeof(T));
+IMPLOT3D_TMP void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plots a line in 3D. Consecutive points are connected with line segments
-IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DLineFlags flags = 0, int offset = 0,
-                           int stride = sizeof(T));
+IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plots triangles in 3D. Every 3 consecutive points define a triangle
-IMPLOT3D_TMP void PlotTriangle(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DTriangleFlags flags = 0,
-                               int offset = 0, int stride = sizeof(T));
+IMPLOT3D_TMP void PlotTriangle(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plots quads in 3D. Every 4 consecutive points define a quadrilateral
-IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DQuadFlags flags = 0, int offset = 0,
-                           int stride = sizeof(T));
+IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plot the surface defined by a grid of vertices. The grid is defined by the x and y arrays, and the z array contains the height of each vertex. A
 // total of x_count * y_count vertices are expected for each array. Leave #scale_min and #scale_max both at 0 for automatic color scaling, or set them
 // to a predefined range
 IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count, double scale_min = 0.0,
-                              double scale_max = 0.0, ImPlot3DSurfaceFlags flags = 0, int offset = 0, int stride = sizeof(T));
+                              double scale_max = 0.0, const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plots a 3D mesh given vertex positions and indices. Triangles are defined by the index buffer (every 3 indices form a triangle)
 IMPLOT3D_API void PlotMesh(const char* label_id, const ImPlot3DPoint* vtx, const unsigned int* idx, int vtx_count, int idx_count,
-                           ImPlot3DMeshFlags flags = 0);
+                           const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plots a rectangular image in 3D defined by its center and two direction vectors (axes).
 // #center is the center of the rectangle in plot coordinates.
@@ -625,7 +621,7 @@ IMPLOT3D_API void PlotMesh(const char* label_id, const ImPlot3DPoint* vtx, const
 // #tint_col can be used to tint the image.
 IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const ImPlot3DPoint& center, const ImPlot3DPoint& axis_u,
                             const ImPlot3DPoint& axis_v, const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1),
-                            const ImVec4& tint_col = ImVec4(1, 1, 1, 1), ImPlot3DImageFlags flags = 0);
+                            const ImVec4& tint_col = ImVec4(1, 1, 1, 1), const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plots an image using four arbitrary 3D points that define a quad in space.
 // Each corner (p0 to p3) corresponds to a corner in the image, and #uv0 to #uv3 are the texture coordinates for each.
@@ -635,13 +631,13 @@ IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const Im
 IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const ImPlot3DPoint& p0, const ImPlot3DPoint& p1, const ImPlot3DPoint& p2,
                             const ImPlot3DPoint& p3, const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 0),
                             const ImVec2& uv2 = ImVec2(1, 1), const ImVec2& uv3 = ImVec2(0, 1), const ImVec4& tint_col = ImVec4(1, 1, 1, 1),
-                            ImPlot3DImageFlags flags = 0);
+                            const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plots a centered text label at point x,y,z with optional rotation angle (in radians) and pixel offset
 IMPLOT3D_API void PlotText(const char* text, double x, double y, double z, double angle = 0.0, const ImVec2& pix_offset = ImVec2(0, 0));
 
 // Plots a dummy item (can be used to modify legend entry appearance when called after plotting an item, or add a dummy legend entry)
-IMPLOT3D_API void PlotDummy(const char* label_id, ImPlot3DDummyFlags flags = 0);
+IMPLOT3D_API void PlotDummy(const char* label_id, const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 //-----------------------------------------------------------------------------
 // [SECTION] Plot Utils
@@ -702,17 +698,12 @@ IMPLOT3D_API void PushStyleVar(ImPlot3DStyleVar idx, const ImVec2& val);
 // Undo temporary style variable modification(s). Undo multiple pushes at once by increasing count
 IMPLOT3D_API void PopStyleVar(int count = 1);
 
-// Set the line color and weight for the next item only
-IMPLOT3D_API void SetNextLineStyle(const ImVec4& col = IMPLOT3D_AUTO_COL, float weight = IMPLOT3D_AUTO);
-// Set the fill color for the next item only
-IMPLOT3D_API void SetNextFillStyle(const ImVec4& col = IMPLOT3D_AUTO_COL, float alpha_mod = IMPLOT3D_AUTO);
-// Set the marker style for the next item only
-IMPLOT3D_API void SetNextMarkerStyle(ImPlot3DMarker marker = IMPLOT3D_AUTO, float size = IMPLOT3D_AUTO, const ImVec4& fill = IMPLOT3D_AUTO_COL,
-                                     float weight = IMPLOT3D_AUTO, const ImVec4& outline = IMPLOT3D_AUTO_COL);
-
 // Get color
 IMPLOT3D_API ImVec4 GetStyleColorVec4(ImPlot3DCol idx);
 IMPLOT3D_API ImU32 GetStyleColorU32(ImPlot3DCol idx);
+
+// Returns the next marker and advances the marker for the current plot. You need to call this between Begin/EndPlot!
+IMPLOT3D_API ImPlot3DMarker NextMarker();
 
 //-----------------------------------------------------------------------------
 // [SECTION] Colormaps
@@ -725,7 +716,6 @@ IMPLOT3D_API ImU32 GetStyleColorU32(ImPlot3DCol idx);
 
 // Colormap data will be ignored and a custom color will be used if you have done one of the following:
 //     1) Modified an item style color in your ImPlot3DStyle to anything other than IMPLOT3D_AUTO_COL.
-//     3) Set the next item style with a SetNextXXXStyle function.
 
 // Add a new colormap. The color data will be copied. The colormap can be used by pushing either the returned index or the
 // string name with PushColormap. The colormap name must be unique and the size must be greater than 1. You will receive
