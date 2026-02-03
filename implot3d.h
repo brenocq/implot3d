@@ -336,15 +336,17 @@ enum ImPlot3DColormap_ {
 
 // Plotting properties. These provide syntactic sugar for creating ImPlot3DSpec from (ImPlot3DProp,value) pairs
 enum ImPlot3DProp_ {
-    ImPlot3DProp_LineColor,  // Line color (applies to lines, marker edges); IMPLOT3D_AUTO_COL will use next Colormap color
-    ImPlot3DProp_LineWeight, // Line weight in pixels (applies to lines, marker edges)
-    ImPlot3DProp_FillColor,  // Fill color (applies to shaded regions, marker faces); IMPLOT3D_AUTO_COL will use next Colormap color
-    ImPlot3DProp_FillAlpha,  // Alpha multiplier (applies to FillColor)
-    ImPlot3DProp_Marker,     // Marker type
-    ImPlot3DProp_MarkerSize, // Size of markers (radius)
-    ImPlot3DProp_Offset,     // Data index offset
-    ImPlot3DProp_Stride,     // Data stride in bytes; IMPLOT3D_AUTO will result in sizeof(T) where T is the type passed to PlotX
-    ImPlot3DProp_Flags       // Optional item flags; can be composed from common ImPlot3DItemFlags and/or specialized ImPlot3DXFlags
+    ImPlot3DProp_LineColor,       // Line color; IMPLOT3D_AUTO_COL will use next Colormap color
+    ImPlot3DProp_LineWeight,      // Line weight in pixels
+    ImPlot3DProp_FillColor,       // Fill color (applies to shaded regions); IMPLOT3D_AUTO_COL will use next Colormap color
+    ImPlot3DProp_FillAlpha,       // Alpha multiplier (applies to FillColor and MarkerFillColor)
+    ImPlot3DProp_Marker,          // Marker type
+    ImPlot3DProp_MarkerSize,      // Size of markers (radius) *in pixels*
+    ImPlot3DProp_MarkerLineColor, // Marker outline color; IMPLOT3D_AUTO_COL will use next LineColor
+    ImPlot3DProp_MarkerFillColor, // Marker fill color; IMPLOT3D_AUTO_COL will use LineColor
+    ImPlot3DProp_Offset,          // Data index offset
+    ImPlot3DProp_Stride,          // Data stride in bytes; IMPLOT3D_AUTO will result in sizeof(T) where T is the type passed to PlotX
+    ImPlot3DProp_Flags            // Optional item flags; can be composed from common ImPlot3DItemFlags and/or specialized ImPlot3DXFlags
 };
 
 //-----------------------------------------------------------------------------
@@ -372,14 +374,16 @@ enum ImPlot3DProp_ {
 //      ImPlot3DProp_Flags, ImPlot3DItemFlags_NoLegend | ImPlot3DLineFlags_Segments
 //    });
 struct ImPlot3DSpec {
-    ImVec4 LineColor = IMPLOT3D_AUTO_COL;        // Line color (applies to lines, marker edges); IMPLOT_AUTO_COL will use next Colormap color
-    float LineWeight = 1.0f;                     // Line weight in pixels (applies to lines, marker edges)
-    ImVec4 FillColor = IMPLOT3D_AUTO_COL;        // Fill color (applies to shaded regions, marker faces); IMPLOT_AUTO_COL will use next Colormap color
-    float FillAlpha = IMPLOT3D_AUTO;             // Alpha multiplier (applies to FillColor)
-    ImPlot3DMarker Marker = ImPlot3DMarker_Auto; // Marker type; specify ImPlot3DMarker_Auto to use the next unused marker
+    ImVec4 LineColor = IMPLOT3D_AUTO_COL;        // Line color; IMPLOT3D_AUTO_COL will use next Colormap color
+    float LineWeight = 1.0f;                     // Line weight in pixels
+    ImVec4 FillColor = IMPLOT3D_AUTO_COL;        // Fill color (applies to shaded regions); IMPLOT3D_AUTO_COL will use next Colormap color
+    float FillAlpha = IMPLOT3D_AUTO;             // Alpha multiplier (applies to FillColor and MarkerFillColor)
+    ImPlot3DMarker Marker = ImPlot3DMarker_Auto; // Marker type
     float MarkerSize = IMPLOT3D_AUTO;            // Size of markers (radius) *in pixels*
+    ImVec4 MarkerLineColor = IMPLOT3D_AUTO_COL;  // Marker outline color; IMPLOT3D_AUTO_COL will use LineColor
+    ImVec4 MarkerFillColor = IMPLOT3D_AUTO_COL;  // Marker fill color; IMPLOT3D_AUTO_COL will use LineColor
     int Offset = 0;                              // Data index offset
-    int Stride = IMPLOT3D_AUTO;                  // Data stride in bytes; IMPLOT_AUTO will result in sizeof(T) where T is the type passed to PlotX
+    int Stride = IMPLOT3D_AUTO;                  // Data stride in bytes; IMPLOT3D_AUTO will result in sizeof(T) where T is the type passed to PlotX
     ImPlot3DItemFlags Flags =
         ImPlot3DItemFlags_None; // Optional item flags; can be composed from common ImPlot3DItemFlags and/or specialized ImPlot3DXFlags
 
@@ -409,6 +413,8 @@ struct ImPlot3DSpec {
             case ImPlot3DProp_FillAlpha: FillAlpha = (float)v; return;
             case ImPlot3DProp_Marker: Marker = (ImPlot3DMarker)v; return;
             case ImPlot3DProp_MarkerSize: MarkerSize = (float)v; return;
+            case ImPlot3DProp_MarkerLineColor: MarkerLineColor = ImGui::ColorConvertU32ToFloat4((ImU32)v); return;
+            case ImPlot3DProp_MarkerFillColor: MarkerFillColor = ImGui::ColorConvertU32ToFloat4((ImU32)v); return;
             case ImPlot3DProp_Offset: Offset = (int)v; return;
             case ImPlot3DProp_Stride: Stride = (int)v; return;
             case ImPlot3DProp_Flags: Flags = (ImPlot3DItemFlags)v; return;
@@ -422,6 +428,8 @@ struct ImPlot3DSpec {
         switch (prop) {
             case ImPlot3DProp_LineColor: LineColor = v; return;
             case ImPlot3DProp_FillColor: FillColor = v; return;
+            case ImPlot3DProp_MarkerLineColor: MarkerLineColor = v; return;
+            case ImPlot3DProp_MarkerFillColor: MarkerFillColor = v; return;
             default: break;
         }
         IM_ASSERT(0 && "User provided an ImPlot3DProp which cannot be set from ImVec4 value!");

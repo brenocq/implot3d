@@ -84,11 +84,11 @@ implot3d files. You can read releases logs https://github.com/brenocq/implot3d/r
                          - After
                            ```
                            ImPlot3DSpec spec;
+                           spec.LineWeight = line_weight;
                            spec.Marker = marker;
                            spec.MarkerSize = marker_size;
-                           spec.FillColor = fill_color;
-                           spec.LineWeight = line_weight;
-                           spec.LineColor = marker_outline_color;
+                           spec.MarkerLineColor = marker_outline_color;
+                           spec.MarkerFillColor = fill_color;
                            ImPlot3D::PlotLine(xs, ys, zs, count, spec);
                            ```
                         - Flags, Offset and Stride should also be set via ImPlot3DSpec now.

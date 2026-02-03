@@ -146,8 +146,8 @@ void DemoScatterPlots() {
         ImPlot3DSpec spec;
         spec.Marker = ImPlot3DMarker_Square;
         spec.MarkerSize = 6;
-        spec.LineColor = ImPlot3D::GetColormapColor(1);
-        spec.FillColor = ImPlot3D::GetColormapColor(1);
+        spec.MarkerLineColor = ImPlot3D::GetColormapColor(1);
+        spec.MarkerFillColor = ImPlot3D::GetColormapColor(2);
         spec.FillAlpha = 0.25f;
         ImPlot3D::PlotScatter("Data 2", xs2, ys2, zs2, 50, spec);
         ImPlot3D::EndPlot();
@@ -429,8 +429,8 @@ void DemoMeshPlots() {
     ImGui::ColorEdit4("Fill Color##Mesh", (float*)&fill_color);
 
     // Choose marker color
-    // static ImVec4 marker_color = ImVec4(0.5f, 0.5f, 0.2f, 0.6f);
-    // ImGui::ColorEdit4("Marker Color##Mesh", (float*)&marker_color);
+    static ImVec4 marker_color = ImVec4(0.5f, 0.5f, 0.2f, 0.6f);
+    ImGui::ColorEdit4("Marker Color##Mesh", (float*)&marker_color);
 
     // Mesh flags
     static ImPlot3DMeshFlags flags = ImPlot3DMeshFlags_NoMarkers;
@@ -450,6 +450,8 @@ void DemoMeshPlots() {
         // Set marker style
         spec.Marker = ImPlot3DMarker_Square;
         spec.MarkerSize = 3.0f;
+        spec.MarkerLineColor = marker_color;
+        spec.MarkerFillColor = marker_color;
 
         // Plot mesh
         if (mesh_id == 0)
