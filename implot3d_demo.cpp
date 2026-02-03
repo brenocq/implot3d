@@ -145,7 +145,7 @@ void DemoScatterPlots() {
         ImPlot3D::PlotScatter("Data 1", xs1, ys1, zs1, 100);
         ImPlot3DSpec spec;
         spec.Marker = ImPlot3DMarker_Square;
-        spec.Size = 6;
+        spec.MarkerSize = 6;
         spec.LineColor = ImPlot3D::GetColormapColor(1);
         spec.FillColor = ImPlot3D::GetColormapColor(1);
         spec.FillAlpha = 0.25f;
@@ -230,7 +230,7 @@ void DemoTrianglePlots() {
         spec.FillColor = ImPlot3D::GetColormapColor(0);
         spec.LineColor = ImPlot3D::GetColormapColor(1);
         spec.Marker = ImPlot3DMarker_Square;
-        spec.Size = 3;
+        spec.MarkerSize = 3;
         spec.Flags = flags;
 
         // Plot pyramid
@@ -294,7 +294,7 @@ void DemoQuadPlots() {
 
         ImPlot3DSpec spec;
         spec.Marker = ImPlot3DMarker_Square;
-        spec.Size = 3;
+        spec.MarkerSize = 3;
         spec.Flags = flags;
 
         // Render +x and -x faces
@@ -449,7 +449,7 @@ void DemoMeshPlots() {
         spec.LineColor = line_color;
         // Set marker style
         spec.Marker = ImPlot3DMarker_Square;
-        spec.Size = 3.0f;
+        spec.MarkerSize = 3.0f;
 
         // Plot mesh
         if (mesh_id == 0)
@@ -821,7 +821,8 @@ void DemoMarkersAndText() {
             ys[1] = ys[0] + ImSin(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5f;
 
             ImGui::PushID(m);
-            ImPlot3D::PlotLine("##Filled", xs, ys, zs, 2, {ImPlot3DProp_Marker, m, ImPlot3DProp_Size, mk_size, ImPlot3DProp_LineWeight, mk_weight});
+            ImPlot3D::PlotLine("##Filled", xs, ys, zs, 2,
+                               {ImPlot3DProp_Marker, m, ImPlot3DProp_MarkerSize, mk_size, ImPlot3DProp_LineWeight, mk_weight});
             ImGui::PopID();
             zs[0]--;
             zs[1]--;
@@ -838,9 +839,9 @@ void DemoMarkersAndText() {
             ys[1] = ys[0] - ImSin(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5f;
 
             ImGui::PushID(m);
-            ImPlot3D::PlotLine(
-                "##Open", xs, ys, zs, 2,
-                {ImPlot3DProp_Marker, m, ImPlot3DProp_Size, mk_size, ImPlot3DProp_LineWeight, mk_weight, ImPlot3DProp_FillColor, ImVec4(0, 0, 0, 0)});
+            ImPlot3D::PlotLine("##Open", xs, ys, zs, 2,
+                               {ImPlot3DProp_Marker, m, ImPlot3DProp_MarkerSize, mk_size, ImPlot3DProp_LineWeight, mk_weight, ImPlot3DProp_FillColor,
+                                ImVec4(0, 0, 0, 0)});
             ImGui::PopID();
             zs[0]--;
             zs[1]--;
@@ -1149,7 +1150,7 @@ void DemoMousePicking() {
         if (ImGui::IsItemHovered() && !point.IsNaN()) {
             ImPlot3DSpec spec;
             spec.Marker = ImPlot3DMarker_Circle;
-            spec.Size = 5;
+            spec.MarkerSize = 5;
             spec.FillColor = ImVec4(1, 1, 0, 1);
             ImPlot3D::PlotScatter("##Intersection", &point.x, &point.y, &point.z, 1, spec);
         }
@@ -1165,7 +1166,7 @@ void DemoMousePicking() {
             // Plot points
             ImPlot3DSpec spec;
             spec.Marker = ImPlot3DMarker_Circle;
-            spec.Size = 3;
+            spec.MarkerSize = 3;
             spec.Stride = sizeof(ImPlot3DPoint);
             ImPlot3D::PlotScatter("Placed Points", &points[0].x, &points[0].y, &points[0].z, (int)points.Size, spec);
         }
@@ -1445,7 +1446,7 @@ void DemoCustomPerPointStyle() {
 
         ImPlot3DSpec spec;
         spec.Marker = ImPlot3DMarker_Circle;
-        spec.Size = marker_size;
+        spec.MarkerSize = marker_size;
 
         for (int torus = 0; torus < 3; torus++) {
             const int point_count = 400;

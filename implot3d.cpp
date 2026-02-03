@@ -85,7 +85,7 @@ implot3d files. You can read releases logs https://github.com/brenocq/implot3d/r
                            ```
                            ImPlot3DSpec spec;
                            spec.Marker = marker;
-                           spec.Size = marker_size;
+                           spec.MarkerSize = marker_size;
                            spec.FillColor = fill_color;
                            spec.LineWeight = line_weight;
                            spec.LineColor = marker_outline_color;

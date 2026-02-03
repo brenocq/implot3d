@@ -341,7 +341,7 @@ enum ImPlot3DProp_ {
     ImPlot3DProp_FillColor,  // Fill color (applies to shaded regions, marker faces); IMPLOT3D_AUTO_COL will use next Colormap color
     ImPlot3DProp_FillAlpha,  // Alpha multiplier (applies to FillColor)
     ImPlot3DProp_Marker,     // Marker type
-    ImPlot3DProp_Size,       // Size of markers (radius)
+    ImPlot3DProp_MarkerSize, // Size of markers (radius)
     ImPlot3DProp_Offset,     // Data index offset
     ImPlot3DProp_Stride,     // Data stride in bytes; IMPLOT3D_AUTO will result in sizeof(T) where T is the type passed to PlotX
     ImPlot3DProp_Flags       // Optional item flags; can be composed from common ImPlot3DItemFlags and/or specialized ImPlot3DXFlags
@@ -377,7 +377,7 @@ struct ImPlot3DSpec {
     ImVec4 FillColor = IMPLOT3D_AUTO_COL;        // Fill color (applies to shaded regions, marker faces); IMPLOT_AUTO_COL will use next Colormap color
     float FillAlpha = IMPLOT3D_AUTO;             // Alpha multiplier (applies to FillColor)
     ImPlot3DMarker Marker = ImPlot3DMarker_Auto; // Marker type; specify ImPlot3DMarker_Auto to use the next unused marker
-    float Size = IMPLOT3D_AUTO;                  // Size of markers (radius) *in pixels*
+    float MarkerSize = IMPLOT3D_AUTO;            // Size of markers (radius) *in pixels*
     int Offset = 0;                              // Data index offset
     int Stride = IMPLOT3D_AUTO;                  // Data stride in bytes; IMPLOT_AUTO will result in sizeof(T) where T is the type passed to PlotX
     ImPlot3DItemFlags Flags =
@@ -408,7 +408,7 @@ struct ImPlot3DSpec {
             case ImPlot3DProp_FillColor: FillColor = ImGui::ColorConvertU32ToFloat4((ImU32)v); return;
             case ImPlot3DProp_FillAlpha: FillAlpha = (float)v; return;
             case ImPlot3DProp_Marker: Marker = (ImPlot3DMarker)v; return;
-            case ImPlot3DProp_Size: Size = (float)v; return;
+            case ImPlot3DProp_MarkerSize: MarkerSize = (float)v; return;
             case ImPlot3DProp_Offset: Offset = (int)v; return;
             case ImPlot3DProp_Stride: Stride = (int)v; return;
             case ImPlot3DProp_Flags: Flags = (ImPlot3DItemFlags)v; return;
