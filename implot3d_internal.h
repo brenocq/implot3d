@@ -182,6 +182,7 @@ struct ImPlot3DNextItemData {
     ImPlot3DMarker Marker;
     float MarkerSize;
     float MarkerWeight;
+    float QuiverSize;
     float FillAlpha;
     bool RenderLine;
     bool RenderFill;
