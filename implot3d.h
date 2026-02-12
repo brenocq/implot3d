@@ -193,6 +193,7 @@ enum ImPlot3DScatterFlags_ {
     ImPlot3DScatterFlags_None = 0, // Default
     ImPlot3DScatterFlags_NoLegend = ImPlot3DItemFlags_NoLegend,
     ImPlot3DScatterFlags_NoFit = ImPlot3DItemFlags_NoFit,
+    ImPlot3DScatterFlags_PerPointCustomColor = 1 << 2, // Each point is assigned with a specific color according to its value
 };
 
 // Flags for PlotLine
@@ -200,9 +201,10 @@ enum ImPlot3DLineFlags_ {
     ImPlot3DLineFlags_None = 0, // Default
     ImPlot3DLineFlags_NoLegend = ImPlot3DItemFlags_NoLegend,
     ImPlot3DLineFlags_NoFit = ImPlot3DItemFlags_NoFit,
-    ImPlot3DLineFlags_Segments = 1 << 10, // A line segment will be rendered from every two consecutive points
-    ImPlot3DLineFlags_Loop = 1 << 11,     // The last and first point will be connected to form a closed loop
-    ImPlot3DLineFlags_SkipNaN = 1 << 12,  // NaNs values will be skipped instead of rendered as missing data
+    ImPlot3DLineFlags_Segments = 1 << 10,   // A line segment will be rendered from every two consecutive points
+    ImPlot3DLineFlags_Loop = 1 << 11,       // The last and first point will be connected to form a closed loop
+    ImPlot3DLineFlags_SkipNaN = 1 << 12,    // NaNs values will be skipped instead of rendered as missing data
+    ImPlot3DLineFlags_PerPointCustomColor = 1 << 13, // Each point is assigned with a specific color according to its value
 };
 
 // Flags for PlotTriangle
@@ -233,6 +235,7 @@ enum ImPlot3DSurfaceFlags_ {
     ImPlot3DSurfaceFlags_NoLines = 1 << 10,   // No lines will be rendered
     ImPlot3DSurfaceFlags_NoFill = 1 << 11,    // No fill will be rendered
     ImPlot3DSurfaceFlags_NoMarkers = 1 << 12, // No markers will be rendered
+    ImPlot3DSurfaceFlags_PerPointCustomColor = 1 << 13, // No markers will be rendered
 };
 
 // Flags for PlotMesh
@@ -504,9 +507,17 @@ IMPLOT3D_API void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags fla
 IMPLOT3D_TMP void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DScatterFlags flags = 0, int offset = 0,
                               int stride = sizeof(T));
 
+// Plots a scatter plot in 3D. Each point is assigned with specific color
+IMPLOT3D_TMP void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, const ImU32* cs, int count, ImPlot3DScatterFlags flags = 0,
+                              int offset = 0, int stride = sizeof(T));
+
 // Plots a line in 3D. Consecutive points are connected with line segments
 IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DLineFlags flags = 0, int offset = 0,
                            int stride = sizeof(T));
+
+// Plots a line in 3D. Each point is assigned with specific color
+IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const T* zs, const ImU32* cs, int count, ImPlot3DLineFlags flags = 0,
+                           int offset = 0, int stride = sizeof(T));
 
 // Plots triangles in 3D. Every 3 consecutive points define a triangle
 IMPLOT3D_TMP void PlotTriangle(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DTriangleFlags flags = 0,
@@ -521,6 +532,10 @@ IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const
 // to a predefined range
 IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count, double scale_min = 0.0,
                               double scale_max = 0.0, ImPlot3DSurfaceFlags flags = 0, int offset = 0, int stride = sizeof(T));
+
+// Plot the surface defined by a grid of vertices. Each vertex is assigned with a specific color
+IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, const ImU32* cs, int x_count, int y_count,
+                              double scale_min = 0.0, double scale_max = 0.0, ImPlot3DSurfaceFlags flags = 0, int offset = 0, int stride = sizeof(T));
 
 // Plots a 3D mesh given vertex positions and indices. Triangles are defined by the index buffer (every 3 indices form a triangle)
 IMPLOT3D_API void PlotMesh(const char* label_id, const ImPlot3DPoint* vtx, const unsigned int* idx, int vtx_count, int idx_count,
@@ -672,6 +687,9 @@ IMPLOT3D_API ImVec4 GetColormapColor(int idx, ImPlot3DColormap cmap = IMPLOT3D_A
 // Sample a color from the current colormap given t between 0 and 1
 IMPLOT3D_API ImVec4 SampleColormap(float t, ImPlot3DColormap cmap = IMPLOT3D_AUTO);
 
+// Convert values to colors using a specific colormap.
+IMPLOT3D_TMP void ConvertValueToColor(T* value, ImU32* cs, int count, float v_min, float v_max, ImPlot3DColormap colormap);
+
 //-----------------------------------------------------------------------------
 // [SECTION] Demo
 //-----------------------------------------------------------------------------
@@ -704,8 +722,10 @@ IMPLOT3D_API void ShowAboutWindow(bool* p_open = nullptr);
 // ImPlot3DPoint: 3D vector to store points in 3D space
 struct ImPlot3DPoint {
     double x, y, z; // Coordinates
-    constexpr ImPlot3DPoint() : x(0.0), y(0.0), z(0.0) {}
-    constexpr ImPlot3DPoint(double _x, double _y, double _z) : x(_x), y(_y), z(_z) {}
+    ImU32 c; //color
+    constexpr ImPlot3DPoint() : x(0.0), y(0.0), z(0.0), c(ImU32()) {}
+    constexpr ImPlot3DPoint(double _x, double _y, double _z) : x(_x), y(_y), z(_z), c(ImU32()) {}
+    constexpr ImPlot3DPoint(double _x, double _y, double _z, ImU32 _c) : x(_x), y(_y), z(_z), c(_c) {}
 
     // Accessors
     double& operator[](size_t idx) {

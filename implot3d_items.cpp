@@ -441,6 +441,78 @@ template <class _Getter> struct RendererMarkersLine : RendererBase {
     mutable ImVec2 UV1;
 };
 
+template <class _Getter> struct RendererMarkersFillC : RendererBase {
+    RendererMarkersFillC(const _Getter& getter, const ImVec2* marker, int count, float size)
+        : RendererBase(getter.Count, (count - 2) * 3, count), Getter(getter), Marker(marker), Count(count), Size(size) {
+    }
+
+    void Init(ImDrawList3D& draw_list_3d) const { UV = draw_list_3d._SharedData->TexUvWhitePixel; }
+
+    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
+        ImPlot3DPoint p_plot = Getter(prim);
+        if (!cull_box.Contains(p_plot))
+            return false;
+        ImVec2 p = PlotToPixels(p_plot);
+        // 3 vertices per triangle
+        for (int i = 0; i < Count; i++) {
+            draw_list_3d._VtxWritePtr[0].pos.x = p.x + Marker[i].x * Size;
+            draw_list_3d._VtxWritePtr[0].pos.y = p.y + Marker[i].y * Size;
+            draw_list_3d._VtxWritePtr[0].uv = UV;
+            draw_list_3d._VtxWritePtr[0].col = Getter(prim).c;
+            draw_list_3d._VtxWritePtr++;
+        }
+        // 3 indices per triangle
+        for (int i = 2; i < Count; i++) {
+            // Indices
+            draw_list_3d._IdxWritePtr[0] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx);
+            draw_list_3d._IdxWritePtr[1] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + i - 1);
+            draw_list_3d._IdxWritePtr[2] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + i);
+            draw_list_3d._IdxWritePtr += 3;
+            // Z
+            draw_list_3d._ZWritePtr[0] = GetPointDepth(p_plot);
+            draw_list_3d._ZWritePtr++;
+        }
+        // Update vertex count
+        draw_list_3d._VtxCurrentIdx += (ImDrawIdx)Count;
+        return true;
+    }
+    const _Getter& Getter;
+    const ImVec2* Marker;
+    const int Count;
+    const float Size;
+    mutable ImVec2 UV;
+};
+
+template <class _Getter> struct RendererMarkersLineC : RendererBase {
+    RendererMarkersLineC(const _Getter& getter, const ImVec2* marker, int count, float size, float weight)
+        : RendererBase(getter.Count, count / 2 * 6, count / 2 * 4), Getter(getter), Marker(marker), Count(count),
+        HalfWeight(ImMax(1.0f, weight) * 0.5f), Size(size) {
+    }
+
+    void Init(ImDrawList3D& draw_list_3d) const { GetLineRenderProps(draw_list_3d, HalfWeight, UV0, UV1); }
+
+    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
+        ImPlot3DPoint p_plot = Getter(prim);
+        if (!cull_box.Contains(p_plot))
+            return false;
+        ImVec2 p = PlotToPixels(p_plot);
+        for (int i = 0; i < Count; i = i + 2) {
+            ImVec2 p1(p.x + Marker[i].x * Size, p.y + Marker[i].y * Size);
+            ImVec2 p2(p.x + Marker[i + 1].x * Size, p.y + Marker[i + 1].y * Size);
+            PrimLine(draw_list_3d, p1, p2, HalfWeight, Getter(prim).c, UV0, UV1, GetPointDepth(p_plot));
+        }
+        return true;
+    }
+
+    const _Getter& Getter;
+    const ImVec2* Marker;
+    const int Count;
+    mutable float HalfWeight;
+    const float Size;
+    mutable ImVec2 UV0;
+    mutable ImVec2 UV1;
+};
+
 template <class _Getter> struct RendererLineStrip : RendererBase {
     RendererLineStrip(const _Getter& getter, ImU32 col, float weight)
         : RendererBase(getter.Count - 1, 6, 4), Getter(getter), Col(col), HalfWeight(ImMax(1.0f, weight) * 0.5f) {
@@ -473,6 +545,43 @@ template <class _Getter> struct RendererLineStrip : RendererBase {
 
     const _Getter& Getter;
     const ImU32 Col;
+    mutable float HalfWeight;
+    mutable ImPlot3DPoint P1_plot;
+    mutable ImVec2 UV0;
+    mutable ImVec2 UV1;
+};
+
+template <class _Getter> struct RendererLineStripC : RendererBase {
+    RendererLineStripC(const _Getter& getter, float weight)
+        : RendererBase(getter.Count - 1, 6, 4), Getter(getter), HalfWeight(ImMax(1.0f, weight) * 0.5f) {
+        // Initialize the first point in plot coordinates
+        P1_plot = Getter(0);
+    }
+
+    void Init(ImDrawList3D& draw_list_3d) const { GetLineRenderProps(draw_list_3d, HalfWeight, UV0, UV1); }
+
+    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
+        ImPlot3DPoint P2_plot = Getter(prim + 1);
+
+        // Clip the line segment to the culling box using Liang-Barsky algorithm
+        ImPlot3DPoint P1_clipped, P2_clipped;
+        bool visible = cull_box.ClipLineSegment(P1_plot, P2_plot, P1_clipped, P2_clipped);
+
+        if (visible) {
+            // Convert clipped points to pixel coordinates
+            ImVec2 P1_screen = PlotToPixels(P1_clipped);
+            ImVec2 P2_screen = PlotToPixels(P2_clipped);
+            // Render the line segment
+            PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, Getter(prim).c, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
+        }
+
+        // Update for next segment
+        P1_plot = P2_plot;
+
+        return visible;
+    }
+
+    const _Getter& Getter;
     mutable float HalfWeight;
     mutable ImPlot3DPoint P1_plot;
     mutable ImVec2 UV0;
@@ -557,6 +666,44 @@ template <class _Getter> struct RendererLineSegments : RendererBase {
 
     const _Getter& Getter;
     const ImU32 Col;
+    mutable float HalfWeight;
+    mutable ImVec2 UV0;
+    mutable ImVec2 UV1;
+};
+
+template <class _Getter> struct RendererLineSegmentsC : RendererBase {
+    RendererLineSegmentsC(const _Getter& getter, float weight)
+        : RendererBase(getter.Count / 2, 6, 4), Getter(getter), HalfWeight(ImMax(1.0f, weight) * 0.5f) {
+    }
+
+    void Init(ImDrawList3D& draw_list_3d) const { GetLineRenderProps(draw_list_3d, HalfWeight, UV0, UV1); }
+
+    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
+        // Get the segment's endpoints in plot coordinates
+        ImPlot3DPoint P1_plot = Getter(prim * 2 + 0);
+        ImPlot3DPoint P2_plot = Getter(prim * 2 + 1);
+
+        // Check for NaNs in P1_plot and P2_plot
+        if (!ImNan(P1_plot.x) && !ImNan(P1_plot.y) && !ImNan(P1_plot.z) && !ImNan(P2_plot.x) && !ImNan(P2_plot.y) && !ImNan(P2_plot.z)) {
+
+            // Clip the line segment to the culling box
+            ImPlot3DPoint P1_clipped, P2_clipped;
+            bool visible = cull_box.ClipLineSegment(P1_plot, P2_plot, P1_clipped, P2_clipped);
+
+            if (visible) {
+                // Convert clipped points to pixel coordinates
+                ImVec2 P1_screen = PlotToPixels(P1_clipped);
+                ImVec2 P2_screen = PlotToPixels(P2_clipped);
+                // Render the line segment
+                PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, Getter(prim).c, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
+            }
+            return visible;
+        }
+
+        return false;
+    }
+
+    const _Getter& Getter;
     mutable float HalfWeight;
     mutable ImVec2 UV0;
     mutable ImVec2 UV1;
@@ -891,6 +1038,87 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
     const double ScaleMax;
 };
 
+template <class _Getter> struct RendererSurfaceFillC : RendererBase {
+    RendererSurfaceFillC(const _Getter& getter, int x_count, int y_count)
+        : RendererBase((x_count - 1)* (y_count - 1), 6, 4), Getter(getter), XCount(x_count), YCount(y_count) {
+    }
+
+    void Init(ImDrawList3D& draw_list_3d) const {
+        UV = draw_list_3d._SharedData->TexUvWhitePixel;
+    }
+
+    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
+        int x = prim % (XCount - 1);
+        int y = prim / (XCount - 1);
+
+        ImPlot3DPoint p_plot[4];
+        p_plot[0] = Getter(x + y * XCount);
+        p_plot[1] = Getter(x + 1 + y * XCount);
+        p_plot[2] = Getter(x + 1 + (y + 1) * XCount);
+        p_plot[3] = Getter(x + (y + 1) * XCount);
+
+        // Check if the quad is outside the culling box
+        if (!cull_box.Contains(p_plot[0]) && !cull_box.Contains(p_plot[1]) && !cull_box.Contains(p_plot[2]) && !cull_box.Contains(p_plot[3]))
+            return false;
+
+        // Project the quad vertices to screen space
+        ImVec2 p[4];
+        p[0] = PlotToPixels(p_plot[0]);
+        p[1] = PlotToPixels(p_plot[1]);
+        p[2] = PlotToPixels(p_plot[2]);
+        p[3] = PlotToPixels(p_plot[3]);
+
+        // Add vertices for two triangles
+        draw_list_3d._VtxWritePtr[0].pos.x = p[0].x;
+        draw_list_3d._VtxWritePtr[0].pos.y = p[0].y;
+        draw_list_3d._VtxWritePtr[0].uv = UV;
+        draw_list_3d._VtxWritePtr[0].col = p_plot[0].c;
+
+        draw_list_3d._VtxWritePtr[1].pos.x = p[1].x;
+        draw_list_3d._VtxWritePtr[1].pos.y = p[1].y;
+        draw_list_3d._VtxWritePtr[1].uv = UV;
+        draw_list_3d._VtxWritePtr[1].col = p_plot[1].c;
+
+        draw_list_3d._VtxWritePtr[2].pos.x = p[2].x;
+        draw_list_3d._VtxWritePtr[2].pos.y = p[2].y;
+        draw_list_3d._VtxWritePtr[2].uv = UV;
+        draw_list_3d._VtxWritePtr[2].col = p_plot[2].c;
+
+        draw_list_3d._VtxWritePtr[3].pos.x = p[3].x;
+        draw_list_3d._VtxWritePtr[3].pos.y = p[3].y;
+        draw_list_3d._VtxWritePtr[3].uv = UV;
+        draw_list_3d._VtxWritePtr[3].col = p_plot[3].c;
+
+        draw_list_3d._VtxWritePtr += 4;
+
+        // Add indices for two triangles
+        draw_list_3d._IdxWritePtr[0] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx);
+        draw_list_3d._IdxWritePtr[1] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 1);
+        draw_list_3d._IdxWritePtr[2] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 2);
+
+        draw_list_3d._IdxWritePtr[3] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx);
+        draw_list_3d._IdxWritePtr[4] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 2);
+        draw_list_3d._IdxWritePtr[5] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 3);
+
+        draw_list_3d._IdxWritePtr += 6;
+
+        // Add depth values for the two triangles
+        draw_list_3d._ZWritePtr[0] = GetPointDepth((p_plot[0] + p_plot[1] + p_plot[2]) / 3.0);
+        draw_list_3d._ZWritePtr[1] = GetPointDepth((p_plot[0] + p_plot[2] + p_plot[3]) / 3.0);
+        draw_list_3d._ZWritePtr += 2;
+
+        // Update vertex count
+        draw_list_3d._VtxCurrentIdx += 4;
+
+        return true;
+    }
+
+    const _Getter& Getter;
+    mutable ImVec2 UV;
+    const int XCount;
+    const int YCount;
+};
+
 //-----------------------------------------------------------------------------
 // [SECTION] Indexers
 //-----------------------------------------------------------------------------
@@ -916,6 +1144,16 @@ template <typename T> struct IndexerIdx {
     int Stride;
 };
 
+struct IndexerIdxC {
+    IndexerIdxC(const ImU32* data, int count, int offset = 0, int stride = sizeof(ImU32))
+        : Data(data), Count(count), Offset(count ? ImPosMod(offset, count) : 0), Stride(stride) {}
+    template <typename I> IMPLOT3D_INLINE ImU32 operator()(I idx) const { return IndexData(Data, idx, Count, Offset, Stride); }
+    const ImU32* Data;
+    int Count;
+    int Offset;
+    int Stride;
+};
+
 //-----------------------------------------------------------------------------
 // [SECTION] Getters
 //-----------------------------------------------------------------------------
@@ -926,6 +1164,16 @@ template <typename _IndexerX, typename _IndexerY, typename _IndexerZ> struct Get
     const _IndexerX IndexerX;
     const _IndexerY IndexerY;
     const _IndexerZ IndexerZ;
+    const int Count;
+};
+
+template <typename _IndexerX, typename _IndexerY, typename _IndexerZ, typename _IndexerC> struct GetterXYZC {
+    GetterXYZC(_IndexerX x, _IndexerY y, _IndexerZ z, _IndexerC c, int count) : IndexerX(x), IndexerY(y), IndexerZ(z), IndexerC(c), Count(count) {}
+    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const { return ImPlot3DPoint(IndexerX(idx), IndexerY(idx), IndexerZ(idx), IndexerC(idx)); }
+    const _IndexerX IndexerX;
+    const _IndexerY IndexerY;
+    const _IndexerZ IndexerZ;
+    const _IndexerC IndexerC;
     const int Count;
 };
 
@@ -1149,6 +1397,35 @@ template <typename _Getter> void RenderMarkers(const _Getter& getter, ImPlot3DMa
     }
 }
 
+template <typename _Getter> void RenderMarkersC(const _Getter& getter, ImPlot3DMarker marker, float size, bool rend_fill,
+    bool rend_line, float weight) {
+    if (rend_fill) {
+        switch (marker) {
+        case ImPlot3DMarker_Circle: RenderPrimitives<RendererMarkersFillC>(getter, MARKER_FILL_CIRCLE, 10, size); break;
+        case ImPlot3DMarker_Square: RenderPrimitives<RendererMarkersFillC>(getter, MARKER_FILL_SQUARE, 4, size); break;
+        case ImPlot3DMarker_Diamond: RenderPrimitives<RendererMarkersFillC>(getter, MARKER_FILL_DIAMOND, 4, size); break;
+        case ImPlot3DMarker_Up: RenderPrimitives<RendererMarkersFillC>(getter, MARKER_FILL_UP, 3, size); break;
+        case ImPlot3DMarker_Down: RenderPrimitives<RendererMarkersFillC>(getter, MARKER_FILL_DOWN, 3, size); break;
+        case ImPlot3DMarker_Left: RenderPrimitives<RendererMarkersFillC>(getter, MARKER_FILL_LEFT, 3, size); break;
+        case ImPlot3DMarker_Right: RenderPrimitives<RendererMarkersFillC>(getter, MARKER_FILL_RIGHT, 3, size); break;
+        }
+    }
+    if (rend_line) {
+        switch (marker) {
+        case ImPlot3DMarker_Circle: RenderPrimitives<RendererMarkersLineC>(getter, MARKER_LINE_CIRCLE, 20, size, weight); break;
+        case ImPlot3DMarker_Square: RenderPrimitives<RendererMarkersLineC>(getter, MARKER_LINE_SQUARE, 8, size, weight); break;
+        case ImPlot3DMarker_Diamond: RenderPrimitives<RendererMarkersLineC>(getter, MARKER_LINE_DIAMOND, 8, size, weight); break;
+        case ImPlot3DMarker_Up: RenderPrimitives<RendererMarkersLineC>(getter, MARKER_LINE_UP, 6, size, weight); break;
+        case ImPlot3DMarker_Down: RenderPrimitives<RendererMarkersLineC>(getter, MARKER_LINE_DOWN, 6, size, weight); break;
+        case ImPlot3DMarker_Left: RenderPrimitives<RendererMarkersLineC>(getter, MARKER_LINE_LEFT, 6, size, weight); break;
+        case ImPlot3DMarker_Right: RenderPrimitives<RendererMarkersLineC>(getter, MARKER_LINE_RIGHT, 6, size, weight); break;
+        case ImPlot3DMarker_Asterisk: RenderPrimitives<RendererMarkersLineC>(getter, MARKER_LINE_ASTERISK, 6, size, weight); break;
+        case ImPlot3DMarker_Plus: RenderPrimitives<RendererMarkersLineC>(getter, MARKER_LINE_PLUS, 4, size, weight); break;
+        case ImPlot3DMarker_Cross: RenderPrimitives<RendererMarkersLineC>(getter, MARKER_LINE_CROSS, 4, size, weight); break;
+        }
+    }
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] PlotScatter
 //-----------------------------------------------------------------------------
@@ -1160,7 +1437,10 @@ template <typename Getter> void PlotScatterEx(const char* label_id, const Getter
         const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
         const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
         if (marker != ImPlot3DMarker_None)
-            RenderMarkers<Getter>(getter, marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+            if(ImHasFlag(flags, ImPlot3DScatterFlags_PerPointCustomColor))
+                RenderMarkersC<Getter>(getter, marker, n.MarkerSize, n.RenderMarkerFill, n.RenderMarkerLine, n.MarkerWeight);
+            else
+                RenderMarkers<Getter>(getter, marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
         EndItem();
     }
 }
@@ -1174,9 +1454,18 @@ void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, in
     return PlotScatterEx(label_id, getter, flags);
 }
 
+template <typename T>
+void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, const ImU32* cs, int count, ImPlot3DScatterFlags flags, int offset, int stride) {
+    if (count < 1)
+        return;
+    GetterXYZC<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>, IndexerIdxC> getter(IndexerIdx<T>(xs, count, offset, stride), IndexerIdx<T>(ys, count, offset, stride),
+                                                                                IndexerIdx<T>(zs, count, offset, stride), IndexerIdxC(cs, count, offset, stride), count);
+    return PlotScatterEx(label_id, getter, flags);
+}
+
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
-    template IMPLOT3D_API void PlotScatter<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DScatterFlags flags,    \
-                                              int offset, int stride);
+    template IMPLOT3D_API void PlotScatter<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DScatterFlags flags, int offset, int stride); \
+    template IMPLOT3D_API void PlotScatter<T>(const char* label_id, const T* xs, const T* ys, const T* zs, const ImU32* cs, int count, ImPlot3DScatterFlags flags, int offset, int stride);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
@@ -1190,7 +1479,10 @@ template <typename _Getter> void PlotLineEx(const char* label_id, const _Getter&
         if (getter.Count >= 2 && n.RenderLine) {
             const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
             if (ImHasFlag(flags, ImPlot3DLineFlags_Segments)) {
-                RenderPrimitives<RendererLineSegments>(getter, col_line, n.LineWeight);
+                if (ImHasFlag(flags, ImPlot3DLineFlags_PerPointCustomColor))
+                    RenderPrimitives<RendererLineSegmentsC>(getter, n.LineWeight);
+                else
+                    RenderPrimitives<RendererLineSegments>(getter, col_line, n.LineWeight);
             } else if (ImHasFlag(flags, ImPlot3DLineFlags_Loop)) {
                 if (ImHasFlag(flags, ImPlot3DLineFlags_SkipNaN))
                     RenderPrimitives<RendererLineStripSkip>(GetterLoop<_Getter>(getter), col_line, n.LineWeight);
@@ -1199,16 +1491,24 @@ template <typename _Getter> void PlotLineEx(const char* label_id, const _Getter&
             } else {
                 if (ImHasFlag(flags, ImPlot3DLineFlags_SkipNaN))
                     RenderPrimitives<RendererLineStripSkip>(getter, col_line, n.LineWeight);
-                else
-                    RenderPrimitives<RendererLineStrip>(getter, col_line, n.LineWeight);
+                else {
+                    if (ImHasFlag(flags, ImPlot3DLineFlags_PerPointCustomColor))
+                        RenderPrimitives<RendererLineStripC>(getter, n.LineWeight);
+                    else
+                        RenderPrimitives<RendererLineStrip>(getter, col_line, n.LineWeight);
+                }
             }
         }
 
         // Render markers
         if (n.Marker != ImPlot3DMarker_None) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
-            RenderMarkers<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+            if (ImHasFlag(flags, ImPlot3DLineFlags_PerPointCustomColor))
+                RenderMarkersC<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, n.RenderMarkerLine, n.MarkerWeight);
+            else {
+                const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
+                const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
+                RenderMarkers<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+            }
         }
         EndItem();
     }
@@ -1222,9 +1522,17 @@ IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const
     return PlotLineEx(label_id, getter, flags);
 }
 
-#define INSTANTIATE_MACRO(T)                                                                                                                         \
-    template IMPLOT3D_API void PlotLine<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DLineFlags flags,          \
-                                           int offset, int stride);
+IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const T* zs, const ImU32* cs, int count, ImPlot3DLineFlags flags, int offset, int stride) {
+    if (count < 2)
+        return;
+    GetterXYZC<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>, IndexerIdxC> getter(IndexerIdx<T>(xs, count, offset, stride), IndexerIdx<T>(ys, count, offset, stride),
+                                                                                IndexerIdx<T>(zs, count, offset, stride), IndexerIdxC(cs, count, offset, stride), count);
+    return PlotLineEx(label_id, getter, flags);
+}
+
+#define INSTANTIATE_MACRO(T) \
+    template IMPLOT3D_API void PlotLine<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DLineFlags flags, int offset, int stride); \
+    template IMPLOT3D_API void PlotLine<T>(const char* label_id, const T* xs, const T* ys, const T* zs, const ImU32* cs, int count, ImPlot3DLineFlags flags, int offset, int stride);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
@@ -1330,8 +1638,12 @@ template <typename _Getter> void PlotSurfaceEx(const char* label_id, const _Gett
 
         // Render fill
         if (getter.Count >= 4 && n.RenderFill && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoFill)) {
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
-            RenderPrimitives<RendererSurfaceFill>(getter, x_count, y_count, col_fill, scale_min, scale_max);
+            if (ImHasFlag(flags, ImPlot3DSurfaceFlags_PerPointCustomColor))
+                RenderPrimitives<RendererSurfaceFillC>(getter, x_count, y_count);
+            else {
+                const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
+                RenderPrimitives<RendererSurfaceFill>(getter, x_count, y_count, col_fill, scale_min, scale_max);
+            }
         }
 
         // Render lines
@@ -1361,9 +1673,19 @@ IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, co
     return PlotSurfaceEx(label_id, getter, x_count, y_count, scale_min, scale_max, flags);
 }
 
+IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, const ImU32* cs, int x_count, int y_count,
+                              double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride) {
+    int count = x_count * y_count;
+    if (count < 4)
+        return;
+    GetterXYZC<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>, IndexerIdxC> getter(IndexerIdx<T>(xs, count, offset, stride), IndexerIdx<T>(ys, count, offset, stride),
+                                                                                IndexerIdx<T>(zs, count, offset, stride), IndexerIdxC(cs, count, offset, stride), count);
+    return PlotSurfaceEx(label_id, getter, x_count, y_count, scale_min, scale_max, flags);
+}
+
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
-    template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count,                 \
-                                              double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride);
+    template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count, double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride); \
+    template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* xs, const T* ys, const T* zs, const ImU32* cs, int x_count, int y_count, double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride); 
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
