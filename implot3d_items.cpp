@@ -697,7 +697,7 @@ template <class _Getter> struct RendererQuadImage : RendererBase {
                       ImU32 col)
         : RendererBase(getter.Count / 4, 6, 4), Getter(getter), TexRef(tex_ref), UV0(uv0), UV1(uv1), UV2(uv2), UV3(uv3), Col(col) {}
 
-    void Init(ImDrawList3D& draw_list_3d) const {}
+    void Init(ImDrawList3D& /*draw_list_3d*/) const {}
 
     IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
         ImPlot3DPoint p_plot[4];
