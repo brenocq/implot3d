@@ -920,6 +920,8 @@ struct ImPlot3DStyle {
     // Constructor
     IMPLOT3D_API ImPlot3DStyle();
     ImPlot3DStyle(const ImPlot3DStyle& other) = default;
+    ImPlot3DStyle& operator=(const ImPlot3DStyle& other) =
+  default;
 };
 
 //-----------------------------------------------------------------------------

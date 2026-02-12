@@ -11,5 +11,5 @@ jobs:
       - name: Build
         run: |
           cd example
-          cmake -B build -DCMAKE_CXX_FLAGS="-Wall -Werror"
+          cmake -B build -DCMAKE_CXX_FLAGS="-Wall -Wextra -Werror"
           cmake --build build
