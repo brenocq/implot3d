@@ -46,7 +46,7 @@
 #endif
 
 #define IMPLOT3D_VERSION "0.4 WIP"            // ImPlot3D version
-#define IMPLOT3D_VERSION_NUM 400              // Integer encoded version
+#define IMPLOT3D_VERSION_NUM 401              // Integer encoded version
 #define IMPLOT3D_AUTO -1                      // Deduce variable automatically
 #define IMPLOT3D_AUTO_COL ImVec4(0, 0, 0, -1) // Deduce color automatically
 #define IMPLOT3D_TMP template <typename T> IMPLOT3D_API
@@ -100,6 +100,21 @@ typedef ImTextureID ImTextureRef;
 //-----------------------------------------------------------------------------
 // [SECTION] Flags & Enumerations
 //-----------------------------------------------------------------------------
+
+// Plotting properties. These provide syntactic sugar for creating ImPlot3DSpec from (ImPlot3DProp,value) pairs
+enum ImPlot3DProp_ {
+    ImPlot3DProp_LineColor,       // Line color; IMPLOT3D_AUTO_COL will use next Colormap color
+    ImPlot3DProp_LineWeight,      // Line weight in pixels
+    ImPlot3DProp_FillColor,       // Fill color (applies to shaded regions); IMPLOT3D_AUTO_COL will use next Colormap color
+    ImPlot3DProp_FillAlpha,       // Alpha multiplier (applies to FillColor and MarkerFillColor)
+    ImPlot3DProp_Marker,          // Marker type
+    ImPlot3DProp_MarkerSize,      // Size of markers (radius) *in pixels*
+    ImPlot3DProp_MarkerLineColor, // Marker outline color; IMPLOT3D_AUTO_COL will use next LineColor
+    ImPlot3DProp_MarkerFillColor, // Marker fill color; IMPLOT3D_AUTO_COL will use LineColor
+    ImPlot3DProp_Offset,          // Data index offset
+    ImPlot3DProp_Stride,          // Data stride in bytes; IMPLOT3D_AUTO will result in sizeof(T) where T is the type passed to PlotX
+    ImPlot3DProp_Flags            // Optional item flags; can be composed from common ImPlot3DItemFlags and/or specialized ImPlot3DXFlags
+};
 
 // Flags for ImPlot3D::BeginPlot()
 enum ImPlot3DFlags_ {
@@ -332,21 +347,6 @@ enum ImPlot3DColormap_ {
     ImPlot3DColormap_PiYG = 13,     // Same as matplotlib "PiYG"
     ImPlot3DColormap_Spectral = 14, // Same as matplotlib "Spectral"
     ImPlot3DColormap_Greys = 15,    // White/black
-};
-
-// Plotting properties. These provide syntactic sugar for creating ImPlot3DSpec from (ImPlot3DProp,value) pairs
-enum ImPlot3DProp_ {
-    ImPlot3DProp_LineColor,       // Line color; IMPLOT3D_AUTO_COL will use next Colormap color
-    ImPlot3DProp_LineWeight,      // Line weight in pixels
-    ImPlot3DProp_FillColor,       // Fill color (applies to shaded regions); IMPLOT3D_AUTO_COL will use next Colormap color
-    ImPlot3DProp_FillAlpha,       // Alpha multiplier (applies to FillColor and MarkerFillColor)
-    ImPlot3DProp_Marker,          // Marker type
-    ImPlot3DProp_MarkerSize,      // Size of markers (radius) *in pixels*
-    ImPlot3DProp_MarkerLineColor, // Marker outline color; IMPLOT3D_AUTO_COL will use next LineColor
-    ImPlot3DProp_MarkerFillColor, // Marker fill color; IMPLOT3D_AUTO_COL will use LineColor
-    ImPlot3DProp_Offset,          // Data index offset
-    ImPlot3DProp_Stride,          // Data stride in bytes; IMPLOT3D_AUTO will result in sizeof(T) where T is the type passed to PlotX
-    ImPlot3DProp_Flags            // Optional item flags; can be composed from common ImPlot3DItemFlags and/or specialized ImPlot3DXFlags
 };
 
 //-----------------------------------------------------------------------------
@@ -1062,6 +1062,13 @@ extern unsigned int duck_idx[DUCK_IDX_COUNT];  // Duck indices
 #endif
 
 namespace ImPlot3D {
+
+// OBSOLETED in v0.4 (from February 2026)
+// IMPLOT_API void SetNextLineStyle(const ImVec4& col = IMPLOT_AUTO_COL, float weight = IMPLOT_AUTO); // OBSOLETED IN v0.4 // Set ImPlotSpec.LineColor/LineWeight or construct ImPlotSpec with { ImPlotSpec_LineColor, color, ImPlotSpec_LineWeight, weight }.
+
+// IMPLOT_API void SetNextFillStyle(const ImVec4& col = IMPLOT_AUTO_COL, float alpha_mod = IMPLOT_AUTO);// OBSOLETED IN v0.4 // Set ImPlotSpec.FillColor/FillAlpha or construct ImPlotSpec with { ImPlotSpec_FillColor, color, ImPlotSpec_FillAlpha, alpha }.
+
+// IMPLOT_API void SetNextMarkerStyle(ImPlotMarker marker = IMPLOT_AUTO, float size = IMPLOT_AUTO, const ImVec4& fill = IMPLOT_AUTO_COL, float weight = IMPLOT_AUTO, const ImVec4& outline = IMPLOT_AUTO_COL); // OBSOLETED IN v0.4 // Set ImPlotSpec.Marker/MarkerSize/MarkerFillColor/LineWeight/MarkerLineColor or construct ImPlotSpec with { ImPlotSpec_Marker, marker, ImPlotSpec_MarkerSize, size, ImPlotSpec_MarkerFillColor, fill_color, ImPlotSpec_LineWeight, weight, ImPlotSpec_MarkerLineColor, outline }.
 
 // OBSOLETED in v0.3 -> PLANNED REMOVAL in v1.0
 IMPLOT3D_DEPRECATED(IMPLOT3D_API ImVec2 GetPlotPos());  // Renamed to GetPlotRectPos()

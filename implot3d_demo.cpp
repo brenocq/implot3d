@@ -147,7 +147,7 @@ void DemoScatterPlots() {
         spec.Marker = ImPlot3DMarker_Square;
         spec.MarkerSize = 6;
         spec.MarkerLineColor = ImPlot3D::GetColormapColor(1);
-        spec.MarkerFillColor = ImPlot3D::GetColormapColor(2);
+        spec.MarkerFillColor = ImPlot3D::GetColormapColor(1);
         spec.FillAlpha = 0.25f;
         ImPlot3D::PlotScatter("Data 2", xs2, ys2, zs2, 50, spec);
         ImPlot3D::EndPlot();
