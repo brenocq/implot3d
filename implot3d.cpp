@@ -53,33 +53,33 @@ implot3d files. You can read releases logs https://github.com/brenocq/implot3d/r
                          - Before:
                            ```
                            ImPlot3D::SetNextLineStyle(line_color, line_weight);
-                           ImPlot3D::PlotLine(xs, ys, zs, count);
+                           ImPlot3D::PlotLine("Line", xs, ys, zs, count);
                            ```
                          - After
                            ```
                            ImPlot3DSpec spec;
                            spec.LineColor = line_color;
                            spec.LineWeight = line_weight;
-                           ImPlot3D::PlotLine(xs, ys, zs, count, spec);
+                           ImPlot3D::PlotLine("Line", xs, ys, zs, count, spec);
                            ```
                       - SetNextFillStyle has been removed, styling should be set via ImPlot3DSpec.
                          - Before:
                            ```
                            ImPlot3D::SetNextFillStyle(fill_color, fill_alpha);
-                           ImPlot3D::PlotTriangle(xs, ys, zs, count);
+                           ImPlot3D::PlotTriangle("Triangle", xs, ys, zs, count);
                            ```
                          - After
                            ```
                            ImPlot3DSpec spec;
                            spec.FillColor = fill_color;
                            spec.FillAlpha = fill_alpha;
-                           ImPlot3D::PlotTriangle(xs, ys, zs, count, spec);
+                           ImPlot3D::PlotTriangle("Triangle", xs, ys, zs, count, spec);
                            ```
                       - SetNextMarkerStyle has been removed, styling should be set via ImPlot3DSpec.
                          - Before:
                            ```
                            ImPlot3D::SetNextMarkerStyle(marker, marker_size, fill_color, line_weight, marker_outline_color);
-                           ImPlot3D::PlotScatter(xs, ys, zs, count);
+                           ImPlot3D::PlotScatter("Scatter", xs, ys, zs, count);
                            ```
                          - After
                            ```
@@ -89,7 +89,7 @@ implot3d files. You can read releases logs https://github.com/brenocq/implot3d/r
                            spec.MarkerSize = marker_size;
                            spec.MarkerLineColor = marker_outline_color;
                            spec.MarkerFillColor = fill_color;
-                           ImPlot3D::PlotScatter(xs, ys, zs, count, spec);
+                           ImPlot3D::PlotScatter("Scatter", xs, ys, zs, count, spec);
                            ```
                         - Flags, Offset and Stride should also be set via ImPlot3DSpec now.
 - 2026/02/02 (0.4) - Item colors removed from ImPlot3DCol_, it's no longer possible to push/pop individual item colors.
