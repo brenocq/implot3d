@@ -3928,7 +3928,7 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
     bool active_faces[3];
     ImVec2 corners_pix[8];
     ImPlot3DPoint corners[8];
-    int plane_2d;
+    int plane_2d = -1;
     int axis_corners[3][2];
     char buff[16];
     // Enum used to indicate how a certain type will be displayed
