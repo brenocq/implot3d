@@ -365,7 +365,7 @@ enum ImPlot3DColormap_ {
 //    spec.Flags = ImPlot3DItemFlags_NoLegend | ImPlot3DLineFlags_Segments;
 //    ImPlot3D::PlotLine("MyLine", xs, ys, zs, 100, spec);
 //
-// 2. Inline using ImProp,value pairs (order does NOT matter):
+// 2. Inline using ImPlot3DProp,value pairs (order does NOT matter):
 //
 //    ImPlot3D::PlotLine("MyLine", xs, ys, zs, 100, {
 //      ImPlot3DProp_LineColor, ImVec4(1,0,0,1),
