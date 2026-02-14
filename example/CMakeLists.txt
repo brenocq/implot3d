@@ -65,9 +65,10 @@ set(IMPLOT3D_SOURCE
     ${IMPLOT3D_SOURCE_DIR}/implot3d_demo.cpp
     ${IMPLOT3D_SOURCE_DIR}/implot3d_items.cpp
     ${IMPLOT3D_SOURCE_DIR}/implot3d_meshes.cpp
+    ${IMPLOT3D_SOURCE_DIR}/backends/implot3d_impl_opengl3.cpp
 )
 add_library(implot3d STATIC ${IMPLOT3D_SOURCE})
-target_include_directories(implot3d PUBLIC ${IMPLOT3D_SOURCE_DIR})
+target_include_directories(implot3d PUBLIC ${IMPLOT3D_SOURCE_DIR};${IMPLOT3D_SOURCE_DIR}/backends/)
 target_link_libraries(implot3d PUBLIC imgui)
 
 # Add the executable

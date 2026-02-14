@@ -45,6 +45,10 @@
 #define IMPLOT3D_API
 #endif
 
+#ifndef IMPLOT3D_IMPL_API
+#define IMPLOT3D_IMPL_API IMPLOT3D_API
+#endif
+
 #define IMPLOT3D_VERSION "0.4 WIP"            // ImPlot3D version
 #define IMPLOT3D_VERSION_NUM 401              // Integer encoded version
 #define IMPLOT3D_AUTO -1                      // Deduce variable automatically

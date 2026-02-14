@@ -8,6 +8,7 @@
 #include "imgui_impl_opengl3.h"
 #include "implot.h"
 #include "implot3d.h"
+#include "implot3d_impl_opengl3.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
 
@@ -61,6 +62,7 @@ int main() {
     // Setup backend
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
+    ImPlot3D_ImplOpenGL3_Init();
 
     // Main loop
     while (!glfwWindowShouldClose(window)) {
@@ -90,6 +92,7 @@ int main() {
     }
 
     // Cleanup
+    ImPlot3D_ImplOpenGL3_Shutdown();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImPlot3D::DestroyContext();
