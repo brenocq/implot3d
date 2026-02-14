@@ -129,6 +129,7 @@ implot3d files. You can read releases logs https://github.com/brenocq/implot3d/r
 
 #include "implot3d.h"
 #include "implot3d_internal.h"
+#include "implot3d_impl_opengl3.h"
 
 #ifndef IMGUI_DISABLE
 
@@ -1636,8 +1637,20 @@ void EndPlot() {
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "Mismatched BeginPlot()/EndPlot()!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
 
-    // Move triangles from 3D draw list to ImGui draw list
-    plot.DrawList.SortedMoveToImGuiDrawList();
+    if (plot.ColorTextureID != ImTextureID_Invalid) {
+        ImDrawList& draw_list = *ImGui::GetWindowDrawList();
+        ImVec2 uv0 = ImVec2(0, 0);
+        ImVec2 uv1 = ImVec2(1, 1);
+        ImU32 col = IM_COL32(255, 255, 255, 255);
+        draw_list.AddImage(plot.ColorTextureID, plot.PlotRect.Min, plot.PlotRect.Max, uv0, uv1, col);
+    } else {
+        // Move triangles from 3D draw list to ImGui draw list
+        plot.DrawList.SortedMoveToImGuiDrawList();
+        // XXX Create color texture
+        plot.ColorTextureID = ImPlot3D_ImplOpenGL3_CreateTexture(plot.PlotRect.GetSize());
+        // TODO make sure texture is deleted when plot is deleted
+    }
+
 
     // Handle data fitting
     if (plot.FitThisFrame) {
@@ -4162,6 +4175,8 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
                 ImGui::BulletText("Animation: Time=%.4f RotationEnd=[%.2f,%.2f,%.2f,%.2f]", plot.AnimationTime, plot.RotationAnimationEnd.x,
                                   plot.RotationAnimationEnd.y, plot.Rotation.z, plot.RotationAnimationEnd.w);
                 ImGui::BulletText("ViewScale: %.2f", plot.GetViewScale());
+                ImGui::BulletText("ColorTextureID: %d", (int)plot.ColorTextureID);
+                ImGui::BulletText("DepthTextureID: %d", (int)plot.DepthTextureID);
 
                 ImGui::TreePop();
             }

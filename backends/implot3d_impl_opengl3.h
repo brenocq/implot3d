@@ -8,4 +8,7 @@
 IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init();
 IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_Shutdown();
 
+IMPLOT3D_IMPL_API ImTextureID ImPlot3D_ImplOpenGL3_CreateTexture(const ImVec2& size);
+IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_DestroyTexture(ImTextureID tex_id);
+
 #endif // #ifndef IMGUI_DISABLE

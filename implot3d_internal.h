@@ -138,6 +138,15 @@ typedef void (*ImPlot3DLocator)(ImPlot3DTicker& ticker, const ImPlot3DRange& ran
 // [SECTION] Structs
 //-----------------------------------------------------------------------------
 
+typedef unsigned int ImDrawIdx3D;
+
+struct ImDrawVert3D {
+    ImPlot3DPoint pos;
+    ImVec2 uv;
+    ImU32 col;
+};
+
+// List of all triangles to render for a given plot
 struct ImDrawList3D {
     // [Internal] Define which texture should be used when rendering triangles.
     struct ImTextureBufferItem {
@@ -731,6 +740,8 @@ struct ImPlot3DPlot {
     ImPlot3DItemGroup Items;
     // 3D draw list
     ImDrawList3D DrawList;
+    ImTextureID ColorTextureID; // RGBA texture to be rendered at PlotRect
+    ImTextureID DepthTextureID; // Depth texture to be used for depth testing when rendering ColorTextureRef
     // Misc
     bool ContextClick; // True if context button was clicked (to distinguish from double click)
     bool OpenContextThisFrame;
@@ -752,6 +763,8 @@ struct ImPlot3DPlot {
         HeldPlaneIdx = -1;
         DragRotationAxis = ImPlot3DPoint(0.0, 0.0, 0.0);
         FitThisFrame = true;
+        ColorTextureID = ImTextureID_Invalid;
+        DepthTextureID = ImTextureID_Invalid;
         ContextClick = false;
         OpenContextThisFrame = false;
     }
