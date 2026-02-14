@@ -182,7 +182,7 @@ bool BeginItem(const char* label_id, const ImPlot3DSpec& spec, const ImVec4& ite
     n.IsAutoLine = IsColorAuto(s.LineColor);
     n.IsAutoFill = IsColorAuto(s.FillColor);
     s.LineColor = IsColorAuto(s.LineColor) ? item_color : s.LineColor;
-    s.FillColor = IsColorAuto(s.FillColor) ? s.LineColor : s.FillColor;
+    s.FillColor = IsColorAuto(s.FillColor) ? item_color : s.FillColor;
     s.MarkerLineColor = IsColorAuto(s.MarkerLineColor) ? s.LineColor : s.MarkerLineColor;
     s.MarkerFillColor = IsColorAuto(s.MarkerFillColor) ? s.LineColor : s.MarkerFillColor;
 
