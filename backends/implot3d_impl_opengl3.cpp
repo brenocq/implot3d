@@ -11,6 +11,14 @@
 // OpenGL loader
 #include "imgui_impl_opengl3_loader.h"
 
+// Define depth texture constants if not present in ImGui's stripped loader
+#ifndef GL_DEPTH_COMPONENT
+#define GL_DEPTH_COMPONENT 0x1902
+#endif
+#ifndef GL_DEPTH_COMPONENT24
+#define GL_DEPTH_COMPONENT24 0x81A6
+#endif
+
 // Track created textures for cleanup
 static ImVector<GLuint> g_CreatedTextures;
 
@@ -27,17 +35,7 @@ void ImPlot3D_ImplOpenGL3_Shutdown() {
     g_CreatedTextures.clear();
 }
 
-void ImPlot3D_ImplOpenGL3_RenderPlots(ImPool<ImPlot3DPlot>* plots) {
-    for (int i = 0; i < plots->GetBufSize(); i++) {
-        ImPlot3DPlot* plot = plots->GetByIndex(i);
-        // Create textures if they don't exist yet
-        if (plot->ColorTextureID == ImTextureID_Invalid) {
-            plot->ColorTextureID = ImPlot3D_ImplOpenGL3_CreateTexture(plot->PlotRect.GetSize());
-        }
-    }
-}
-
-ImTextureID ImPlot3D_ImplOpenGL3_CreateTexture(const ImVec2& size) {
+ImTextureID ImPlot3D_ImplOpenGL3_CreateRGBATexture(const ImVec2& size) {
     int width = (int)size.x;
     int height = (int)size.y;
 
@@ -123,6 +121,45 @@ ImTextureID ImPlot3D_ImplOpenGL3_CreateTexture(const ImVec2& size) {
     return (ImTextureID)(intptr_t)texture_id;
 }
 
+IMPLOT3D_IMPL_API ImTextureID ImPlot3D_ImplOpenGL3_CreateDepthTexture(const ImVec2& size) {
+    int width = (int)size.x;
+    int height = (int)size.y;
+
+    // Use ImGui's error handling for user-facing errors
+    IM_ASSERT_USER_ERROR(width > 0 && height > 0, "ImPlot3D_ImplOpenGL3_CreateDepthTexture: size must be positive!");
+    if (width <= 0 || height <= 0)
+        return ImTextureID_Invalid;
+
+    // Generate OpenGL depth texture
+    GLuint texture_id = 0;
+    GLint last_texture = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
+
+    glGenTextures(1, &texture_id);
+    glBindTexture(GL_TEXTURE_2D, texture_id);
+
+    // Create depth texture
+    // GL_DEPTH_COMPONENT24: 24-bit depth precision (good balance of precision and memory)
+    // Note: ImPlot3D targets OpenGL 3.0+ where depth textures are core
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT,
+                 nullptr);
+
+    // Set texture parameters (recommended for depth textures)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); // No interpolation for depth
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // Clamp to avoid edge artifacts
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Restore previous texture binding
+    glBindTexture(GL_TEXTURE_2D, last_texture);
+
+    // Track this texture for cleanup
+    g_CreatedTextures.push_back(texture_id);
+
+    // Return as ImTextureID (cast GLuint to ImTextureID)
+    return (ImTextureID)(intptr_t)texture_id;
+}
+
 void ImPlot3D_ImplOpenGL3_DestroyTexture(ImTextureID tex_id) {
     GLuint texture_id = (GLuint)(intptr_t)tex_id;
 
@@ -135,6 +172,17 @@ void ImPlot3D_ImplOpenGL3_DestroyTexture(ImTextureID tex_id) {
                 g_CreatedTextures.erase(&g_CreatedTextures[i]);
                 break;
             }
+        }
+    }
+}
+
+void ImPlot3D_ImplOpenGL3_RenderPlots(ImPool<ImPlot3DPlot>* plots) {
+    for (int i = 0; i < plots->GetBufSize(); i++) {
+        ImPlot3DPlot* plot = plots->GetByIndex(i);
+        // Create textures if they don't exist yet
+        if (plot->ColorTextureID == ImTextureID_Invalid) {
+            plot->ColorTextureID = ImPlot3D_ImplOpenGL3_CreateRGBATexture(plot->PlotRect.GetSize());
+            plot->DepthTextureID = ImPlot3D_ImplOpenGL3_CreateDepthTexture(plot->PlotRect.GetSize());
         }
     }
 }
