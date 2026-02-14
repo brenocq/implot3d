@@ -8,6 +8,7 @@
 #include "imgui_impl_opengl3.h"
 #include "implot.h"
 #include "implot3d.h"
+#include "implot3d_internal.h"
 #include "implot3d_impl_opengl3.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -85,6 +86,7 @@ int main() {
         glViewport(0, 0, display_w, display_h);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+        ImPlot3D_ImplOpenGL3_RenderPlots(ImPlot3D::GetPlots());
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // Swap buffers

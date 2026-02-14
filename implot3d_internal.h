@@ -887,6 +887,9 @@ IMPLOT3D_API void AddTextRotated(ImDrawList* draw_list, ImVec2 pos, float angle,
 // [SECTION] Plot Utils
 //-----------------------------------------------------------------------------
 
+// Get all plots from ImPlot3DContext
+IMPLOT3D_API ImPool<ImPlot3DPlot>* GetPlots();
+
 // Gets the current plot from ImPlot3DContext
 IMPLOT3D_API ImPlot3DPlot* GetCurrentPlot();
 

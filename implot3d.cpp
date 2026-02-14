@@ -129,7 +129,6 @@ implot3d files. You can read releases logs https://github.com/brenocq/implot3d/r
 
 #include "implot3d.h"
 #include "implot3d_internal.h"
-#include "implot3d_impl_opengl3.h"
 
 #ifndef IMGUI_DISABLE
 
@@ -1646,9 +1645,6 @@ void EndPlot() {
     } else {
         // Move triangles from 3D draw list to ImGui draw list
         plot.DrawList.SortedMoveToImGuiDrawList();
-        // XXX Create color texture
-        plot.ColorTextureID = ImPlot3D_ImplOpenGL3_CreateTexture(plot.PlotRect.GetSize());
-        // TODO make sure texture is deleted when plot is deleted
     }
 
 
@@ -1984,6 +1980,8 @@ void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags flags) {
 //-----------------------------------------------------------------------------
 // [SECTION] Plot Utils
 //-----------------------------------------------------------------------------
+
+ImPool<ImPlot3DPlot>* GetPlots() { return &GImPlot3D->Plots; }
 
 ImPlot3DPlot* GetCurrentPlot() { return GImPlot3D->CurrentPlot; }
 

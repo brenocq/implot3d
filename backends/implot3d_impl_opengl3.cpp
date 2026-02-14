@@ -14,12 +14,12 @@
 // Track created textures for cleanup
 static ImVector<GLuint> g_CreatedTextures;
 
-IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init() {
+bool ImPlot3D_ImplOpenGL3_Init() {
     // TODO
     return true;
 }
 
-IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_Shutdown() {
+void ImPlot3D_ImplOpenGL3_Shutdown() {
     // Clean up any remaining textures
     for (int i = 0; i < g_CreatedTextures.Size; i++) {
         glDeleteTextures(1, &g_CreatedTextures[i]);
@@ -27,7 +27,17 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_Shutdown() {
     g_CreatedTextures.clear();
 }
 
-IMPLOT3D_IMPL_API ImTextureID ImPlot3D_ImplOpenGL3_CreateTexture(const ImVec2& size) {
+void ImPlot3D_ImplOpenGL3_RenderPlots(ImPool<ImPlot3DPlot>* plots) {
+    for (int i = 0; i < plots->GetBufSize(); i++) {
+        ImPlot3DPlot* plot = plots->GetByIndex(i);
+        // Create textures if they don't exist yet
+        if (plot->ColorTextureID == ImTextureID_Invalid) {
+            plot->ColorTextureID = ImPlot3D_ImplOpenGL3_CreateTexture(plot->PlotRect.GetSize());
+        }
+    }
+}
+
+ImTextureID ImPlot3D_ImplOpenGL3_CreateTexture(const ImVec2& size) {
     int width = (int)size.x;
     int height = (int)size.y;
 
@@ -113,7 +123,7 @@ IMPLOT3D_IMPL_API ImTextureID ImPlot3D_ImplOpenGL3_CreateTexture(const ImVec2& s
     return (ImTextureID)(intptr_t)texture_id;
 }
 
-IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_DestroyTexture(ImTextureID tex_id) {
+void ImPlot3D_ImplOpenGL3_DestroyTexture(ImTextureID tex_id) {
     GLuint texture_id = (GLuint)(intptr_t)tex_id;
 
     if (texture_id != 0) {
