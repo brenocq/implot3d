@@ -121,8 +121,7 @@ void DemoLinePlots() {
     if (ImPlot3D::BeginPlot("Line Plots")) {
         ImPlot3D::SetupAxes("x", "y", "z");
         ImPlot3D::PlotLine("f(x)", xs1, ys1, zs1, 1001);
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle);
-        ImPlot3D::PlotLine("g(x)", xs2, ys2, zs2, 20, ImPlot3DLineFlags_Segments);
+        ImPlot3D::PlotLine("g(x)", xs2, ys2, zs2, 20, {ImPlot3DProp_Marker, ImPlot3DMarker_Circle, ImPlot3DProp_Flags, ImPlot3DLineFlags_Segments});
         ImPlot3D::EndPlot();
     }
 }
@@ -144,10 +143,13 @@ void DemoScatterPlots() {
 
     if (ImPlot3D::BeginPlot("Scatter Plots")) {
         ImPlot3D::PlotScatter("Data 1", xs1, ys1, zs1, 100);
-        ImPlot3D::PushStyleVar(ImPlot3DStyleVar_FillAlpha, 0.25f);
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, 6, ImPlot3D::GetColormapColor(1), IMPLOT3D_AUTO, ImPlot3D::GetColormapColor(1));
-        ImPlot3D::PlotScatter("Data 2", xs2, ys2, zs2, 50);
-        ImPlot3D::PopStyleVar();
+        ImPlot3DSpec spec;
+        spec.Marker = ImPlot3DMarker_Square;
+        spec.MarkerSize = 6;
+        spec.MarkerLineColor = ImPlot3D::GetColormapColor(1);
+        spec.MarkerFillColor = ImPlot3D::GetColormapColor(1);
+        spec.FillAlpha = 0.25f;
+        ImPlot3D::PlotScatter("Data 2", xs2, ys2, zs2, 50, spec);
         ImPlot3D::EndPlot();
     }
 }
@@ -224,12 +226,15 @@ void DemoTrianglePlots() {
         ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -0.5, 1.5);
 
         // Setup pyramid colors
-        ImPlot3D::SetNextFillStyle(ImPlot3D::GetColormapColor(0));
-        ImPlot3D::SetNextLineStyle(ImPlot3D::GetColormapColor(1), 2);
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, 3, ImPlot3D::GetColormapColor(2), IMPLOT3D_AUTO, ImPlot3D::GetColormapColor(2));
+        ImPlot3DSpec spec;
+        spec.FillColor = ImPlot3D::GetColormapColor(0);
+        spec.LineColor = ImPlot3D::GetColormapColor(1);
+        spec.Marker = ImPlot3DMarker_Square;
+        spec.MarkerSize = 3;
+        spec.Flags = flags;
 
         // Plot pyramid
-        ImPlot3D::PlotTriangle("Pyramid", xs, ys, zs, 6 * 3, flags); // 6 triangles, 3 vertices each = 18
+        ImPlot3D::PlotTriangle("Pyramid", xs, ys, zs, 6 * 3, spec); // 6 triangles, 3 vertices each = 18
         ImPlot3D::EndPlot();
     }
 }
@@ -287,26 +292,28 @@ void DemoQuadPlots() {
     if (ImPlot3D::BeginPlot("Quad Plots")) {
         ImPlot3D::SetupAxesLimits(-1.5, 1.5, -1.5, 1.5, -1.5, 1.5);
 
+        ImPlot3DSpec spec;
+        spec.Marker = ImPlot3DMarker_Square;
+        spec.MarkerSize = 3;
+        spec.Flags = flags;
+
         // Render +x and -x faces
         static ImVec4 colorX(0.8f, 0.2f, 0.2f, 0.8f); // Red
-        ImPlot3D::SetNextFillStyle(colorX);
-        ImPlot3D::SetNextLineStyle(colorX, 2);
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, 3, colorX, IMPLOT3D_AUTO, colorX);
-        ImPlot3D::PlotQuad("X", &xs[0], &ys[0], &zs[0], 8, flags);
+        spec.FillColor = colorX;
+        spec.LineColor = colorX;
+        ImPlot3D::PlotQuad("X", &xs[0], &ys[0], &zs[0], 8, spec);
 
         // Render +y and -y faces
         static ImVec4 colorY(0.2f, 0.8f, 0.2f, 0.8f); // Green
-        ImPlot3D::SetNextFillStyle(colorY);
-        ImPlot3D::SetNextLineStyle(colorY, 2);
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, 3, colorY, IMPLOT3D_AUTO, colorY);
-        ImPlot3D::PlotQuad("Y", &xs[8], &ys[8], &zs[8], 8, flags);
+        spec.FillColor = colorY;
+        spec.LineColor = colorY;
+        ImPlot3D::PlotQuad("Y", &xs[8], &ys[8], &zs[8], 8, spec);
 
         // Render +z and -z faces
         static ImVec4 colorZ(0.2f, 0.2f, 0.8f, 0.8f); // Blue
-        ImPlot3D::SetNextFillStyle(colorZ);
-        ImPlot3D::SetNextLineStyle(colorZ, 2);
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, 3, colorZ, IMPLOT3D_AUTO, colorZ);
-        ImPlot3D::PlotQuad("Z", &xs[16], &ys[16], &zs[16], 8, flags);
+        spec.FillColor = colorZ;
+        spec.LineColor = colorZ;
+        ImPlot3D::PlotQuad("Z", &xs[16], &ys[16], &zs[16], 8, spec);
 
         ImPlot3D::EndPlot();
     }
@@ -388,25 +395,21 @@ void DemoSurfacePlots() {
     if (ImPlot3D::BeginPlot("Surface Plots", ImVec2(-1, 0), ImPlot3DFlags_NoClip)) {
         ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1.5, 1.5);
 
-        // Set fill style
-        ImPlot3D::PushStyleVar(ImPlot3DStyleVar_FillAlpha, 0.8f);
+        ImPlot3DSpec spec;
+        spec.FillAlpha = 0.8f;
+        spec.Flags = flags;
+        spec.Marker = ImPlot3DMarker_Square;
+        spec.LineColor = ImPlot3D::GetColormapColor(1);
         if (selected_fill == 0)
-            ImPlot3D::SetNextFillStyle(solid_color);
-
-        // Set line style
-        ImPlot3D::SetNextLineStyle(ImPlot3D::GetColormapColor(1));
-
-        // Set marker style
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, IMPLOT3D_AUTO, ImPlot3D::GetColormapColor(2));
+            spec.FillColor = solid_color;
 
         // Plot the surface
         if (custom_range)
-            ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, (double)range_min, (double)range_max, flags);
+            ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, (double)range_min, (double)range_max, spec);
         else
-            ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, 0.0, 0.0, flags);
+            ImPlot3D::PlotSurface("Wave Surface", xs, ys, zs, N, N, 0.0, 0.0, spec);
 
         // End the plot
-        ImPlot3D::PopStyleVar();
         ImPlot3D::EndPlot();
     }
     if (selected_fill == 1)
@@ -438,22 +441,25 @@ void DemoMeshPlots() {
     if (ImPlot3D::BeginPlot("Mesh Plots")) {
         ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
 
+        ImPlot3DSpec spec;
+        spec.Flags = flags;
         // Set fill style
-        ImPlot3D::SetNextFillStyle(fill_color);
-
+        spec.FillColor = fill_color;
         // Set line style
-        ImPlot3D::SetNextLineStyle(line_color);
-
+        spec.LineColor = line_color;
         // Set marker style
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square, 3, marker_color, IMPLOT3D_AUTO, marker_color);
+        spec.Marker = ImPlot3DMarker_Square;
+        spec.MarkerSize = 3.0f;
+        spec.MarkerLineColor = marker_color;
+        spec.MarkerFillColor = marker_color;
 
         // Plot mesh
         if (mesh_id == 0)
-            ImPlot3D::PlotMesh("Duck", duck_vtx, duck_idx, DUCK_VTX_COUNT, DUCK_IDX_COUNT, flags);
+            ImPlot3D::PlotMesh("Duck", duck_vtx, duck_idx, DUCK_VTX_COUNT, DUCK_IDX_COUNT, spec);
         else if (mesh_id == 1)
-            ImPlot3D::PlotMesh("Sphere", sphere_vtx, sphere_idx, SPHERE_VTX_COUNT, SPHERE_IDX_COUNT, flags);
+            ImPlot3D::PlotMesh("Sphere", sphere_vtx, sphere_idx, SPHERE_VTX_COUNT, SPHERE_IDX_COUNT, spec);
         else if (mesh_id == 2)
-            ImPlot3D::PlotMesh("Cube", cube_vtx, cube_idx, CUBE_VTX_COUNT, CUBE_IDX_COUNT, flags);
+            ImPlot3D::PlotMesh("Cube", cube_vtx, cube_idx, CUBE_VTX_COUNT, CUBE_IDX_COUNT, spec);
 
         ImPlot3D::EndPlot();
     }
@@ -576,7 +582,8 @@ void DemoRealtimePlots() {
         ImPlot3D::SetupAxisLimits(ImAxis3D_X, t - 10.0, t, ImPlot3DCond_Always);
         ImPlot3D::SetupAxisLimits(ImAxis3D_Y, -400, 400, ImPlot3DCond_Once);
         ImPlot3D::SetupAxisLimits(ImAxis3D_Z, -400, 400, ImPlot3DCond_Once);
-        ImPlot3D::PlotLine("Mouse", &sdata1.Data[0], &sdata2.Data[0], &sdata3.Data[0], sdata1.Data.size(), 0, sdata1.Offset, sizeof(float));
+        ImPlot3D::PlotLine("Mouse", &sdata1.Data[0], &sdata2.Data[0], &sdata3.Data[0], sdata1.Data.size(),
+                           {ImPlot3DProp_Offset, sdata1.Offset, ImPlot3DProp_Stride, sizeof(float)});
         ImPlot3D::EndPlot();
     }
 }
@@ -710,8 +717,10 @@ void DemoOffsetAndStride() {
         char buff[32];
         for (int s = 0; s < k_spirals; ++s) {
             snprintf(buff, sizeof(buff), "Spiral %d", s);
-            ImPlot3D::PlotLine(buff, &interleaved_data[s * 3 + 0], &interleaved_data[s * 3 + 1], &interleaved_data[s * 3 + 2], k_points_per, 0,
-                               offset, 3 * k_spirals * sizeof(double));
+            ImPlot3DSpec spec;
+            spec.Offset = offset;
+            spec.Stride = 3 * k_spirals * sizeof(double);
+            ImPlot3D::PlotLine(buff, &interleaved_data[s * 3 + 0], &interleaved_data[s * 3 + 1], &interleaved_data[s * 3 + 2], k_points_per, spec);
         }
         ImPlot3D::EndPlot();
         ImPlot3D::PopColormap();
@@ -794,7 +803,7 @@ void DemoLegendOptions() {
 
 void DemoMarkersAndText() {
     static float mk_size = ImPlot3D::GetStyle().MarkerSize;
-    static float mk_weight = ImPlot3D::GetStyle().MarkerWeight;
+    static float mk_weight = ImPlot3D::GetStyle().LineWeight;
     ImGui::DragFloat("Marker Size", &mk_size, 0.1f, 2.0f, 10.0f, "%.2f px");
     ImGui::DragFloat("Marker Weight", &mk_weight, 0.05f, 0.5f, 3.0f, "%.2f px");
 
@@ -814,8 +823,8 @@ void DemoMarkersAndText() {
             ys[1] = ys[0] + ImSin(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5f;
 
             ImGui::PushID(m);
-            ImPlot3D::SetNextMarkerStyle(m, mk_size, IMPLOT3D_AUTO_COL, mk_weight);
-            ImPlot3D::PlotLine("##Filled", xs, ys, zs, 2);
+            ImPlot3D::PlotLine("##Filled", xs, ys, zs, 2,
+                               {ImPlot3DProp_Marker, m, ImPlot3DProp_MarkerSize, mk_size, ImPlot3DProp_LineWeight, mk_weight});
             ImGui::PopID();
             zs[0]--;
             zs[1]--;
@@ -832,8 +841,9 @@ void DemoMarkersAndText() {
             ys[1] = ys[0] - ImSin(zs[0] / float(ImPlot3DMarker_COUNT) * 2 * IM_PI) * 0.5f;
 
             ImGui::PushID(m);
-            ImPlot3D::SetNextMarkerStyle(m, mk_size, ImVec4(0, 0, 0, 0), mk_weight);
-            ImPlot3D::PlotLine("##Open", xs, ys, zs, 2);
+            ImPlot3D::PlotLine("##Open", xs, ys, zs, 2,
+                               {ImPlot3DProp_Marker, m, ImPlot3DProp_MarkerSize, mk_size, ImPlot3DProp_LineWeight, mk_weight, ImPlot3DProp_FillColor,
+                                ImVec4(0, 0, 0, 0)});
             ImGui::PopID();
             zs[0]--;
             zs[1]--;
@@ -866,8 +876,7 @@ void DemoNaNValues() {
     ImGui::CheckboxFlags("Skip NaN", (unsigned int*)&flags, ImPlot3DLineFlags_SkipNaN);
 
     if (ImPlot3D::BeginPlot("##NaNValues")) {
-        ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Square);
-        ImPlot3D::PlotLine("Line", data1, data2, data3, 5, flags);
+        ImPlot3D::PlotLine("Line", data1, data2, data3, 5, {ImPlot3DProp_Flags, flags, ImPlot3DProp_Marker, ImPlot3DMarker_Square});
         ImPlot3D::EndPlot();
     }
 }
@@ -931,12 +940,9 @@ void DemoBoxRotation() {
             ImPlot3D::SetupBoxRotation(elevation, azimuth, animate, ImPlot3DCond_Always);
 
         // Plot axis lines
-        ImPlot3D::SetNextLineStyle(ImVec4(0.8f, 0.2f, 0.2f, 1));
-        ImPlot3D::PlotLine("X-Axis", axis, origin, origin, 2);
-        ImPlot3D::SetNextLineStyle(ImVec4(0.2f, 0.8f, 0.2f, 1));
-        ImPlot3D::PlotLine("Y-Axis", origin, axis, origin, 2);
-        ImPlot3D::SetNextLineStyle(ImVec4(0.2f, 0.2f, 0.8f, 1));
-        ImPlot3D::PlotLine("Z-Axis", origin, origin, axis, 2);
+        ImPlot3D::PlotLine("X-Axis", axis, origin, origin, 2, {ImPlot3DProp_LineColor, ImVec4(0.8f, 0.2f, 0.2f, 1)});
+        ImPlot3D::PlotLine("Y-Axis", origin, axis, origin, 2, {ImPlot3DProp_LineColor, ImVec4(0.2f, 0.8f, 0.2f, 1)});
+        ImPlot3D::PlotLine("Z-Axis", origin, origin, axis, 2, {ImPlot3DProp_LineColor, ImVec4(0.2f, 0.2f, 0.8f, 1)});
 
         ImPlot3D::EndPlot();
     }
@@ -1144,8 +1150,11 @@ void DemoMousePicking() {
 
         // Show intersection point
         if (ImGui::IsItemHovered() && !point.IsNaN()) {
-            ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle, 5, ImVec4(1, 1, 0, 1));
-            ImPlot3D::PlotScatter("##Intersection", &point.x, &point.y, &point.z, 1);
+            ImPlot3DSpec spec;
+            spec.Marker = ImPlot3DMarker_Circle;
+            spec.MarkerSize = 5;
+            spec.FillColor = ImVec4(1, 1, 0, 1);
+            ImPlot3D::PlotScatter("##Intersection", &point.x, &point.y, &point.z, 1, spec);
         }
 
         // Add point/ray on click
@@ -1156,10 +1165,12 @@ void DemoMousePicking() {
 
         // Draw all placed points
         if (!points.empty()) {
-            ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle, 3);
             // Plot points
-            ImPlot3D::PlotScatter("Placed Points", &points[0].x, &points[0].y, &points[0].z, (int)points.Size, ImPlot3DScatterFlags_None, 0,
-                                  sizeof(ImPlot3DPoint));
+            ImPlot3DSpec spec;
+            spec.Marker = ImPlot3DMarker_Circle;
+            spec.MarkerSize = 3;
+            spec.Stride = sizeof(ImPlot3DPoint);
+            ImPlot3D::PlotScatter("Placed Points", &points[0].x, &points[0].y, &points[0].z, (int)points.Size, spec);
         }
 
         // Draw all placed rays
@@ -1172,8 +1183,11 @@ void DemoMousePicking() {
                 ray_points.push_back(p1);
                 ray_points.push_back(p2);
             }
-            ImPlot3D::PlotLine("Placed Rays", &ray_points[0].x, &ray_points[0].y, &ray_points[0].z, (int)rays.Size * 2, ImPlot3DLineFlags_Segments, 0,
-                               sizeof(ImPlot3DPoint));
+            ImPlot3DSpec spec;
+            spec.Flags = ImPlot3DLineFlags_Segments;
+            spec.Offset = 0;
+            spec.Stride = sizeof(ImPlot3DPoint);
+            ImPlot3D::PlotLine("Placed Rays", &ray_points[0].x, &ray_points[0].y, &ray_points[0].z, (int)rays.Size * 2, spec);
         }
 
         ImPlot3D::EndPlot();
@@ -1351,7 +1365,7 @@ void DemoCustomOverlay() {
 
 void DemoCustomPerPointStyle() {
     ImGui::BulletText("Demonstrates per-point coloring using colormap sampling.");
-    ImGui::BulletText("Each point calls SetNextMarkerStyle with a sampled color.");
+    ImGui::BulletText("A different color is sampled for each point.");
     ImGui::BulletText("All points share the same label for a single legend entry.");
 
     static float marker_size = 4.0f;
@@ -1432,6 +1446,10 @@ void DemoCustomPerPointStyle() {
             ImVec4(0.0f, 0.0f, 1.0f, 1.0f)  // Blue
         };
 
+        ImPlot3DSpec spec;
+        spec.Marker = ImPlot3DMarker_Circle;
+        spec.MarkerSize = marker_size;
+
         for (int torus = 0; torus < 3; torus++) {
             const int point_count = 400;
             for (int i = 0; i < point_count; i++) {
@@ -1442,12 +1460,13 @@ void DemoCustomPerPointStyle() {
 
                 // Sample colormap and set marker style
                 ImVec4 color = ImPlot3D::SampleColormap(t, cmap);
-                ImPlot3D::SetNextMarkerStyle(ImPlot3DMarker_Circle, marker_size, color, IMPLOT3D_AUTO, color);
-                ImPlot3D::PlotScatter(labels[torus], &x, &y, &z, 1);
+                spec.FillColor = color;
+                spec.LineColor = color;
+                ImPlot3D::PlotScatter(labels[torus], &x, &y, &z, 1, spec);
             }
             // Override legend color with PlotDummy
-            ImPlot3D::SetNextLineStyle(legend_colors[torus]);
-            ImPlot3D::PlotDummy(labels[torus]);
+            spec.LineColor = legend_colors[torus];
+            ImPlot3D::PlotDummy(labels[torus], spec);
         }
 
         ImPlot3D::EndPlot();
@@ -1759,7 +1778,6 @@ void ShowStyleEditor(ImPlot3DStyle* ref) {
             ImGui::Text("Item Styling");
             ImGui::SliderFloat("LineWeight", &style.LineWeight, 0.0f, 5.0f, "%.1f");
             ImGui::SliderFloat("MarkerSize", &style.MarkerSize, 2.0f, 10.0f, "%.1f");
-            ImGui::SliderFloat("MarkerWeight", &style.MarkerWeight, 0.0f, 5.0f, "%.1f");
             ImGui::SliderFloat("FillAlpha", &style.FillAlpha, 0.0f, 1.0f, "%.2f");
             ImGui::Text("Plot Styling");
             ImGui::SliderFloat2("PlotDefaultSize", (float*)&style.PlotDefaultSize, 0.0f, 1000, "%.0f");
@@ -2076,10 +2094,6 @@ void StyleSeaborn() {
     ImPlot3DStyle& style = ImPlot3D::GetStyle();
 
     ImVec4* colors = style.Colors;
-    colors[ImPlot3DCol_Line] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_Fill] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerOutline] = IMPLOT3D_AUTO_COL;
-    colors[ImPlot3DCol_MarkerFill] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_FrameBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     colors[ImPlot3DCol_PlotBg] = ImVec4(0.92f, 0.92f, 0.95f, 1.00f);
     colors[ImPlot3DCol_PlotBorder] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
@@ -2094,7 +2108,6 @@ void StyleSeaborn() {
     style.LineWeight = 1.5;
     style.Marker = ImPlot3DMarker_None;
     style.MarkerSize = 4;
-    style.MarkerWeight = 1;
     style.FillAlpha = 1.0f;
     style.PlotPadding = ImVec2(12, 12);
     style.LabelPadding = ImVec2(5, 5);

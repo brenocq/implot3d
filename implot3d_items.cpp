@@ -138,69 +138,69 @@ namespace ImPlot3D {
 static const float ITEM_HIGHLIGHT_LINE_SCALE = 2.0f;
 static const float ITEM_HIGHLIGHT_MARK_SCALE = 1.25f;
 
-bool BeginItem(const char* label_id, ImPlot3DItemFlags flags, ImPlot3DCol recolor_from) {
+template <typename T> int Stride(const ImPlot3DSpec& spec) { return spec.Stride == IMPLOT3D_AUTO ? sizeof(T) : spec.Stride; }
+
+bool BeginItem(const char* label_id, const ImPlot3DSpec& spec, const ImVec4& item_col, ImPlot3DMarker item_mkr) {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "PlotX() needs to be called between BeginPlot() and EndPlot()!");
 
     // Lock setup
     SetupLock();
 
+    // Override next data with spec
     ImPlot3DStyle& style = gp.Style;
     ImPlot3DNextItemData& n = gp.NextItemData;
+    ImPlot3DSpec& s = n.Spec;
+    s = spec;
 
     // Register item
     bool just_created;
-    ImPlot3DItem* item = RegisterOrGetItem(label_id, flags, &just_created);
+    ImPlot3DItem* item = RegisterOrGetItem(label_id, spec.Flags, &just_created);
     // Set current item
     gp.CurrentItem = item;
 
     // Set/override item color
-    if (recolor_from != -1) {
-        if (!IsColorAuto(n.Colors[recolor_from]))
-            item->Color = ImGui::ColorConvertFloat4ToU32(n.Colors[recolor_from]);
-        else if (!IsColorAuto(gp.Style.Colors[recolor_from]))
-            item->Color = ImGui::ColorConvertFloat4ToU32(gp.Style.Colors[recolor_from]);
-        else if (just_created)
-            item->Color = NextColormapColorU32();
+    if (!IsColorAuto(item_col)) {
+        item->Color = ImGui::ColorConvertFloat4ToU32(item_col);
     } else if (just_created) {
         item->Color = NextColormapColorU32();
     }
 
+    // Set/override item marker
+    if (item_mkr != ImPlot3DMarker_Invalid) {
+        if (item_mkr != ImPlot3DMarker_Auto) {
+            item->Marker = item_mkr;
+        } else if (just_created && item_mkr == ImPlot3DMarker_Auto) {
+            item->Marker = NextMarker();
+        } else if (item_mkr == ImPlot3DMarker_Auto && item->Marker == ImPlot3DMarker_None) {
+            item->Marker = NextMarker();
+        }
+    }
+
     // Set next item color
     ImVec4 item_color = ImGui::ColorConvertU32ToFloat4(item->Color);
-    n.IsAutoLine = IsColorAuto(n.Colors[ImPlot3DCol_Line]) && IsColorAuto(ImPlot3DCol_Line);
-    n.IsAutoFill = IsColorAuto(n.Colors[ImPlot3DCol_Fill]) && IsColorAuto(ImPlot3DCol_Fill);
-    n.Colors[ImPlot3DCol_Line] = IsColorAuto(n.Colors[ImPlot3DCol_Line])
-                                     ? (IsColorAuto(ImPlot3DCol_Line) ? item_color : gp.Style.Colors[ImPlot3DCol_Line])
-                                     : n.Colors[ImPlot3DCol_Line];
-    n.Colors[ImPlot3DCol_Fill] = IsColorAuto(n.Colors[ImPlot3DCol_Fill])
-                                     ? (IsColorAuto(ImPlot3DCol_Fill) ? item_color : gp.Style.Colors[ImPlot3DCol_Fill])
-                                     : n.Colors[ImPlot3DCol_Fill];
-    n.Colors[ImPlot3DCol_MarkerOutline] =
-        IsColorAuto(n.Colors[ImPlot3DCol_MarkerOutline])
-            ? (IsColorAuto(ImPlot3DCol_MarkerOutline) ? n.Colors[ImPlot3DCol_Line] : gp.Style.Colors[ImPlot3DCol_MarkerOutline])
-            : n.Colors[ImPlot3DCol_MarkerOutline];
-    n.Colors[ImPlot3DCol_MarkerFill] =
-        IsColorAuto(n.Colors[ImPlot3DCol_MarkerFill])
-            ? (IsColorAuto(ImPlot3DCol_MarkerFill) ? n.Colors[ImPlot3DCol_Line] : gp.Style.Colors[ImPlot3DCol_MarkerFill])
-            : n.Colors[ImPlot3DCol_MarkerFill];
+    n.IsAutoLine = IsColorAuto(s.LineColor);
+    n.IsAutoFill = IsColorAuto(s.FillColor);
+    s.LineColor = IsColorAuto(s.LineColor) ? item_color : s.LineColor;
+    s.FillColor = IsColorAuto(s.FillColor) ? item_color : s.FillColor;
+    s.MarkerLineColor = IsColorAuto(s.MarkerLineColor) ? s.LineColor : s.MarkerLineColor;
+    s.MarkerFillColor = IsColorAuto(s.MarkerFillColor) ? s.LineColor : s.MarkerFillColor;
 
     // Set size & weight
-    n.LineWeight = n.LineWeight < 0.0f ? style.LineWeight : n.LineWeight;
-    n.Marker = n.Marker < 0 ? style.Marker : n.Marker;
-    n.MarkerSize = n.MarkerSize < 0.0f ? style.MarkerSize : n.MarkerSize;
-    n.MarkerWeight = n.MarkerWeight < 0.0f ? style.MarkerWeight : n.MarkerWeight;
-    n.FillAlpha = n.FillAlpha < 0 ? gp.Style.FillAlpha : n.FillAlpha;
+    s.LineWeight = s.LineWeight < 0.0f ? style.LineWeight : s.LineWeight;
+    s.Marker = s.Marker < 0 ? style.Marker : s.Marker;
+    s.MarkerSize = s.MarkerSize < 0.0f ? style.MarkerSize : s.MarkerSize;
+    s.FillAlpha = s.FillAlpha < 0 ? gp.Style.FillAlpha : s.FillAlpha;
 
     // Apply alpha modifiers
-    n.Colors[ImPlot3DCol_Fill].w *= n.FillAlpha;
-    n.Colors[ImPlot3DCol_MarkerFill].w *= n.FillAlpha;
+    s.FillColor.w *= s.FillAlpha;
+    s.MarkerFillColor.w *= s.FillAlpha;
 
     // Set render flags
-    n.RenderLine = n.Colors[ImPlot3DCol_Line].w > 0 && n.LineWeight > 0;
-    n.RenderFill = n.Colors[ImPlot3DCol_Fill].w > 0;
-    n.RenderMarkerFill = n.Colors[ImPlot3DCol_MarkerFill].w > 0;
-    n.RenderMarkerLine = n.Colors[ImPlot3DCol_MarkerOutline].w > 0 && n.MarkerWeight > 0;
+    n.RenderLine = s.LineColor.w > 0 && s.LineWeight > 0;
+    n.RenderFill = s.FillColor.w > 0;
+    n.RenderMarkerLine = s.LineColor.w > 0 && s.LineWeight > 0;
+    n.RenderMarkerFill = s.FillColor.w > 0;
 
     // Don't render if item is hidden
     if (!item->Show) {
@@ -210,9 +210,8 @@ bool BeginItem(const char* label_id, ImPlot3DItemFlags flags, ImPlot3DCol recolo
         // Legend hover highlight
         if (item->LegendHovered) {
             if (!ImHasFlag(gp.CurrentItems->Legend.Flags, ImPlot3DLegendFlags_NoHighlightItem)) {
-                n.LineWeight *= ITEM_HIGHLIGHT_LINE_SCALE;
-                n.MarkerSize *= ITEM_HIGHLIGHT_MARK_SCALE;
-                n.MarkerWeight *= ITEM_HIGHLIGHT_LINE_SCALE;
+                s.LineWeight *= ITEM_HIGHLIGHT_LINE_SCALE;
+                s.MarkerSize *= ITEM_HIGHLIGHT_MARK_SCALE;
             }
         }
     }
@@ -220,12 +219,12 @@ bool BeginItem(const char* label_id, ImPlot3DItemFlags flags, ImPlot3DCol recolo
     return true;
 }
 
-template <typename _Getter>
-bool BeginItemEx(const char* label_id, const _Getter& getter, ImPlot3DItemFlags flags = 0, ImPlot3DCol recolor_from = IMPLOT3D_AUTO) {
-    if (BeginItem(label_id, flags, recolor_from)) {
+template <typename _Getter> bool BeginItemEx(const char* label_id, const _Getter& getter, const ImPlot3DSpec& spec,
+                                             const ImVec4& item_col = IMPLOT3D_AUTO_COL, ImPlot3DMarker item_mkr = ImPlot3DMarker_Invalid) {
+    if (BeginItem(label_id, spec, item_col, item_mkr)) {
         ImPlot3DContext& gp = *GImPlot3D;
         ImPlot3DPlot& plot = *gp.CurrentPlot;
-        if (plot.FitThisFrame && !ImHasFlag(flags, ImPlot3DItemFlags_NoFit)) {
+        if (plot.FitThisFrame && !ImHasFlag(spec.Flags, ImPlot3DItemFlags_NoFit)) {
             for (int i = 0; i < getter.Count; i++)
                 plot.ExtendFit(getter(i));
         }
@@ -275,30 +274,6 @@ void BustItemCache() {
         ImPlot3DPlot& plot = *gp.Plots.GetByIndex(p);
         plot.Items.Reset();
     }
-}
-
-void SetNextLineStyle(const ImVec4& col, float weight) {
-    ImPlot3DContext& gp = *GImPlot3D;
-    ImPlot3DNextItemData& n = gp.NextItemData;
-    n.Colors[ImPlot3DCol_Line] = col;
-    n.LineWeight = weight;
-}
-
-void SetNextFillStyle(const ImVec4& col, float alpha) {
-    ImPlot3DContext& gp = *GImPlot3D;
-    ImPlot3DNextItemData& n = gp.NextItemData;
-    n.Colors[ImPlot3DCol_Fill] = col;
-    n.FillAlpha = alpha;
-}
-
-void SetNextMarkerStyle(ImPlot3DMarker marker, float size, const ImVec4& fill, float weight, const ImVec4& outline) {
-    ImPlot3DContext& gp = *GImPlot3D;
-    ImPlot3DNextItemData& n = gp.NextItemData;
-    n.Marker = marker;
-    n.Colors[ImPlot3DCol_MarkerFill] = fill;
-    n.MarkerSize = size;
-    n.Colors[ImPlot3DCol_MarkerOutline] = outline;
-    n.MarkerWeight = weight;
 }
 
 //-----------------------------------------------------------------------------
@@ -814,7 +789,7 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
         ImU32 cols[4] = {Col, Col, Col, Col};
         const ImPlot3DNextItemData& n = GetItemData();
         if (n.IsAutoFill) {
-            float alpha = GImPlot3D->NextItemData.FillAlpha;
+            float alpha = GImPlot3D->NextItemData.Spec.FillAlpha;
             double min = Min;
             double max = Max;
             if (ScaleMin != 0.0 || ScaleMax != 0.0) {
@@ -1153,30 +1128,31 @@ template <typename _Getter> void RenderMarkers(const _Getter& getter, ImPlot3DMa
 // [SECTION] PlotScatter
 //-----------------------------------------------------------------------------
 
-template <typename Getter> void PlotScatterEx(const char* label_id, const Getter& getter, ImPlot3DScatterFlags flags) {
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_MarkerOutline)) {
+template <typename Getter> void PlotScatterEx(const char* label_id, const Getter& getter, const ImPlot3DSpec& spec) {
+    if (BeginItemEx(label_id, getter, spec, spec.MarkerLineColor, spec.Marker)) {
         const ImPlot3DNextItemData& n = GetItemData();
-        ImPlot3DMarker marker = n.Marker == ImPlot3DMarker_None ? ImPlot3DMarker_Circle : n.Marker;
-        const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-        const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
+        const ImPlot3DSpec& s = n.Spec;
+        ImPlot3DMarker marker = s.Marker == ImPlot3DMarker_None ? ImPlot3DMarker_Circle : s.Marker;
+        const ImU32 col_line = ImGui::GetColorU32(s.MarkerLineColor);
+        const ImU32 col_fill = ImGui::GetColorU32(s.MarkerFillColor);
         if (marker != ImPlot3DMarker_None)
-            RenderMarkers<Getter>(getter, marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+            RenderMarkers<Getter>(getter, marker, s.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         EndItem();
     }
 }
 
-template <typename T>
-void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DScatterFlags flags, int offset, int stride) {
+template <typename T> void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec) {
     if (count < 1)
         return;
-    GetterXYZ<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, offset, stride), IndexerIdx<T>(ys, count, offset, stride),
-                                                                  IndexerIdx<T>(zs, count, offset, stride), count);
-    return PlotScatterEx(label_id, getter, flags);
+    int stride = Stride<T>(spec);
+    GetterXYZ<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, spec.Offset, stride),
+                                                                  IndexerIdx<T>(ys, count, spec.Offset, stride),
+                                                                  IndexerIdx<T>(zs, count, spec.Offset, stride), count);
+    return PlotScatterEx(label_id, getter, spec);
 }
 
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
-    template IMPLOT3D_API void PlotScatter<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DScatterFlags flags,    \
-                                              int offset, int stride);
+    template IMPLOT3D_API void PlotScatter<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
@@ -1184,47 +1160,50 @@ CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 // [SECTION] PlotLine
 //-----------------------------------------------------------------------------
 
-template <typename _Getter> void PlotLineEx(const char* label_id, const _Getter& getter, ImPlot3DLineFlags flags) {
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Line)) {
+template <typename _Getter> void PlotLineEx(const char* label_id, const _Getter& getter, const ImPlot3DSpec& spec) {
+    if (BeginItemEx(label_id, getter, spec, spec.LineColor, spec.Marker)) {
         const ImPlot3DNextItemData& n = GetItemData();
+        const ImPlot3DSpec& s = n.Spec;
+
         if (getter.Count >= 2 && n.RenderLine) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
-            if (ImHasFlag(flags, ImPlot3DLineFlags_Segments)) {
-                RenderPrimitives<RendererLineSegments>(getter, col_line, n.LineWeight);
-            } else if (ImHasFlag(flags, ImPlot3DLineFlags_Loop)) {
-                if (ImHasFlag(flags, ImPlot3DLineFlags_SkipNaN))
-                    RenderPrimitives<RendererLineStripSkip>(GetterLoop<_Getter>(getter), col_line, n.LineWeight);
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            if (ImHasFlag(spec.Flags, ImPlot3DLineFlags_Segments)) {
+                RenderPrimitives<RendererLineSegments>(getter, col_line, s.LineWeight);
+            } else if (ImHasFlag(spec.Flags, ImPlot3DLineFlags_Loop)) {
+                if (ImHasFlag(spec.Flags, ImPlot3DLineFlags_SkipNaN))
+                    RenderPrimitives<RendererLineStripSkip>(GetterLoop<_Getter>(getter), col_line, s.LineWeight);
                 else
-                    RenderPrimitives<RendererLineStrip>(GetterLoop<_Getter>(getter), col_line, n.LineWeight);
+                    RenderPrimitives<RendererLineStrip>(GetterLoop<_Getter>(getter), col_line, s.LineWeight);
             } else {
-                if (ImHasFlag(flags, ImPlot3DLineFlags_SkipNaN))
-                    RenderPrimitives<RendererLineStripSkip>(getter, col_line, n.LineWeight);
+                if (ImHasFlag(spec.Flags, ImPlot3DLineFlags_SkipNaN))
+                    RenderPrimitives<RendererLineStripSkip>(getter, col_line, s.LineWeight);
                 else
-                    RenderPrimitives<RendererLineStrip>(getter, col_line, n.LineWeight);
+                    RenderPrimitives<RendererLineStrip>(getter, col_line, s.LineWeight);
             }
         }
 
         // Render markers
-        if (n.Marker != ImPlot3DMarker_None) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
-            RenderMarkers<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+        if (s.Marker != ImPlot3DMarker_None) {
+            const ImU32 col_line = ImGui::GetColorU32(s.MarkerLineColor);
+            const ImU32 col_fill = ImGui::GetColorU32(s.MarkerFillColor);
+            RenderMarkers<_Getter>(getter, s.Marker, s.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         }
         EndItem();
     }
 }
 
-IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DLineFlags flags, int offset, int stride) {
+IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec) {
     if (count < 2)
         return;
-    GetterXYZ<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, offset, stride), IndexerIdx<T>(ys, count, offset, stride),
-                                                                  IndexerIdx<T>(zs, count, offset, stride), count);
-    return PlotLineEx(label_id, getter, flags);
+    int stride = Stride<T>(spec);
+    GetterXYZ<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, spec.Offset, stride),
+                                                                  IndexerIdx<T>(ys, count, spec.Offset, stride),
+                                                                  IndexerIdx<T>(zs, count, spec.Offset, stride), count);
+    return PlotLineEx(label_id, getter, spec);
 }
 
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
-    template IMPLOT3D_API void PlotLine<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DLineFlags flags,          \
-                                           int offset, int stride);
+    template IMPLOT3D_API void PlotLine<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
@@ -1232,45 +1211,46 @@ CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 // [SECTION] PlotTriangle
 //-----------------------------------------------------------------------------
 
-template <typename _Getter> void PlotTriangleEx(const char* label_id, const _Getter& getter, ImPlot3DTriangleFlags flags) {
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Fill)) {
+template <typename _Getter> void PlotTriangleEx(const char* label_id, const _Getter& getter, const ImPlot3DSpec& spec) {
+    if (BeginItemEx(label_id, getter, spec, spec.FillColor, spec.Marker)) {
         const ImPlot3DNextItemData& n = GetItemData();
+        const ImPlot3DSpec& s = n.Spec;
 
         // Render fill
-        if (getter.Count >= 3 && n.RenderFill && !ImHasFlag(flags, ImPlot3DTriangleFlags_NoFill)) {
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
+        if (getter.Count >= 3 && n.RenderFill && !ImHasFlag(spec.Flags, ImPlot3DTriangleFlags_NoFill)) {
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
             RenderPrimitives<RendererTriangleFill>(getter, col_fill);
         }
 
         // Render lines
-        if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(flags, ImPlot3DTriangleFlags_NoLines)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
-            RenderPrimitives<RendererLineSegments>(GetterTriangleLines<_Getter>(getter), col_line, n.LineWeight);
+        if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(spec.Flags, ImPlot3DTriangleFlags_NoLines)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            RenderPrimitives<RendererLineSegments>(GetterTriangleLines<_Getter>(getter), col_line, s.LineWeight);
         }
 
         // Render markers
-        if (n.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DTriangleFlags_NoMarkers)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
-            RenderMarkers<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+        if (s.Marker != ImPlot3DMarker_None && !ImHasFlag(spec.Flags, ImPlot3DTriangleFlags_NoMarkers)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.MarkerLineColor);
+            const ImU32 col_fill = ImGui::GetColorU32(s.MarkerFillColor);
+            RenderMarkers<_Getter>(getter, s.Marker, s.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         }
 
         EndItem();
     }
 }
 
-IMPLOT3D_TMP void PlotTriangle(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DTriangleFlags flags, int offset,
-                               int stride) {
+IMPLOT3D_TMP void PlotTriangle(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec) {
     if (count < 3)
         return;
-    GetterXYZ<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, offset, stride), IndexerIdx<T>(ys, count, offset, stride),
-                                                                  IndexerIdx<T>(zs, count, offset, stride), count);
-    return PlotTriangleEx(label_id, getter, flags);
+    int stride = Stride<T>(spec);
+    GetterXYZ<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, spec.Offset, stride),
+                                                                  IndexerIdx<T>(ys, count, spec.Offset, stride),
+                                                                  IndexerIdx<T>(zs, count, spec.Offset, stride), count);
+    return PlotTriangleEx(label_id, getter, spec);
 }
 
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
-    template IMPLOT3D_API void PlotTriangle<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DTriangleFlags flags,  \
-                                               int offset, int stride);
+    template IMPLOT3D_API void PlotTriangle<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
@@ -1278,44 +1258,46 @@ CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 // [SECTION] PlotQuad
 //-----------------------------------------------------------------------------
 
-template <typename _Getter> void PlotQuadEx(const char* label_id, const _Getter& getter, ImPlot3DQuadFlags flags) {
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Fill)) {
+template <typename _Getter> void PlotQuadEx(const char* label_id, const _Getter& getter, const ImPlot3DSpec& spec) {
+    if (BeginItemEx(label_id, getter, spec, spec.FillColor, spec.Marker)) {
         const ImPlot3DNextItemData& n = GetItemData();
+        const ImPlot3DSpec& s = n.Spec;
 
         // Render fill
-        if (getter.Count >= 4 && n.RenderFill && !ImHasFlag(flags, ImPlot3DQuadFlags_NoFill)) {
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
+        if (getter.Count >= 4 && n.RenderFill && !ImHasFlag(spec.Flags, ImPlot3DQuadFlags_NoFill)) {
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
             RenderPrimitives<RendererQuadFill>(getter, col_fill);
         }
 
         // Render lines
-        if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(flags, ImPlot3DQuadFlags_NoLines)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
-            RenderPrimitives<RendererLineSegments>(GetterQuadLines<_Getter>(getter), col_line, n.LineWeight);
+        if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(spec.Flags, ImPlot3DQuadFlags_NoLines)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            RenderPrimitives<RendererLineSegments>(GetterQuadLines<_Getter>(getter), col_line, s.LineWeight);
         }
 
         // Render markers
-        if (n.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DQuadFlags_NoMarkers)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
-            RenderMarkers<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+        if (s.Marker != ImPlot3DMarker_None && !ImHasFlag(spec.Flags, ImPlot3DQuadFlags_NoMarkers)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.MarkerLineColor);
+            const ImU32 col_fill = ImGui::GetColorU32(s.MarkerFillColor);
+            RenderMarkers<_Getter>(getter, s.Marker, s.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         }
 
         EndItem();
     }
 }
 
-IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DQuadFlags flags, int offset, int stride) {
+IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec) {
     if (count < 3)
         return;
-    GetterXYZ<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, offset, stride), IndexerIdx<T>(ys, count, offset, stride),
-                                                                  IndexerIdx<T>(zs, count, offset, stride), count);
-    return PlotQuadEx(label_id, getter, flags);
+    int stride = Stride<T>(spec);
+    GetterXYZ<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, spec.Offset, stride),
+                                                                  IndexerIdx<T>(ys, count, spec.Offset, stride),
+                                                                  IndexerIdx<T>(zs, count, spec.Offset, stride), count);
+    return PlotQuadEx(label_id, getter, spec);
 }
 
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
-    template IMPLOT3D_API void PlotQuad<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, ImPlot3DQuadFlags flags,          \
-                                           int offset, int stride);
+    template IMPLOT3D_API void PlotQuad<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
@@ -1324,27 +1306,28 @@ CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 //-----------------------------------------------------------------------------
 
 template <typename _Getter> void PlotSurfaceEx(const char* label_id, const _Getter& getter, int x_count, int y_count, double scale_min,
-                                               double scale_max, ImPlot3DSurfaceFlags flags) {
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Fill)) {
+                                               double scale_max, const ImPlot3DSpec& spec) {
+    if (BeginItemEx(label_id, getter, spec, spec.FillColor, spec.Marker)) {
         const ImPlot3DNextItemData& n = GetItemData();
+        const ImPlot3DSpec& s = n.Spec;
 
         // Render fill
-        if (getter.Count >= 4 && n.RenderFill && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoFill)) {
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
+        if (getter.Count >= 4 && n.RenderFill && !ImHasFlag(spec.Flags, ImPlot3DSurfaceFlags_NoFill)) {
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
             RenderPrimitives<RendererSurfaceFill>(getter, x_count, y_count, col_fill, scale_min, scale_max);
         }
 
         // Render lines
-        if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoLines)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
-            RenderPrimitives<RendererLineSegments>(GetterSurfaceLines<_Getter>(getter, x_count, y_count), col_line, n.LineWeight);
+        if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(spec.Flags, ImPlot3DSurfaceFlags_NoLines)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            RenderPrimitives<RendererLineSegments>(GetterSurfaceLines<_Getter>(getter, x_count, y_count), col_line, s.LineWeight);
         }
 
         // Render markers
-        if (n.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DSurfaceFlags_NoMarkers)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
-            RenderMarkers<_Getter>(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+        if (s.Marker != ImPlot3DMarker_None && !ImHasFlag(spec.Flags, ImPlot3DSurfaceFlags_NoMarkers)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.MarkerLineColor);
+            const ImU32 col_fill = ImGui::GetColorU32(s.MarkerFillColor);
+            RenderMarkers<_Getter>(getter, s.Marker, s.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         }
 
         EndItem();
@@ -1352,18 +1335,20 @@ template <typename _Getter> void PlotSurfaceEx(const char* label_id, const _Gett
 }
 
 IMPLOT3D_TMP void PlotSurface(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count, double scale_min,
-                              double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride) {
+                              double scale_max, const ImPlot3DSpec& spec) {
     int count = x_count * y_count;
     if (count < 4)
         return;
-    GetterXYZ<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, offset, stride), IndexerIdx<T>(ys, count, offset, stride),
-                                                                  IndexerIdx<T>(zs, count, offset, stride), count);
-    return PlotSurfaceEx(label_id, getter, x_count, y_count, scale_min, scale_max, flags);
+    int stride = Stride<T>(spec);
+    GetterXYZ<IndexerIdx<T>, IndexerIdx<T>, IndexerIdx<T>> getter(IndexerIdx<T>(xs, count, spec.Offset, stride),
+                                                                  IndexerIdx<T>(ys, count, spec.Offset, stride),
+                                                                  IndexerIdx<T>(zs, count, spec.Offset, stride), count);
+    return PlotSurfaceEx(label_id, getter, x_count, y_count, scale_min, scale_max, spec);
 }
 
 #define INSTANTIATE_MACRO(T)                                                                                                                         \
     template IMPLOT3D_API void PlotSurface<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int x_count, int y_count,                 \
-                                              double scale_min, double scale_max, ImPlot3DSurfaceFlags flags, int offset, int stride);
+                                              double scale_min, double scale_max, const ImPlot3DSpec& spec);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
@@ -1371,29 +1356,31 @@ CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 // [SECTION] PlotMesh
 //-----------------------------------------------------------------------------
 
-void PlotMesh(const char* label_id, const ImPlot3DPoint* vtx, const unsigned int* idx, int vtx_count, int idx_count, ImPlot3DMeshFlags flags) {
+void PlotMesh(const char* label_id, const ImPlot3DPoint* vtx, const unsigned int* idx, int vtx_count, int idx_count, const ImPlot3DSpec& spec) {
     Getter3DPoints getter(vtx, vtx_count);                     // Get vertices
     GetterMeshTriangles getter_triangles(vtx, idx, idx_count); // Get triangle vertices
-    if (BeginItemEx(label_id, getter, flags, ImPlot3DCol_Fill)) {
+
+    if (BeginItemEx(label_id, getter, spec, spec.FillColor, spec.Marker)) {
         const ImPlot3DNextItemData& n = GetItemData();
+        const ImPlot3DSpec& s = n.Spec;
 
         // Render fill
-        if (getter.Count >= 3 && n.RenderFill && !ImHasFlag(flags, ImPlot3DMeshFlags_NoFill)) {
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Fill]);
+        if (getter.Count >= 3 && n.RenderFill && !ImHasFlag(spec.Flags, ImPlot3DMeshFlags_NoFill)) {
+            const ImU32 col_fill = ImGui::GetColorU32(s.FillColor);
             RenderPrimitives<RendererTriangleFill>(getter_triangles, col_fill);
         }
 
         // Render lines
-        if (getter.Count >= 2 && n.RenderLine && !n.IsAutoLine && !ImHasFlag(flags, ImPlot3DMeshFlags_NoLines)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_Line]);
-            RenderPrimitives<RendererLineSegments>(GetterTriangleLines<GetterMeshTriangles>(getter_triangles), col_line, n.LineWeight);
+        if (getter.Count >= 2 && n.RenderLine && !n.IsAutoLine && !ImHasFlag(spec.Flags, ImPlot3DMeshFlags_NoLines)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
+            RenderPrimitives<RendererLineSegments>(GetterTriangleLines<GetterMeshTriangles>(getter_triangles), col_line, s.LineWeight);
         }
 
         // Render markers
-        if (n.Marker != ImPlot3DMarker_None && !ImHasFlag(flags, ImPlot3DMeshFlags_NoMarkers)) {
-            const ImU32 col_line = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerOutline]);
-            const ImU32 col_fill = ImGui::GetColorU32(n.Colors[ImPlot3DCol_MarkerFill]);
-            RenderMarkers(getter, n.Marker, n.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, n.MarkerWeight);
+        if (s.Marker != ImPlot3DMarker_None && !ImHasFlag(spec.Flags, ImPlot3DMeshFlags_NoMarkers)) {
+            const ImU32 col_line = ImGui::GetColorU32(s.MarkerLineColor);
+            const ImU32 col_fill = ImGui::GetColorU32(s.MarkerFillColor);
+            RenderMarkers(getter, s.Marker, s.MarkerSize, n.RenderMarkerFill, col_fill, n.RenderMarkerLine, col_line, s.LineWeight);
         }
 
         EndItem();
@@ -1405,7 +1392,7 @@ void PlotMesh(const char* label_id, const ImPlot3DPoint* vtx, const unsigned int
 //-----------------------------------------------------------------------------
 
 IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const ImPlot3DPoint& center, const ImPlot3DPoint& axis_u,
-                            const ImPlot3DPoint& axis_v, const ImVec2& uv0, const ImVec2& uv1, const ImVec4& tint_col, ImPlot3DImageFlags flags) {
+                            const ImPlot3DPoint& axis_v, const ImVec2& uv0, const ImVec2& uv1, const ImVec4& tint_col, const ImPlot3DSpec& spec) {
     // Compute corners from center and axes
     ImPlot3DPoint p0 = center - axis_u - axis_v; // Bottom-left
     ImPlot3DPoint p1 = center + axis_u - axis_v; // Bottom-right
@@ -1419,12 +1406,12 @@ IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const Im
     ImVec2 uv_3 = ImVec2(uv0.x, uv1.y);
 
     // Delegate to full quad version
-    PlotImage(label_id, tex_ref, p0, p1, p2, p3, uv_0, uv_1, uv_2, uv_3, tint_col, flags);
+    PlotImage(label_id, tex_ref, p0, p1, p2, p3, uv_0, uv_1, uv_2, uv_3, tint_col, spec);
 }
 
 IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const ImPlot3DPoint& p0, const ImPlot3DPoint& p1, const ImPlot3DPoint& p2,
                             const ImPlot3DPoint& p3, const ImVec2& uv0, const ImVec2& uv1, const ImVec2& uv2, const ImVec2& uv3,
-                            const ImVec4& tint_col, ImPlot3DImageFlags flags) {
+                            const ImVec4& tint_col, const ImPlot3DSpec& spec) {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "PlotImage() needs to be called between BeginPlot() and EndPlot()!");
     SetupLock();
@@ -1438,7 +1425,7 @@ IMPLOT3D_API void PlotImage(const char* label_id, ImTextureRef tex_ref, const Im
     ImVec2 uv_2 = ImVec2(uv2.x, 1 - uv2.y);
     ImVec2 uv_3 = ImVec2(uv3.x, 1 - uv3.y);
 
-    if (BeginItemEx(label_id, getter, flags)) {
+    if (BeginItemEx(label_id, getter, spec, tint_col, spec.Marker)) {
         ImU32 tint_col32 = ImGui::ColorConvertFloat4ToU32(tint_col);
         GetCurrentItem()->Color = tint_col32;
 
@@ -1478,8 +1465,8 @@ void PlotText(const char* text, double x, double y, double z, double angle, cons
     AddTextRotated(GetPlotDrawList(), p, (float)angle, GetStyleColorU32(ImPlot3DCol_InlayText), text);
 }
 
-void PlotDummy(const char* label_id, ImPlot3DDummyFlags flags) {
-    if (BeginItem(label_id, flags, ImPlot3DCol_Line))
+void PlotDummy(const char* label_id, const ImPlot3DSpec& spec) {
+    if (BeginItem(label_id, spec, spec.LineColor, spec.Marker))
         EndItem();
 }
 
