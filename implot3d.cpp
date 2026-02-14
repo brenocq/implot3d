@@ -340,7 +340,7 @@ ImVec2 CalcLegendSize(ImPlot3DItemGroup& items, const ImVec2& pad, const ImVec2&
     return legend_size;
 }
 
-void ShowLegendEntries(ImPlot3DItemGroup& items, const ImRect& legend_bb, bool hovered, const ImVec2& pad, const ImVec2& spacing, bool vertical,
+void ShowLegendEntries(ImPlot3DItemGroup& items, const ImRect& legend_bb, const ImVec2& pad, const ImVec2& spacing, bool vertical,
                        ImDrawList& draw_list) {
     const float txt_ht = ImGui::GetTextLineHeight();
     const float icon_size = txt_ht;
@@ -435,7 +435,7 @@ void RenderLegend() {
     draw_list->AddRect(legend.Rect.Min, legend.Rect.Max, col_bd);
 
     // Render legends
-    ShowLegendEntries(plot.Items, legend.Rect, legend.Hovered, gp.Style.LegendInnerPadding, gp.Style.LegendSpacing, !legend_horz, *draw_list);
+    ShowLegendEntries(plot.Items, legend.Rect, gp.Style.LegendInnerPadding, gp.Style.LegendSpacing, !legend_horz, *draw_list);
 }
 
 //-----------------------------------------------------------------------------
@@ -564,7 +564,7 @@ int Active3DFacesToAxisLookupIndex(const bool* active_faces) {
     return ((int)active_faces[0] << 2) | ((int)active_faces[1] << 1) | ((int)active_faces[2]);
 }
 
-int GetMouseOverPlane(const ImPlot3DPlot& plot, const bool* active_faces, const ImVec2* corners_pix, int* plane_out = nullptr) {
+int GetMouseOverPlane(const bool* active_faces, const ImVec2* corners_pix, int* plane_out = nullptr) {
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 mouse_pos = io.MousePos;
     if (plane_out)
@@ -589,7 +589,7 @@ int GetMouseOverPlane(const ImPlot3DPlot& plot, const bool* active_faces, const 
     return -1; // Not over any active plane
 }
 
-int GetMouseOverAxis(const ImPlot3DPlot& plot, const bool* active_faces, const ImVec2* corners_pix, const int plane_2d, int* edge_out = nullptr) {
+int GetMouseOverAxis(const bool* active_faces, const ImVec2* corners_pix, const int plane_2d, int* edge_out = nullptr) {
     const float axis_proximity_threshold = 15.0f; // Distance in pixels to consider the mouse "close" to an axis
 
     ImGuiIO& io = ImGui::GetIO();
@@ -643,8 +643,8 @@ void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const
     int hovered_plane = -1;
     if (!plot.Held) {
         // If the mouse is not held, highlight plane hovering when mouse over it
-        hovered_plane = GetMouseOverPlane(plot, active_faces, corners_pix);
-        if (GetMouseOverAxis(plot, active_faces, corners_pix, plane_2d) != -1)
+        hovered_plane = GetMouseOverPlane(active_faces, corners_pix);
+        if (GetMouseOverAxis(active_faces, corners_pix, plane_2d) != -1)
             hovered_plane = -1;
     } else {
         // If the mouse is held, highlight the held plane
@@ -663,7 +663,7 @@ void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const
 void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d) {
     int hovered_edge = -1;
     if (!plot.Held)
-        GetMouseOverAxis(plot, active_faces, corners_pix, plane_2d, &hovered_edge);
+        GetMouseOverAxis(active_faces, corners_pix, plane_2d, &hovered_edge);
     else
         hovered_edge = plot.HeldEdgeIdx;
 
@@ -2229,9 +2229,9 @@ void HandleInput(ImPlot3DPlot& plot) {
     ImVec2 corners_pix[8];
     ComputeBoxCornersPix(plot, corners_pix, corners);
     int hovered_plane_idx = -1;
-    int hovered_plane = GetMouseOverPlane(plot, active_faces, corners_pix, &hovered_plane_idx);
+    int hovered_plane = GetMouseOverPlane(active_faces, corners_pix, &hovered_plane_idx);
     int hovered_edge_idx = -1;
-    int hovered_axis = GetMouseOverAxis(plot, active_faces, corners_pix, plane_2d, &hovered_edge_idx);
+    int hovered_axis = GetMouseOverAxis(active_faces, corners_pix, plane_2d, &hovered_edge_idx);
     if (hovered_axis != -1) {
         hovered_plane_idx = -1;
         hovered_plane = -1;
@@ -3957,7 +3957,7 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
     bool active_faces[3];
     ImVec2 corners_pix[8];
     ImPlot3DPoint corners[8];
-    int plane_2d;
+    int plane_2d = -1;
     int axis_corners[3][2];
     char buff[16];
     // Enum used to indicate how a certain type will be displayed
