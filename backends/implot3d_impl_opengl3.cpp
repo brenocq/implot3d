@@ -56,6 +56,7 @@ typedef void(APIENTRYP PFNGLCLEARDEPTHPROC)(GLdouble depth);
 typedef void(APIENTRYP PFNGLDEPTHMASKPROC)(GLboolean flag);
 typedef void(APIENTRYP PFNGLBLENDFUNCPROC)(GLenum sfactor, GLenum dfactor);
 typedef void(APIENTRYP PFNGLDRAWARRAYSPROC)(GLenum mode, GLint first, GLsizei count);
+typedef void(APIENTRYP PFNGLUNIFORM2FPROC)(GLint location, GLfloat v0, GLfloat v1);
 
 static PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
 static PFNGLDELETEFRAMEBUFFERSPROC glDeleteFramebuffers;
@@ -67,26 +68,36 @@ static PFNGLCLEARDEPTHPROC glClearDepth;
 static PFNGLDEPTHMASKPROC glDepthMask;
 static PFNGLBLENDFUNCPROC glBlendFunc;
 static PFNGLDRAWARRAYSPROC glDrawArrays;
+static PFNGLUNIFORM2FPROC glUniform2f;
 #endif
 
 // Shader sources
 static const char* g_VertexShaderSource = R"(
 #version 130
 
-in vec3 Position;  // 3D NDC position
+in vec3 Position;  // 3D NDC position (before rotation)
 in vec4 Color;     // RGBA color
 
 out vec4 Frag_Color;
 
-uniform mat4 u_Rotation;  // Rotation matrix from quaternion
+uniform mat4 u_Rotation;      // Rotation matrix from quaternion
+uniform vec2 u_ViewportSize;  // Viewport size (width, height) in pixels
 
 void main() {
+    // The input Position is in NDC space [-1, 1] before rotation
+    // NDCToPixels does: GetViewScale() * (Rotation * point)
+    // So we need to: 1) Apply rotation, 2) Apply aspect ratio correction
+
     // Apply rotation to the 3D NDC position
     vec4 rotated_pos = u_Rotation * vec4(Position, 1.0);
 
-    // Use X and Y for screen position, Z for depth, flip Y for correct orientation
-    // Negate Z because ImPlot3D uses +Z toward viewer, OpenGL uses -Z toward viewer
-    gl_Position = vec4(rotated_pos.x, -rotated_pos.y, -rotated_pos.z, 1.0);
+    // Calculate aspect ratio correction
+    // GetViewScale uses min(width, height), so we need to scale the longer axis
+    float min_dim = min(u_ViewportSize.x, u_ViewportSize.y) * 1.11; // NOTE: No idea why 1.11 is needed
+    vec2 scale = vec2(min_dim / u_ViewportSize.x, min_dim / u_ViewportSize.y);
+
+    // Apply scale to maintain aspect ratio, flip Y, negate Z for depth
+    gl_Position = vec4(rotated_pos.x * scale.x, -rotated_pos.y * scale.y, -rotated_pos.z, 1.0);
     Frag_Color = Color;
 }
 )";
@@ -108,6 +119,7 @@ struct ImPlot3D_ImplOpenGL3_Data {
     GLint AttribLocationPosition;
     GLint AttribLocationColor;
     GLint UniformLocationRotation;
+    GLint UniformLocationViewportSize;
     GLuint VBO;
     GLuint EBO; // Element buffer for indices
     GLuint VAO;
@@ -131,6 +143,7 @@ IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init() {
     glCheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC)imgl3wGetProcAddress("glCheckFramebufferStatus");
     glDepthFunc = (PFNGLDEPTHFUNCPROC)imgl3wGetProcAddress("glDepthFunc");
     glDrawArrays = (PFNGLDRAWARRAYSPROC)imgl3wGetProcAddress("glDrawArrays");
+    glUniform2f = (PFNGLUNIFORM2FPROC)imgl3wGetProcAddress("glUniform2f");
 #endif
 
     // Compile vertex shader
@@ -191,6 +204,7 @@ IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init() {
     g_Data.AttribLocationPosition = glGetAttribLocation(g_Data.ShaderProgram, "Position");
     g_Data.AttribLocationColor = glGetAttribLocation(g_Data.ShaderProgram, "Color");
     g_Data.UniformLocationRotation = glGetUniformLocation(g_Data.ShaderProgram, "u_Rotation");
+    g_Data.UniformLocationViewportSize = glGetUniformLocation(g_Data.ShaderProgram, "u_ViewportSize");
 
     // Create buffers
     glGenVertexArrays(1, &g_Data.VAO);
@@ -486,6 +500,9 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderPlots(ImPool<ImPlot3DPlot>* pl
         rot_matrix[15] = 1.0f;
 
         glUniformMatrix4fv(g_Data.UniformLocationRotation, 1, GL_FALSE, rot_matrix);
+
+        // Upload viewport size uniform
+        glUniform2f(g_Data.UniformLocationViewportSize, plot->PlotRect.GetWidth(), plot->PlotRect.GetHeight());
 
         // Convert vertices from double to float for OpenGL 3.x compatibility
         struct GLVertex {
