@@ -555,6 +555,67 @@ void DemoImagePlots() {
     }
 }
 
+void DemoDepthBuffer() {
+    ImGui::BulletText("Two overlapping transparent surfaces to test depth buffer rendering.");
+    ImGui::BulletText("The surfaces should properly occlude each other based on depth.");
+
+    static float alpha = 0.8f;
+    ImGui::SliderFloat("Alpha", &alpha, 0.0f, 1.0f);
+
+    // Generate two surfaces
+    const int size = 10;
+    static double xs1[size * size], ys1[size * size], zs1[size * size];
+    static double xs2[size * size], ys2[size * size], zs2[size * size];
+    static bool initialized = false;
+
+    if (!initialized) {
+        // Define the range for X and Y
+        const double min_val = -1.0;
+        const double max_val = 1.0;
+        const double step = (max_val - min_val) / (size - 1);
+
+        // Surface 1: A tilted plane
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                int idx = i * size + j;
+                xs1[idx] = min_val + j * step; // X values constant along rows
+                ys1[idx] = min_val + i * step; // Y values constant along columns
+                zs1[idx] = 0.3 * ys1[idx] + 0.2 * xs1[idx] + 0.5;
+            }
+        }
+
+        // Surface 2: Another tilted plane that intersects the first
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                int idx = i * size + j;
+                xs2[idx] = min_val + j * step;
+                ys2[idx] = min_val + i * step;
+                zs2[idx] = -0.2 * ys2[idx] + 0.3 * xs2[idx] + 0.3;
+            }
+        }
+
+        initialized = true;
+    }
+
+    if (ImPlot3D::BeginPlot("Depth Buffer Test", ImVec2(-1, 0))) {
+        // Plot first surface (red with transparency)
+        ImPlot3DSpec spec1;
+        spec1.FillColor = ImVec4(1.0f, 0.0f, 0.0f, alpha);
+        spec1.FillAlpha = alpha;
+        spec1.Flags = ImPlot3DSurfaceFlags_NoLines;
+        ImPlot3D::PlotSurface("Surface 1", xs1, ys1, zs1, size, size, 0.0, 0.0, spec1);
+
+        // Plot second surface (blue with transparency)
+        ImPlot3DSpec spec2;
+        spec2.FillColor = ImVec4(0.0f, 0.0f, 1.0f, alpha);
+        spec2.FillAlpha = alpha;
+        spec2.Flags = ImPlot3DSurfaceFlags_NoLines;
+        ImPlot3D::PlotSurface("Surface 2", xs2, ys2, zs2, size, size, 0.0, 0.0, spec2);
+
+        ImPlot3D::EndPlot();
+    }
+}
+
 void DemoRealtimePlots() {
     ImGui::BulletText("Move your mouse to change the data!");
     static ScrollingBuffer sdata1, sdata2, sdata3;
@@ -1601,6 +1662,7 @@ void ShowAllDemos() {
             DemoHeader("Mesh Plots", DemoMeshPlots);
             DemoHeader("Realtime Plots", DemoRealtimePlots);
             DemoHeader("Image Plots", DemoImagePlots);
+            DemoHeader("Depth Buffer", DemoDepthBuffer);
 
             // Plot Options
             ImGui::SeparatorText("Plot Options");

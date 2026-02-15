@@ -1636,16 +1636,16 @@ void EndPlot() {
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "Mismatched BeginPlot()/EndPlot()!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
 
-    // if (plot.ColorTextureID != ImTextureID_Invalid) {
-    //     ImDrawList& draw_list = *ImGui::GetWindowDrawList();
-    //     ImVec2 uv0 = ImVec2(0, 0);
-    //     ImVec2 uv1 = ImVec2(1, 1);
-    //     ImU32 col = IM_COL32(255, 255, 255, 255);
-    //     draw_list.AddImage(plot.ColorTextureID, plot.PlotRect.Min, plot.PlotRect.Max, uv0, uv1, col);
-    // } else {
-    //  Move triangles from 3D draw list to ImGui draw list
-    plot.DrawList.SortedMoveToImGuiDrawList();
-    //}
+    if (gp.UseImPlot3DBackend && plot.ColorTextureID != ImTextureID_Invalid) {
+        ImDrawList& draw_list = *ImGui::GetWindowDrawList();
+        ImVec2 uv0 = ImVec2(0, 0);
+        ImVec2 uv1 = ImVec2(1, 1);
+        ImU32 col = IM_COL32(255, 255, 255, 255);
+        draw_list.AddImage(plot.ColorTextureID, plot.PlotRect.Min, plot.PlotRect.Max, uv0, uv1, col);
+    } else {
+        //  Move triangles from 3D draw list to ImGui draw list
+        plot.DrawList.SortedMoveToImGuiDrawList();
+    }
 
     // Handle data fitting
     if (plot.FitThisFrame) {
@@ -3191,6 +3191,7 @@ bool ColormapSlider(const char* label, float* t, ImVec4* out, const char* format
 
 void InitializeContext(ImPlot3DContext* ctx) {
     ResetContext(ctx);
+    ctx->UseImPlot3DBackend = false; // Disabled by default
 
     const ImU32 Deep[] = {4289753676, 4283598045, 4285048917, 4283584196, 4289950337, 4284512403, 4291005402, 4287401100, 4285839820, 4291671396};
     const ImU32 Dark[] = {4280031972, 4290281015, 4283084621, 4288892568, 4278222847, 4281597951, 4280833702, 4290740727, 4288256409};
@@ -3964,6 +3965,7 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
         ImGui::SameLine();
         if (ImGui::Button("Bust Item Cache"))
             BustItemCache();
+        ImGui::Checkbox("Use ImPlot3D Backend", &gp.UseImPlot3DBackend);
         ImGui::Checkbox("Show Frame Rects", &show_frame_rects);
         ImGui::Checkbox("Show Canvas Rects", &show_canvas_rects);
         ImGui::Checkbox("Show Plot Rects", &show_plot_rects);

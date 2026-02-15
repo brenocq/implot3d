@@ -815,6 +815,7 @@ struct ImPlot3DContext {
     ImVector<ImGuiStyleMod> StyleModifiers;
     ImVector<ImPlot3DColormap> ColormapModifiers;
     ImPlot3DColormapData ColormapData;
+    bool UseImPlot3DBackend; // Use custom ImPlot3D backend for rendering
 };
 
 //-----------------------------------------------------------------------------

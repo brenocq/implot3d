@@ -36,37 +36,57 @@
 #define GL_DEPTH_BUFFER_BIT 0x00000100
 #endif
 
+// Define depth test constants
+#ifndef GL_DEPTH_TEST
+#define GL_DEPTH_TEST 0x0B71
+#endif
+#ifndef GL_LESS
+#define GL_LESS 0x0201
+#endif
+
 // Declare framebuffer functions if not in stripped loader
 #ifndef IMGUI_IMPL_OPENGL_ES2
-extern "C" {
-typedef void (APIENTRYP PFNGLGENFRAMEBUFFERSPROC)(GLsizei n, GLuint* framebuffers);
-typedef void (APIENTRYP PFNGLDELETEFRAMEBUFFERSPROC)(GLsizei n, const GLuint* framebuffers);
-typedef void (APIENTRYP PFNGLBINDFRAMEBUFFERPROC)(GLenum target, GLuint framebuffer);
-typedef void (APIENTRYP PFNGLFRAMEBUFFERTEXTURE2DPROC)(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
-typedef GLenum (APIENTRYP PFNGLCHECKFRAMEBUFFERSTATUSPROC)(GLenum target);
-typedef void (APIENTRYP PFNGLDRAWARRAYSPROC)(GLenum mode, GLint first, GLsizei count);
+typedef void(APIENTRYP PFNGLGENFRAMEBUFFERSPROC)(GLsizei n, GLuint* framebuffers);
+typedef void(APIENTRYP PFNGLDELETEFRAMEBUFFERSPROC)(GLsizei n, const GLuint* framebuffers);
+typedef void(APIENTRYP PFNGLBINDFRAMEBUFFERPROC)(GLenum target, GLuint framebuffer);
+typedef void(APIENTRYP PFNGLFRAMEBUFFERTEXTURE2DPROC)(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
+typedef GLenum(APIENTRYP PFNGLCHECKFRAMEBUFFERSTATUSPROC)(GLenum target);
+typedef void(APIENTRYP PFNGLDEPTHFUNCPROC)(GLenum func);
+typedef void(APIENTRYP PFNGLCLEARDEPTHPROC)(GLdouble depth);
+typedef void(APIENTRYP PFNGLDEPTHMASKPROC)(GLboolean flag);
+typedef void(APIENTRYP PFNGLBLENDFUNCPROC)(GLenum sfactor, GLenum dfactor);
+typedef void(APIENTRYP PFNGLDRAWARRAYSPROC)(GLenum mode, GLint first, GLsizei count);
 
 static PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
 static PFNGLDELETEFRAMEBUFFERSPROC glDeleteFramebuffers;
 static PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer;
 static PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D;
 static PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatus;
+static PFNGLDEPTHFUNCPROC glDepthFunc;
+static PFNGLCLEARDEPTHPROC glClearDepth;
+static PFNGLDEPTHMASKPROC glDepthMask;
+static PFNGLBLENDFUNCPROC glBlendFunc;
 static PFNGLDRAWARRAYSPROC glDrawArrays;
-}
 #endif
 
 // Shader sources
 static const char* g_VertexShaderSource = R"(
 #version 130
 
-in vec3 Position;
-in vec4 Color;
+in vec3 Position;  // 3D NDC position
+in vec4 Color;     // RGBA color
 
 out vec4 Frag_Color;
 
+uniform mat4 u_Rotation;  // Rotation matrix from quaternion
+
 void main() {
-    // Simple orthographic projection: use X and Y, ignore Z for now
-    gl_Position = vec4(Position.x, Position.y, 0.0, 1.0);
+    // Apply rotation to the 3D NDC position
+    vec4 rotated_pos = u_Rotation * vec4(Position, 1.0);
+
+    // Use X and Y for screen position, Z for depth, flip Y for correct orientation
+    // Negate Z because ImPlot3D uses +Z toward viewer, OpenGL uses -Z toward viewer
+    gl_Position = vec4(rotated_pos.x, -rotated_pos.y, -rotated_pos.z, 1.0);
     Frag_Color = Color;
 }
 )";
@@ -87,7 +107,9 @@ struct ImPlot3D_ImplOpenGL3_Data {
     GLuint ShaderProgram;
     GLint AttribLocationPosition;
     GLint AttribLocationColor;
+    GLint UniformLocationRotation;
     GLuint VBO;
+    GLuint EBO; // Element buffer for indices
     GLuint VAO;
     GLuint FBO;
 };
@@ -96,15 +118,18 @@ static ImPlot3D_ImplOpenGL3_Data g_Data;
 // Track created textures for cleanup
 static ImVector<GLuint> g_CreatedTextures;
 
-
 IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init() {
     // Load framebuffer functions (not in stripped loader)
 #ifndef IMGUI_IMPL_OPENGL_ES2
     glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC)imgl3wGetProcAddress("glGenFramebuffers");
     glDeleteFramebuffers = (PFNGLDELETEFRAMEBUFFERSPROC)imgl3wGetProcAddress("glDeleteFramebuffers");
     glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC)imgl3wGetProcAddress("glBindFramebuffer");
+    glClearDepth = (PFNGLCLEARDEPTHPROC)imgl3wGetProcAddress("glClearDepth");
+    glDepthMask = (PFNGLDEPTHMASKPROC)imgl3wGetProcAddress("glDepthMask");
+    glBlendFunc = (PFNGLBLENDFUNCPROC)imgl3wGetProcAddress("glBlendFunc");
     glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC)imgl3wGetProcAddress("glFramebufferTexture2D");
     glCheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC)imgl3wGetProcAddress("glCheckFramebufferStatus");
+    glDepthFunc = (PFNGLDEPTHFUNCPROC)imgl3wGetProcAddress("glDepthFunc");
     glDrawArrays = (PFNGLDRAWARRAYSPROC)imgl3wGetProcAddress("glDrawArrays");
 #endif
 
@@ -165,10 +190,36 @@ IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init() {
     // Get attribute locations
     g_Data.AttribLocationPosition = glGetAttribLocation(g_Data.ShaderProgram, "Position");
     g_Data.AttribLocationColor = glGetAttribLocation(g_Data.ShaderProgram, "Color");
+    g_Data.UniformLocationRotation = glGetUniformLocation(g_Data.ShaderProgram, "u_Rotation");
 
-    // Create VAO and VBO
+    // Create buffers
     glGenVertexArrays(1, &g_Data.VAO);
     glGenBuffers(1, &g_Data.VBO);
+    glGenBuffers(1, &g_Data.EBO);
+
+    // Setup VAO with vertex attribute configuration
+    // This only needs to be done once - the VAO stores this state
+    glBindVertexArray(g_Data.VAO);
+
+    // Bind buffers to VAO
+    glBindBuffer(GL_ARRAY_BUFFER, g_Data.VBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_Data.EBO);
+
+    // Configure vertex attributes
+    // Position: 3 floats at offset 0
+    glEnableVertexAttribArray(g_Data.AttribLocationPosition);
+    glVertexAttribPointer(g_Data.AttribLocationPosition, 3, GL_FLOAT, GL_FALSE,
+                          4 * sizeof(float), // stride: 3 floats (xyz) + 1 float (packed color as 4 bytes)
+                          (void*)0);
+
+    // Color: 4 unsigned bytes at offset 12 (after 3 floats)
+    glEnableVertexAttribArray(g_Data.AttribLocationColor);
+    glVertexAttribPointer(g_Data.AttribLocationColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+
+    // Unbind VAO (stores all the state we just configured)
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     // Create FBO for offscreen rendering
     glGenFramebuffers(1, &g_Data.FBO);
@@ -184,6 +235,8 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_Shutdown() {
         glDeleteVertexArrays(1, &g_Data.VAO);
     if (g_Data.VBO)
         glDeleteBuffers(1, &g_Data.VBO);
+    if (g_Data.EBO)
+        glDeleteBuffers(1, &g_Data.EBO);
     if (g_Data.FBO)
         glDeleteFramebuffers(1, &g_Data.FBO);
 
@@ -213,57 +266,8 @@ ImTextureID ImPlot3D_ImplOpenGL3_CreateRGBATexture(const ImVec2& size) {
     // Allocate using ImGui's allocation
     unsigned char* pixels = (unsigned char*)IM_ALLOC(data_size);
 
-    // Generate rainbow gradient
-    // HSV to RGB conversion for smooth rainbow colors
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int idx = (y * width + x) * 4;
-
-            // Create 2D rainbow: hue varies with x, saturation/brightness with y
-            float hue = (float)x / (float)width;    // 0.0 to 1.0 across width
-            float saturation = 1.0f;                // Full saturation
-            float value = (float)y / (float)height; // 0.0 to 1.0 across height
-
-            // HSV to RGB conversion
-            float h = hue * 6.0f; // Hue in [0, 6)
-            float c = value * saturation;
-            float x_rgb = c * (1.0f - ImFabs(ImFmod(h, 2.0f) - 1.0f));
-            float m = value - c;
-
-            float r, g, b;
-            if (h < 1.0f) {
-                r = c;
-                g = x_rgb;
-                b = 0.0f;
-            } else if (h < 2.0f) {
-                r = x_rgb;
-                g = c;
-                b = 0.0f;
-            } else if (h < 3.0f) {
-                r = 0.0f;
-                g = c;
-                b = x_rgb;
-            } else if (h < 4.0f) {
-                r = 0.0f;
-                g = x_rgb;
-                b = c;
-            } else if (h < 5.0f) {
-                r = x_rgb;
-                g = 0.0f;
-                b = c;
-            } else {
-                r = c;
-                g = 0.0f;
-                b = x_rgb;
-            }
-
-            // Convert to 0-255 range and store
-            pixels[idx + 0] = (unsigned char)((r + m) * 255.0f); // R
-            pixels[idx + 1] = (unsigned char)((g + m) * 255.0f); // G
-            pixels[idx + 2] = (unsigned char)((b + m) * 255.0f); // B
-            pixels[idx + 3] = 255;                               // A (fully opaque)
-        }
-    }
+    // Fill with zeros (transparent black)
+    memset(pixels, 0, data_size);
 
     // Generate OpenGL texture
     GLuint texture_id = 0;
@@ -353,22 +357,11 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderPlots(ImPool<ImPlot3DPlot>* pl
     if (!plots)
         return;
 
-    // Vertex format: vec3 position, vec4 color
-    struct Vertex {
-        float x, y, z;
-        float r, g, b, a;
-    };
-
-    // Hardcoded rainbow triangle for testing
-    Vertex triangle[3] = {
-        {-0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f}, // Red (bottom-left)
-        {0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f},  // Green (bottom-right)
-        {0.0f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f},   // Blue (top)
-    };
-
     // Iterate through all plots
     for (int i = 0; i < plots->GetBufSize(); i++) {
         ImPlot3DPlot* plot = plots->GetByIndex(i);
+        if (!plot || !plot->Initialized)
+            continue;
 
         // Create textures if they don't exist yet
         if (plot->ColorTextureID == ImTextureID_Invalid) {
@@ -376,15 +369,18 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderPlots(ImPool<ImPlot3DPlot>* pl
             plot->DepthTextureID = ImPlot3D_ImplOpenGL3_CreateDepthTexture(plot->PlotRect.GetSize());
         }
 
-        if (!plot || !plot->Initialized)
-            continue;
-
         // Get texture IDs
         GLuint color_texture = (GLuint)(intptr_t)plot->ColorTextureID;
         GLuint depth_texture = (GLuint)(intptr_t)plot->DepthTextureID;
-
         if (color_texture == 0)
-            continue; // Skip if no color texture
+            continue;
+
+        // Get the draw list for this plot
+        ImDrawList3D& draw_list = plot->DrawList;
+
+        // Skip if no vertices to render
+        if (draw_list.VtxBuffer.Size == 0 || draw_list.IdxBuffer.Size == 0)
+            continue;
 
         // Bind framebuffer
         glBindFramebuffer(GL_FRAMEBUFFER, g_Data.FBO);
@@ -407,31 +403,104 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderPlots(ImPool<ImPlot3DPlot>* pl
         glViewport(0, 0, (int)plot->PlotRect.GetWidth(), (int)plot->PlotRect.GetHeight());
 
         // Clear color and depth
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // Opaque white
+        glClearDepth(1.0);                    // Clear depth to far plane
         glClear(GL_COLOR_BUFFER_BIT | (depth_texture != 0 ? GL_DEPTH_BUFFER_BIT : 0));
+
+        // Enable depth testing
+        if (depth_texture != 0) {
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LESS); // Closer = smaller Z after negation
+            glDepthMask(GL_TRUE); // Enable depth writes
+        }
+
+        // Enable alpha blending (same as ImGui's OpenGL3 backend)
+        glEnable(GL_BLEND);
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
         // Use shader program
         glUseProgram(g_Data.ShaderProgram);
 
-        // Upload triangle data to VBO
-        glBindBuffer(GL_ARRAY_BUFFER, g_Data.VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(triangle), triangle, GL_STREAM_DRAW);
+        // Convert quaternion to rotation matrix and upload to shader
+        ImPlot3DQuat rot = plot->Rotation;
+        float rot_matrix[16];
+        // Quaternion to matrix conversion (column-major for OpenGL)
+        float xx = (float)(rot.x * rot.x);
+        float yy = (float)(rot.y * rot.y);
+        float zz = (float)(rot.z * rot.z);
+        float xy = (float)(rot.x * rot.y);
+        float xz = (float)(rot.x * rot.z);
+        float yz = (float)(rot.y * rot.z);
+        float wx = (float)(rot.w * rot.x);
+        float wy = (float)(rot.w * rot.y);
+        float wz = (float)(rot.w * rot.z);
 
-        // Setup vertex attributes
+        rot_matrix[0] = 1.0f - 2.0f * (yy + zz);
+        rot_matrix[1] = 2.0f * (xy + wz);
+        rot_matrix[2] = 2.0f * (xz - wy);
+        rot_matrix[3] = 0.0f;
+
+        rot_matrix[4] = 2.0f * (xy - wz);
+        rot_matrix[5] = 1.0f - 2.0f * (xx + zz);
+        rot_matrix[6] = 2.0f * (yz + wx);
+        rot_matrix[7] = 0.0f;
+
+        rot_matrix[8] = 2.0f * (xz + wy);
+        rot_matrix[9] = 2.0f * (yz - wx);
+        rot_matrix[10] = 1.0f - 2.0f * (xx + yy);
+        rot_matrix[11] = 0.0f;
+
+        rot_matrix[12] = 0.0f;
+        rot_matrix[13] = 0.0f;
+        rot_matrix[14] = 0.0f;
+        rot_matrix[15] = 1.0f;
+
+        glUniformMatrix4fv(g_Data.UniformLocationRotation, 1, GL_FALSE, rot_matrix);
+
+        // Convert vertices from double to float for OpenGL 3.x compatibility
+        struct GLVertex {
+            float x, y, z;
+            ImU32 col;
+        };
+
+        ImVector<GLVertex> gl_vertices;
+        gl_vertices.resize(draw_list.VtxBuffer.Size);
+        for (int v = 0; v < draw_list.VtxBuffer.Size; v++) {
+            const ImDrawVert3D& src = draw_list.VtxBuffer.Data[v];
+            GLVertex& dst = gl_vertices.Data[v];
+            dst.x = (float)src.pos.x;
+            dst.y = (float)src.pos.y;
+            dst.z = (float)src.pos.z;
+            dst.col = src.col;
+        }
+
+        // Bind VAO (this restores all the vertex attribute configuration from Init)
         glBindVertexArray(g_Data.VAO);
-        glEnableVertexAttribArray(g_Data.AttribLocationPosition);
-        glEnableVertexAttribArray(g_Data.AttribLocationColor);
 
-        glVertexAttribPointer(g_Data.AttribLocationPosition, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
-        glVertexAttribPointer(g_Data.AttribLocationColor, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, r));
+        // Bind and upload vertex data to VBO
+        glBindBuffer(GL_ARRAY_BUFFER, g_Data.VBO);
+        glBufferData(GL_ARRAY_BUFFER, gl_vertices.Size * sizeof(GLVertex), gl_vertices.Data, GL_STREAM_DRAW);
 
-        // Draw triangle
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        // Bind and upload index data to EBO
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_Data.EBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, draw_list.IdxBuffer.Size * sizeof(ImDrawIdx3D), draw_list.IdxBuffer.Data, GL_STREAM_DRAW);
 
-        // Cleanup
+        // Draw triangles
+        glDrawElements(GL_TRIANGLES, draw_list.IdxBuffer.Size, GL_UNSIGNED_INT, nullptr);
+
+        // Unbind VAO
         glBindVertexArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
         glUseProgram(0);
+
+        // Disable states
+        glDisable(GL_BLEND);
+        if (depth_texture != 0) {
+            glDisable(GL_DEPTH_TEST);
+        }
+
+        // Clear the draw list for next frame
+        draw_list.ResetBuffers();
     }
 
     // Unbind framebuffer (return to default)
