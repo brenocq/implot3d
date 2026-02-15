@@ -818,6 +818,7 @@ struct ImPlot3DContext {
     ImVector<ImPlot3DColormap> ColormapModifiers;
     ImPlot3DColormapData ColormapData;
     bool UseImPlot3DBackend; // Use custom ImPlot3D backend for rendering
+    ImDrawData3D DrawData;   // Draw data populated by Render()
 };
 
 //-----------------------------------------------------------------------------

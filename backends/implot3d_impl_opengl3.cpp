@@ -367,13 +367,13 @@ void ImPlot3D_ImplOpenGL3_DestroyTexture(ImTextureID tex_id) {
     }
 }
 
-IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderPlots(ImPool<ImPlot3DPlot>* plots) {
-    if (!plots)
+IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_data) {
+    if (!draw_data)
         return;
 
-    // Iterate through all plots
-    for (int i = 0; i < plots->GetBufSize(); i++) {
-        ImPlot3DPlot* plot = plots->GetByIndex(i);
+    // Iterate through all plots in the draw data
+    for (int i = 0; i < draw_data->Plots.Size; i++) {
+        ImPlot3DPlot* plot = draw_data->Plots[i];
         if (!plot || !plot->Initialized)
             continue;
 

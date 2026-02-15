@@ -79,14 +79,17 @@ int main() {
         ImPlot::ShowDemoWindow();
         ImPlot3D::ShowDemoWindow();
 
-        // Render
+        // Prepare draw data for rendering
         ImGui::Render();
+        ImPlot3D::Render();
+
+        // Render draw data
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-        ImPlot3D_ImplOpenGL3_RenderPlots(ImPlot3D::GetPlots());
+        ImPlot3D_ImplOpenGL3_RenderDrawData(ImPlot3D::GetDrawData());
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // Swap buffers

@@ -68,6 +68,8 @@ struct ImPlot3DPlane;
 struct ImPlot3DBox;
 struct ImPlot3DRange;
 struct ImPlot3DQuat;
+struct ImDrawData3D;
+struct ImPlot3DPlot;
 
 // Enums
 typedef int ImPlot3DCond;     // -> ImPlot3DCond_              // Enum: Condition for flags
@@ -466,6 +468,11 @@ IMPLOT3D_API void DestroyContext(ImPlot3DContext* ctx = nullptr);
 IMPLOT3D_API ImPlot3DContext* GetCurrentContext();
 // Sets the current ImPlot3D context
 IMPLOT3D_API void SetCurrentContext(ImPlot3DContext* ctx);
+
+// Prepares draw data for rendering. Call this after all ImPlot3D plots have been drawn
+IMPLOT3D_API void Render();
+// Returns the draw data for rendering. Valid after Render() and before next NewFrame()
+IMPLOT3D_API ImDrawData3D* GetDrawData();
 
 //-----------------------------------------------------------------------------
 // [SECTION] Begin/End Plot
@@ -1012,8 +1019,7 @@ struct ImPlot3DStyle {
     // Constructor
     IMPLOT3D_API ImPlot3DStyle();
     ImPlot3DStyle(const ImPlot3DStyle& other) = default;
-    ImPlot3DStyle& operator=(const ImPlot3DStyle& other) =
-  default;
+    ImPlot3DStyle& operator=(const ImPlot3DStyle& other) = default;
 };
 
 //-----------------------------------------------------------------------------
@@ -1043,6 +1049,18 @@ extern unsigned int duck_idx[DUCK_IDX_COUNT];  // Duck indices
 } // namespace ImPlot3D
 
 //-----------------------------------------------------------------------------
+// [SECTION] ImDrawData3D
+//-----------------------------------------------------------------------------
+
+// Draw data for rendering all plots. Valid after Render() and before next NewFrame()
+struct ImDrawData3D {
+    ImVector<ImPlot3DPlot*> Plots; // All plots to be rendered
+
+    ImDrawData3D() { Clear(); }
+    void Clear() { Plots.clear(); }
+};
+
+//-----------------------------------------------------------------------------
 // [SECTION] Obsolete API
 //-----------------------------------------------------------------------------
 
@@ -1070,11 +1088,16 @@ extern unsigned int duck_idx[DUCK_IDX_COUNT];  // Duck indices
 namespace ImPlot3D {
 
 // OBSOLETED in v0.4 (from February 2026)
-// IMPLOT_API void SetNextLineStyle(const ImVec4& col = IMPLOT_AUTO_COL, float weight = IMPLOT_AUTO); // OBSOLETED IN v0.4 // Set ImPlotSpec.LineColor/LineWeight or construct ImPlotSpec with { ImPlotSpec_LineColor, color, ImPlotSpec_LineWeight, weight }.
+// IMPLOT_API void SetNextLineStyle(const ImVec4& col = IMPLOT_AUTO_COL, float weight = IMPLOT_AUTO); // OBSOLETED IN v0.4 // Set
+// ImPlotSpec.LineColor/LineWeight or construct ImPlotSpec with { ImPlotSpec_LineColor, color, ImPlotSpec_LineWeight, weight }.
 
-// IMPLOT_API void SetNextFillStyle(const ImVec4& col = IMPLOT_AUTO_COL, float alpha_mod = IMPLOT_AUTO);// OBSOLETED IN v0.4 // Set ImPlotSpec.FillColor/FillAlpha or construct ImPlotSpec with { ImPlotSpec_FillColor, color, ImPlotSpec_FillAlpha, alpha }.
+// IMPLOT_API void SetNextFillStyle(const ImVec4& col = IMPLOT_AUTO_COL, float alpha_mod = IMPLOT_AUTO);// OBSOLETED IN v0.4 // Set
+// ImPlotSpec.FillColor/FillAlpha or construct ImPlotSpec with { ImPlotSpec_FillColor, color, ImPlotSpec_FillAlpha, alpha }.
 
-// IMPLOT_API void SetNextMarkerStyle(ImPlotMarker marker = IMPLOT_AUTO, float size = IMPLOT_AUTO, const ImVec4& fill = IMPLOT_AUTO_COL, float weight = IMPLOT_AUTO, const ImVec4& outline = IMPLOT_AUTO_COL); // OBSOLETED IN v0.4 // Set ImPlotSpec.Marker/MarkerSize/MarkerFillColor/LineWeight/MarkerLineColor or construct ImPlotSpec with { ImPlotSpec_Marker, marker, ImPlotSpec_MarkerSize, size, ImPlotSpec_MarkerFillColor, fill_color, ImPlotSpec_LineWeight, weight, ImPlotSpec_MarkerLineColor, outline }.
+// IMPLOT_API void SetNextMarkerStyle(ImPlotMarker marker = IMPLOT_AUTO, float size = IMPLOT_AUTO, const ImVec4& fill = IMPLOT_AUTO_COL, float weight
+// = IMPLOT_AUTO, const ImVec4& outline = IMPLOT_AUTO_COL); // OBSOLETED IN v0.4 // Set
+// ImPlotSpec.Marker/MarkerSize/MarkerFillColor/LineWeight/MarkerLineColor or construct ImPlotSpec with { ImPlotSpec_Marker, marker,
+// ImPlotSpec_MarkerSize, size, ImPlotSpec_MarkerFillColor, fill_color, ImPlotSpec_LineWeight, weight, ImPlotSpec_MarkerLineColor, outline }.
 
 // OBSOLETED in v0.3 -> PLANNED REMOVAL in v1.0
 IMPLOT3D_DEPRECATED(IMPLOT3D_API ImVec2 GetPlotPos());  // Renamed to GetPlotRectPos()

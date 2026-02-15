@@ -9,6 +9,6 @@
 IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init();
 IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_Shutdown();
 
-IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderPlots(ImPool<ImPlot3DPlot>* plots);
+IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_data);
 
 #endif // #ifndef IMGUI_DISABLE

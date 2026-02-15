@@ -171,6 +171,27 @@ ImPlot3DContext* GetCurrentContext() { return GImPlot3D; }
 
 void SetCurrentContext(ImPlot3DContext* ctx) { GImPlot3D = ctx; }
 
+void Render() {
+    ImPlot3DContext& gp = *GImPlot3D;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot == nullptr, "Render() called between BeginPlot() and EndPlot()!");
+
+    // Clear previous draw data
+    gp.DrawData.Clear();
+
+    // Collect all active plots
+    for (int i = 0; i < gp.Plots.GetBufSize(); i++) {
+        ImPlot3DPlot* plot = gp.Plots.GetByIndex(i);
+        if (plot && plot->Initialized) {
+            gp.DrawData.Plots.push_back(plot);
+        }
+    }
+}
+
+ImDrawData3D* GetDrawData() {
+    ImPlot3DContext& gp = *GImPlot3D;
+    return &gp.DrawData;
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Text Utils
 //-----------------------------------------------------------------------------
@@ -3960,12 +3981,15 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
     ImGui::Text("Mouse Position: [%.0f,%.0f]", io.MousePos.x, io.MousePos.y);
     ImGui::Separator();
     if (ImGui::TreeNode("Tools")) {
+        ImGui::SeparatorText("Cache");
         if (ImGui::Button("Bust Plot Cache"))
             BustPlotCache();
         ImGui::SameLine();
         if (ImGui::Button("Bust Item Cache"))
             BustItemCache();
+        ImGui::SeparatorText("Rendering");
         ImGui::Checkbox("Use ImPlot3D Backend", &gp.UseImPlot3DBackend);
+        ImGui::SeparatorText("Visualize");
         ImGui::Checkbox("Show Frame Rects", &show_frame_rects);
         ImGui::Checkbox("Show Canvas Rects", &show_canvas_rects);
         ImGui::Checkbox("Show Plot Rects", &show_plot_rects);
