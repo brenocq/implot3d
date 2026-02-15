@@ -1636,17 +1636,16 @@ void EndPlot() {
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "Mismatched BeginPlot()/EndPlot()!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
 
-    if (plot.ColorTextureID != ImTextureID_Invalid) {
-        ImDrawList& draw_list = *ImGui::GetWindowDrawList();
-        ImVec2 uv0 = ImVec2(0, 0);
-        ImVec2 uv1 = ImVec2(1, 1);
-        ImU32 col = IM_COL32(255, 255, 255, 255);
-        draw_list.AddImage(plot.ColorTextureID, plot.PlotRect.Min, plot.PlotRect.Max, uv0, uv1, col);
-    } else {
-        // Move triangles from 3D draw list to ImGui draw list
-        plot.DrawList.SortedMoveToImGuiDrawList();
-    }
-
+    // if (plot.ColorTextureID != ImTextureID_Invalid) {
+    //     ImDrawList& draw_list = *ImGui::GetWindowDrawList();
+    //     ImVec2 uv0 = ImVec2(0, 0);
+    //     ImVec2 uv1 = ImVec2(1, 1);
+    //     ImU32 col = IM_COL32(255, 255, 255, 255);
+    //     draw_list.AddImage(plot.ColorTextureID, plot.PlotRect.Min, plot.PlotRect.Max, uv0, uv1, col);
+    // } else {
+    //  Move triangles from 3D draw list to ImGui draw list
+    plot.DrawList.SortedMoveToImGuiDrawList();
+    //}
 
     // Handle data fitting
     if (plot.FitThisFrame) {
@@ -3671,6 +3670,8 @@ void ImDrawList3D::ResetTexture() { SetTexture(ImTextureID(0)); }
 
 void ImDrawList3D::SortedMoveToImGuiDrawList() {
     ImDrawList& draw_list = *ImGui::GetWindowDrawList();
+    ImPlot3DContext& gp = *ImPlot3D::GetCurrentContext();
+    const ImPlot3DPlot& plot = *gp.CurrentPlot;
 
     const int tri_count = ZBuffer.Size;
     if (tri_count == 0) {
@@ -3700,19 +3701,29 @@ void ImDrawList3D::SortedMoveToImGuiDrawList() {
     // Reserve space in the ImGui draw list
     draw_list.PrimReserve(IdxBuffer.Size, VtxBuffer.Size);
 
-    // Copy vertices (no reordering needed)
-    memcpy(draw_list._VtxWritePtr, VtxBuffer.Data, VtxBuffer.Size * sizeof(ImDrawVert));
+    // Convert vertices from NDC to pixel coordinates and copy to ImGui draw list
+    ImDrawVert* vtx_out = draw_list._VtxWritePtr;
+    for (int i = 0; i < VtxBuffer.Size; i++) {
+        const ImDrawVert3D& vtx_in = VtxBuffer[i];
+        // Convert 3D NDC position to 2D pixel position
+        ImVec2 pos_pix = ImPlot3D::NDCToPixels(plot, vtx_in.pos);
+        vtx_out[i].pos = pos_pix;
+        vtx_out[i].uv = vtx_in.uv;
+        vtx_out[i].col = vtx_in.col;
+    }
+
     unsigned int idx_offset = draw_list._VtxCurrentIdx;
     draw_list._VtxWritePtr += VtxBuffer.Size;
     draw_list._VtxCurrentIdx += (unsigned int)VtxBuffer.Size;
 
-    // Maximum index allowed to not overflow ImDrawIdx
-    unsigned int max_index_allowed = MaxIdx() - idx_offset;
+    // Maximum index allowed in ImDrawIdx (ImGui's index type)
+    unsigned int max_imgui_idx = (sizeof(ImDrawIdx) == 2) ? 65535 : 4294967295u;
+    unsigned int max_index_allowed = (max_imgui_idx > idx_offset) ? (max_imgui_idx - idx_offset) : 0;
 
     // Copy indices with triangle sorting based on distance from viewer
     ImDrawIdx* idx_out_begin = draw_list._IdxWritePtr;
     ImDrawIdx* idx_out = idx_out_begin;
-    ImDrawIdx* idx_in = IdxBuffer.Data;
+    ImDrawIdx3D* idx_in = IdxBuffer.Data;
     for (int i = 0; i < tri_count; i++) {
         int tri_i = tris[i].tri_idx;
         int base_idx = tri_i * 3;

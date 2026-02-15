@@ -280,36 +280,39 @@ void BustItemCache() {
 // [SECTION] Draw Utils
 //-----------------------------------------------------------------------------
 
-IMPLOT3D_INLINE void PrimLine(ImDrawList3D& draw_list_3d, const ImVec2& P1, const ImVec2& P2, float half_weight, ImU32 col, const ImVec2& tex_uv0,
-                              const ImVec2& tex_uv1, double z) {
-    float dx = P2.x - P1.x;
-    float dy = P2.y - P1.y;
+IMPLOT3D_INLINE void PrimLine(ImDrawList3D& draw_list_3d, const ImPlot3DPoint& P1_ndc, const ImPlot3DPoint& P2_ndc, float half_weight, ImU32 col,
+                              const ImVec2& tex_uv0, const ImVec2& tex_uv1, double z) {
+    // TODO Compute perpendicular direction in NDC space
+    // Scale the half_weight from pixel units to NDC units
+    const float ndc_half_weight = 0.01f * half_weight;
+
+    float dx = (float)(P2_ndc.x - P1_ndc.x);
+    float dy = (float)(P2_ndc.y - P1_ndc.y);
     IMPLOT3D_NORMALIZE2F(dx, dy);
-    dx *= half_weight;
-    dy *= half_weight;
-    draw_list_3d._VtxWritePtr[0].pos.x = P1.x + dy;
-    draw_list_3d._VtxWritePtr[0].pos.y = P1.y - dx;
+    dx *= ndc_half_weight;
+    dy *= ndc_half_weight;
+
+    // Create the 4 corners of the line quad
+    draw_list_3d._VtxWritePtr[0].pos = ImPlot3DPoint(P1_ndc.x + dy, P1_ndc.y - dx, P1_ndc.z);
     draw_list_3d._VtxWritePtr[0].uv = tex_uv0;
     draw_list_3d._VtxWritePtr[0].col = col;
-    draw_list_3d._VtxWritePtr[1].pos.x = P2.x + dy;
-    draw_list_3d._VtxWritePtr[1].pos.y = P2.y - dx;
+    draw_list_3d._VtxWritePtr[1].pos = ImPlot3DPoint(P2_ndc.x + dy, P2_ndc.y - dx, P2_ndc.z);
     draw_list_3d._VtxWritePtr[1].uv = tex_uv0;
     draw_list_3d._VtxWritePtr[1].col = col;
-    draw_list_3d._VtxWritePtr[2].pos.x = P2.x - dy;
-    draw_list_3d._VtxWritePtr[2].pos.y = P2.y + dx;
+    draw_list_3d._VtxWritePtr[2].pos = ImPlot3DPoint(P2_ndc.x - dy, P2_ndc.y + dx, P2_ndc.z);
     draw_list_3d._VtxWritePtr[2].uv = tex_uv1;
     draw_list_3d._VtxWritePtr[2].col = col;
-    draw_list_3d._VtxWritePtr[3].pos.x = P1.x - dy;
-    draw_list_3d._VtxWritePtr[3].pos.y = P1.y + dx;
+    draw_list_3d._VtxWritePtr[3].pos = ImPlot3DPoint(P1_ndc.x - dy, P1_ndc.y + dx, P1_ndc.z);
     draw_list_3d._VtxWritePtr[3].uv = tex_uv1;
     draw_list_3d._VtxWritePtr[3].col = col;
     draw_list_3d._VtxWritePtr += 4;
-    draw_list_3d._IdxWritePtr[0] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx);
-    draw_list_3d._IdxWritePtr[1] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 1);
-    draw_list_3d._IdxWritePtr[2] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 2);
-    draw_list_3d._IdxWritePtr[3] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx);
-    draw_list_3d._IdxWritePtr[4] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 2);
-    draw_list_3d._IdxWritePtr[5] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 3);
+
+    draw_list_3d._IdxWritePtr[0] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx);
+    draw_list_3d._IdxWritePtr[1] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx + 1);
+    draw_list_3d._IdxWritePtr[2] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx + 2);
+    draw_list_3d._IdxWritePtr[3] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx);
+    draw_list_3d._IdxWritePtr[4] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx + 2);
+    draw_list_3d._IdxWritePtr[5] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx + 3);
     draw_list_3d._IdxWritePtr += 6;
     draw_list_3d._VtxCurrentIdx += 4;
     draw_list_3d._ZWritePtr[0] = z;
@@ -354,11 +357,13 @@ template <class _Getter> struct RendererMarkersFill : RendererBase {
         ImPlot3DPoint p_plot = Getter(prim);
         if (!cull_box.Contains(p_plot))
             return false;
-        ImVec2 p = PlotToPixels(p_plot);
+        ImPlot3DPoint p_ndc = PlotToNDC(p_plot);
+        // Use a small hardcoded marker size in NDC for now. TODO do it properly
+        const float ndc_marker_size = 0.03f;
         // 3 vertices per triangle
         for (int i = 0; i < Count; i++) {
-            draw_list_3d._VtxWritePtr[0].pos.x = p.x + Marker[i].x * Size;
-            draw_list_3d._VtxWritePtr[0].pos.y = p.y + Marker[i].y * Size;
+            draw_list_3d._VtxWritePtr[0].pos =
+                ImPlot3DPoint(p_ndc.x + Marker[i].x * ndc_marker_size, p_ndc.y + Marker[i].y * ndc_marker_size, p_ndc.z);
             draw_list_3d._VtxWritePtr[0].uv = UV;
             draw_list_3d._VtxWritePtr[0].col = Col;
             draw_list_3d._VtxWritePtr++;
@@ -397,11 +402,14 @@ template <class _Getter> struct RendererMarkersLine : RendererBase {
         ImPlot3DPoint p_plot = Getter(prim);
         if (!cull_box.Contains(p_plot))
             return false;
-        ImVec2 p = PlotToPixels(p_plot);
+        ImPlot3DPoint p_ndc = PlotToNDC(p_plot);
+        // Use a small hardcoded marker size in NDC for now
+        const float ndc_marker_size = 0.03f;
         for (int i = 0; i < Count; i = i + 2) {
-            ImVec2 p1(p.x + Marker[i].x * Size, p.y + Marker[i].y * Size);
-            ImVec2 p2(p.x + Marker[i + 1].x * Size, p.y + Marker[i + 1].y * Size);
-            PrimLine(draw_list_3d, p1, p2, HalfWeight, Col, UV0, UV1, GetPointDepth(p_plot));
+            // Compute marker line endpoints in NDC space
+            ImPlot3DPoint p1_ndc = ImPlot3DPoint(p_ndc.x + Marker[i].x * ndc_marker_size, p_ndc.y + Marker[i].y * ndc_marker_size, p_ndc.z);
+            ImPlot3DPoint p2_ndc = ImPlot3DPoint(p_ndc.x + Marker[i + 1].x * ndc_marker_size, p_ndc.y + Marker[i + 1].y * ndc_marker_size, p_ndc.z);
+            PrimLine(draw_list_3d, p1_ndc, p2_ndc, HalfWeight, Col, UV0, UV1, GetPointDepth(p_plot));
         }
         return true;
     }
@@ -433,11 +441,11 @@ template <class _Getter> struct RendererLineStrip : RendererBase {
         bool visible = cull_box.ClipLineSegment(P1_plot, P2_plot, P1_clipped, P2_clipped);
 
         if (visible) {
-            // Convert clipped points to pixel coordinates
-            ImVec2 P1_screen = PlotToPixels(P1_clipped);
-            ImVec2 P2_screen = PlotToPixels(P2_clipped);
+            // Convert clipped points to NDC coordinates
+            ImPlot3DPoint P1_ndc = PlotToNDC(P1_clipped);
+            ImPlot3DPoint P2_ndc = PlotToNDC(P2_clipped);
             // Render the line segment
-            PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
+            PrimLine(draw_list_3d, P1_ndc, P2_ndc, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
         }
 
         // Update for next segment
@@ -476,11 +484,11 @@ template <class _Getter> struct RendererLineStripSkip : RendererBase {
             visible = cull_box.ClipLineSegment(P1_plot, P2_plot, P1_clipped, P2_clipped);
 
             if (visible) {
-                // Convert clipped points to pixel coordinates
-                ImVec2 P1_screen = PlotToPixels(P1_clipped);
-                ImVec2 P2_screen = PlotToPixels(P2_clipped);
+                // Convert clipped points to NDC coordinates
+                ImPlot3DPoint P1_ndc = PlotToNDC(P1_clipped);
+                ImPlot3DPoint P2_ndc = PlotToNDC(P2_clipped);
                 // Render the line segment
-                PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
+                PrimLine(draw_list_3d, P1_ndc, P2_ndc, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
             }
         }
 
@@ -518,11 +526,11 @@ template <class _Getter> struct RendererLineSegments : RendererBase {
             bool visible = cull_box.ClipLineSegment(P1_plot, P2_plot, P1_clipped, P2_clipped);
 
             if (visible) {
-                // Convert clipped points to pixel coordinates
-                ImVec2 P1_screen = PlotToPixels(P1_clipped);
-                ImVec2 P2_screen = PlotToPixels(P2_clipped);
+                // Convert clipped points to NDC coordinates
+                ImPlot3DPoint P1_ndc = PlotToNDC(P1_clipped);
+                ImPlot3DPoint P2_ndc = PlotToNDC(P2_clipped);
                 // Render the line segment
-                PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
+                PrimLine(draw_list_3d, P1_ndc, P2_ndc, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
             }
             return visible;
         }
@@ -552,23 +560,20 @@ template <class _Getter> struct RendererTriangleFill : RendererBase {
         if (!cull_box.Contains(p_plot[0]) && !cull_box.Contains(p_plot[1]) && !cull_box.Contains(p_plot[2]))
             return false;
 
-        // Project the triangle vertices to screen space
-        ImVec2 p[3];
-        p[0] = PlotToPixels(p_plot[0]);
-        p[1] = PlotToPixels(p_plot[1]);
-        p[2] = PlotToPixels(p_plot[2]);
+        // Project the triangle vertices to NDC space
+        ImPlot3DPoint p[3];
+        p[0] = PlotToNDC(p_plot[0]);
+        p[1] = PlotToNDC(p_plot[1]);
+        p[2] = PlotToNDC(p_plot[2]);
 
         // 3 vertices per triangle
-        draw_list_3d._VtxWritePtr[0].pos.x = p[0].x;
-        draw_list_3d._VtxWritePtr[0].pos.y = p[0].y;
+        draw_list_3d._VtxWritePtr[0].pos = p[0];
         draw_list_3d._VtxWritePtr[0].uv = UV;
         draw_list_3d._VtxWritePtr[0].col = Col;
-        draw_list_3d._VtxWritePtr[1].pos.x = p[1].x;
-        draw_list_3d._VtxWritePtr[1].pos.y = p[1].y;
+        draw_list_3d._VtxWritePtr[1].pos = p[1];
         draw_list_3d._VtxWritePtr[1].uv = UV;
         draw_list_3d._VtxWritePtr[1].col = Col;
-        draw_list_3d._VtxWritePtr[2].pos.x = p[2].x;
-        draw_list_3d._VtxWritePtr[2].pos.y = p[2].y;
+        draw_list_3d._VtxWritePtr[2].pos = p[2];
         draw_list_3d._VtxWritePtr[2].uv = UV;
         draw_list_3d._VtxWritePtr[2].col = Col;
         draw_list_3d._VtxWritePtr += 3;
@@ -609,31 +614,27 @@ template <class _Getter> struct RendererQuadFill : RendererBase {
         if (!cull_box.Contains(p_plot[0]) && !cull_box.Contains(p_plot[1]) && !cull_box.Contains(p_plot[2]) && !cull_box.Contains(p_plot[3]))
             return false;
 
-        // Project the quad vertices to screen space
-        ImVec2 p[4];
-        p[0] = PlotToPixels(p_plot[0]);
-        p[1] = PlotToPixels(p_plot[1]);
-        p[2] = PlotToPixels(p_plot[2]);
-        p[3] = PlotToPixels(p_plot[3]);
+        // Project the quad vertices to NDC space
+        ImPlot3DPoint p[4];
+        p[0] = PlotToNDC(p_plot[0]);
+        p[1] = PlotToNDC(p_plot[1]);
+        p[2] = PlotToNDC(p_plot[2]);
+        p[3] = PlotToNDC(p_plot[3]);
 
         // Add vertices for two triangles
-        draw_list_3d._VtxWritePtr[0].pos.x = p[0].x;
-        draw_list_3d._VtxWritePtr[0].pos.y = p[0].y;
+        draw_list_3d._VtxWritePtr[0].pos = p[0];
         draw_list_3d._VtxWritePtr[0].uv = UV;
         draw_list_3d._VtxWritePtr[0].col = Col;
 
-        draw_list_3d._VtxWritePtr[1].pos.x = p[1].x;
-        draw_list_3d._VtxWritePtr[1].pos.y = p[1].y;
+        draw_list_3d._VtxWritePtr[1].pos = p[1];
         draw_list_3d._VtxWritePtr[1].uv = UV;
         draw_list_3d._VtxWritePtr[1].col = Col;
 
-        draw_list_3d._VtxWritePtr[2].pos.x = p[2].x;
-        draw_list_3d._VtxWritePtr[2].pos.y = p[2].y;
+        draw_list_3d._VtxWritePtr[2].pos = p[2];
         draw_list_3d._VtxWritePtr[2].uv = UV;
         draw_list_3d._VtxWritePtr[2].col = Col;
 
-        draw_list_3d._VtxWritePtr[3].pos.x = p[3].x;
-        draw_list_3d._VtxWritePtr[3].pos.y = p[3].y;
+        draw_list_3d._VtxWritePtr[3].pos = p[3];
         draw_list_3d._VtxWritePtr[3].uv = UV;
         draw_list_3d._VtxWritePtr[3].col = Col;
 
@@ -688,31 +689,27 @@ template <class _Getter> struct RendererQuadImage : RendererBase {
         // Set texture ID to be used when rendering this quad
         draw_list_3d.SetTexture(TexRef);
 
-        // Project the quad vertices to screen space
-        ImVec2 p[4];
-        p[0] = PlotToPixels(p_plot[0]);
-        p[1] = PlotToPixels(p_plot[1]);
-        p[2] = PlotToPixels(p_plot[2]);
-        p[3] = PlotToPixels(p_plot[3]);
+        // Project the quad vertices to NDC space
+        ImPlot3DPoint p[4];
+        p[0] = PlotToNDC(p_plot[0]);
+        p[1] = PlotToNDC(p_plot[1]);
+        p[2] = PlotToNDC(p_plot[2]);
+        p[3] = PlotToNDC(p_plot[3]);
 
         // Add vertices for two triangles
-        draw_list_3d._VtxWritePtr[0].pos.x = p[0].x;
-        draw_list_3d._VtxWritePtr[0].pos.y = p[0].y;
+        draw_list_3d._VtxWritePtr[0].pos = p[0];
         draw_list_3d._VtxWritePtr[0].uv = UV0;
         draw_list_3d._VtxWritePtr[0].col = Col;
 
-        draw_list_3d._VtxWritePtr[1].pos.x = p[1].x;
-        draw_list_3d._VtxWritePtr[1].pos.y = p[1].y;
+        draw_list_3d._VtxWritePtr[1].pos = p[1];
         draw_list_3d._VtxWritePtr[1].uv = UV1;
         draw_list_3d._VtxWritePtr[1].col = Col;
 
-        draw_list_3d._VtxWritePtr[2].pos.x = p[2].x;
-        draw_list_3d._VtxWritePtr[2].pos.y = p[2].y;
+        draw_list_3d._VtxWritePtr[2].pos = p[2];
         draw_list_3d._VtxWritePtr[2].uv = UV2;
         draw_list_3d._VtxWritePtr[2].col = Col;
 
-        draw_list_3d._VtxWritePtr[3].pos.x = p[3].x;
-        draw_list_3d._VtxWritePtr[3].pos.y = p[3].y;
+        draw_list_3d._VtxWritePtr[3].pos = p[3];
         draw_list_3d._VtxWritePtr[3].uv = UV3;
         draw_list_3d._VtxWritePtr[3].col = Col;
 
@@ -803,31 +800,27 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
             }
         }
 
-        // Project the quad vertices to screen space
-        ImVec2 p[4];
-        p[0] = PlotToPixels(p_plot[0]);
-        p[1] = PlotToPixels(p_plot[1]);
-        p[2] = PlotToPixels(p_plot[2]);
-        p[3] = PlotToPixels(p_plot[3]);
+        // Project the quad vertices to NDC space
+        ImPlot3DPoint p[4];
+        p[0] = PlotToNDC(p_plot[0]);
+        p[1] = PlotToNDC(p_plot[1]);
+        p[2] = PlotToNDC(p_plot[2]);
+        p[3] = PlotToNDC(p_plot[3]);
 
         // Add vertices for two triangles
-        draw_list_3d._VtxWritePtr[0].pos.x = p[0].x;
-        draw_list_3d._VtxWritePtr[0].pos.y = p[0].y;
+        draw_list_3d._VtxWritePtr[0].pos = p[0];
         draw_list_3d._VtxWritePtr[0].uv = UV;
         draw_list_3d._VtxWritePtr[0].col = cols[0];
 
-        draw_list_3d._VtxWritePtr[1].pos.x = p[1].x;
-        draw_list_3d._VtxWritePtr[1].pos.y = p[1].y;
+        draw_list_3d._VtxWritePtr[1].pos = p[1];
         draw_list_3d._VtxWritePtr[1].uv = UV;
         draw_list_3d._VtxWritePtr[1].col = cols[1];
 
-        draw_list_3d._VtxWritePtr[2].pos.x = p[2].x;
-        draw_list_3d._VtxWritePtr[2].pos.y = p[2].y;
+        draw_list_3d._VtxWritePtr[2].pos = p[2];
         draw_list_3d._VtxWritePtr[2].uv = UV;
         draw_list_3d._VtxWritePtr[2].col = cols[2];
 
-        draw_list_3d._VtxWritePtr[3].pos.x = p[3].x;
-        draw_list_3d._VtxWritePtr[3].pos.y = p[3].y;
+        draw_list_3d._VtxWritePtr[3].pos = p[3];
         draw_list_3d._VtxWritePtr[3].uv = UV;
         draw_list_3d._VtxWritePtr[3].col = cols[3];
 

@@ -154,14 +154,14 @@ struct ImDrawList3D {
         unsigned int VtxIdx;
     };
 
-    ImVector<ImDrawIdx> IdxBuffer;  // Index buffer
-    ImVector<ImDrawVert> VtxBuffer; // Vertex buffer
-    ImVector<double> ZBuffer;       // Z buffer. Depth value for each triangle
-    unsigned int _VtxCurrentIdx;    // [Internal] current vertex index
-    ImDrawVert* _VtxWritePtr; // [Internal] point within VtxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    ImDrawIdx* _IdxWritePtr;  // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    double* _ZWritePtr;       // [Internal] point within ZBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    ImDrawListFlags _Flags;   // [Internal] draw list flags
+    ImVector<ImDrawIdx3D> IdxBuffer;  // Index buffer (32-bit indices)
+    ImVector<ImDrawVert3D> VtxBuffer; // Vertex buffer (stores 3D NDC positions)
+    ImVector<double> ZBuffer;         // Z buffer. Depth value for each triangle
+    unsigned int _VtxCurrentIdx;      // [Internal] current vertex index
+    ImDrawVert3D* _VtxWritePtr; // [Internal] point within VtxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    ImDrawIdx3D* _IdxWritePtr;  // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    double* _ZWritePtr;         // [Internal] point within ZBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    ImDrawListFlags _Flags;     // [Internal] draw list flags
     ImVector<ImTextureBufferItem> _TextureBuffer; // [Internal] buffer for SetTexture/ResetTexture
     ImDrawListSharedData* _SharedData;            // [Internal] shared draw list data
 
@@ -191,7 +191,7 @@ struct ImDrawList3D {
         ResetTexture();
     }
 
-    constexpr static unsigned int MaxIdx() { return sizeof(ImDrawIdx) == 2 ? 65535 : 4294967295; }
+    constexpr static unsigned int MaxIdx() { return 4294967295u; } // ImDrawIdx3D is always 32-bit
 };
 
 struct ImPlot3DNextItemData {
