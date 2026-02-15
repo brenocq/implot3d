@@ -206,10 +206,45 @@ void Render() {
             }
         }
 
-        // Copy draw list data
-        plot_data->IdxBuffer.resize(plot->DrawList.IdxBuffer.Size);
-        memcpy(plot_data->IdxBuffer.Data, plot->DrawList.IdxBuffer.Data, plot->DrawList.IdxBuffer.Size * sizeof(ImDrawIdx3D));
+        // Copy draw list data with sorting
+        // Build triangle references for sorting
+        const int tri_count = plot->DrawList.ZBuffer.Size;
 
+        if (tri_count > 0) {
+            struct TriRef {
+                double z;
+                int tri_idx;
+            };
+            TriRef* tris = (TriRef*)IM_ALLOC(sizeof(TriRef) * tri_count);
+            for (int i = 0; i < tri_count; i++) {
+                tris[i].z = plot->DrawList.ZBuffer[i];
+                tris[i].tri_idx = i;
+            }
+
+            // Sort triangles by depth (back to front)
+            ImQsort(tris, (size_t)tri_count, sizeof(TriRef), [](const void* a, const void* b) {
+                double za = ((const TriRef*)a)->z;
+                double zb = ((const TriRef*)b)->z;
+                return (za < zb) ? -1 : (za > zb) ? 1 : 0;
+            });
+
+            // Copy indices in sorted order
+            plot_data->IdxBuffer.resize(tri_count * 3);
+            ImDrawIdx3D* idx_in = plot->DrawList.IdxBuffer.Data;
+            for (int i = 0; i < tri_count; i++) {
+                int tri_i = tris[i].tri_idx;
+                int base_idx = tri_i * 3;
+                plot_data->IdxBuffer[i * 3 + 0] = idx_in[base_idx + 0];
+                plot_data->IdxBuffer[i * 3 + 1] = idx_in[base_idx + 1];
+                plot_data->IdxBuffer[i * 3 + 2] = idx_in[base_idx + 2];
+            }
+
+            IM_FREE(tris);
+        } else {
+            plot_data->IdxBuffer.resize(0);
+        }
+
+        // Copy vertices
         plot_data->VtxBuffer.resize(plot->DrawList.VtxBuffer.Size);
         memcpy(plot_data->VtxBuffer.Data, plot->DrawList.VtxBuffer.Data, plot->DrawList.VtxBuffer.Size * sizeof(ImDrawVert3D));
 
