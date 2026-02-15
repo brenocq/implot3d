@@ -1121,8 +1121,10 @@ struct ImDrawData3DPlot {
     ImPlot3DQuat Rotation;            // Rotation quaternion for this plot
     ImVec2 PlotRectMin;               // Plot rectangle min (for viewport)
     ImVec2 PlotRectMax;               // Plot rectangle max (for viewport)
-    ImTextureID ColorTextureID;       // RGBA texture for rendering
+    ImTextureID ColorTextureID;       // Final RGBA texture for rendering
     ImTextureID DepthTextureID;       // Depth texture for depth testing
+    ImTextureID AccumTextureID;       // WBOIT accumulation texture
+    ImTextureID RevealTextureID;      // WBOIT reveal texture
     ImVec2 TextureSize;               // Current texture size
     bool ShouldResize;                // Set by Render() if texture needs resizing
     bool ShouldRender;                // Set by Render() if plot should be rendered
@@ -1133,6 +1135,8 @@ struct ImDrawData3DPlot {
         Rotation = ImPlot3DQuat(0.0, 0.0, 0.0, 1.0);
         ColorTextureID = ImTextureID_Invalid;
         DepthTextureID = ImTextureID_Invalid;
+        AccumTextureID = ImTextureID_Invalid;
+        RevealTextureID = ImTextureID_Invalid;
         TextureSize = ImVec2(0.0f, 0.0f);
         ShouldResize = false;
         ShouldRender = false;

@@ -29,11 +29,31 @@
 #ifndef GL_COLOR_ATTACHMENT0
 #define GL_COLOR_ATTACHMENT0 0x8CE0
 #endif
+#ifndef GL_COLOR_ATTACHMENT1
+#define GL_COLOR_ATTACHMENT1 0x8CE1
+#endif
 #ifndef GL_DEPTH_ATTACHMENT
 #define GL_DEPTH_ATTACHMENT 0x8D00
 #endif
 #ifndef GL_DEPTH_BUFFER_BIT
 #define GL_DEPTH_BUFFER_BIT 0x00000100
+#endif
+
+// WBOIT texture format constants
+#ifndef GL_RGBA16F
+#define GL_RGBA16F 0x881A
+#endif
+#ifndef GL_R16F
+#define GL_R16F 0x822D
+#endif
+#ifndef GL_RED
+#define GL_RED 0x1903
+#endif
+#ifndef GL_COLOR
+#define GL_COLOR 0x1800
+#endif
+#ifndef GL_TEXTURE1
+#define GL_TEXTURE1 0x84C1
 #endif
 
 // Define depth test constants
@@ -57,6 +77,8 @@ typedef void(APIENTRYP PFNGLDEPTHMASKPROC)(GLboolean flag);
 typedef void(APIENTRYP PFNGLBLENDFUNCPROC)(GLenum sfactor, GLenum dfactor);
 typedef void(APIENTRYP PFNGLDRAWARRAYSPROC)(GLenum mode, GLint first, GLsizei count);
 typedef void(APIENTRYP PFNGLUNIFORM2FPROC)(GLint location, GLfloat v0, GLfloat v1);
+typedef void(APIENTRYP PFNGLDRAWBUFFERSPROC)(GLsizei n, const GLenum* bufs);
+typedef void(APIENTRYP PFNGLCLEARBUFFERFVPROC)(GLenum buffer, GLint drawbuffer, const GLfloat* value);
 
 static PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
 static PFNGLDELETEFRAMEBUFFERSPROC glDeleteFramebuffers;
@@ -69,6 +91,8 @@ static PFNGLDEPTHMASKPROC glDepthMask;
 static PFNGLBLENDFUNCPROC glBlendFunc;
 static PFNGLDRAWARRAYSPROC glDrawArrays;
 static PFNGLUNIFORM2FPROC glUniform2f;
+static PFNGLDRAWBUFFERSPROC glDrawBuffers;
+static PFNGLCLEARBUFFERFVPROC glClearBufferfv;
 #endif
 
 // Shader sources
@@ -79,26 +103,23 @@ in vec3 Position;  // 3D NDC position (before rotation)
 in vec4 Color;     // RGBA color
 
 out vec4 Frag_Color;
+out float Frag_Depth;
 
 uniform mat4 u_Rotation;      // Rotation matrix from quaternion
 uniform vec2 u_ViewportSize;  // Viewport size (width, height) in pixels
 
 void main() {
-    // The input Position is in NDC space [-1, 1] before rotation
-    // NDCToPixels does: GetViewScale() * (Rotation * point)
-    // So we need to: 1) Apply rotation, 2) Apply aspect ratio correction
-
     // Apply rotation to the 3D NDC position
     vec4 rotated_pos = u_Rotation * vec4(Position, 1.0);
 
     // Calculate aspect ratio correction
-    // GetViewScale uses min(width, height), so we need to scale the longer axis
-    float min_dim = min(u_ViewportSize.x, u_ViewportSize.y) * 1.11; // NOTE: No idea why 1.11 is needed
+    float min_dim = min(u_ViewportSize.x, u_ViewportSize.y);
     vec2 scale = vec2(min_dim / u_ViewportSize.x, min_dim / u_ViewportSize.y);
 
     // Apply scale to maintain aspect ratio, flip Y, negate Z for depth
     gl_Position = vec4(rotated_pos.x * scale.x, -rotated_pos.y * scale.y, -rotated_pos.z, 1.0);
     Frag_Color = Color;
+    Frag_Depth = gl_Position.z;
 }
 )";
 
@@ -106,23 +127,83 @@ static const char* g_FragmentShaderSource = R"(
 #version 130
 
 in vec4 Frag_Color;
-out vec4 Out_Color;
+in float Frag_Depth;
 
 void main() {
-    Out_Color = Frag_Color;
+    vec4 color = Frag_Color;
+
+    // WBOIT weight function - simpler and more stable
+    // Using depth-based weight to help with ordering
+    float z = (Frag_Depth + 1.0) * 0.5; // Convert from [-1, 1] to [0, 1]
+    float weight = color.a * clamp(0.03 / (1e-5 + pow(z / 200.0, 4.0)), 1e-2, 3e3);
+
+    // Weighted color accumulation (to GL_COLOR_ATTACHMENT0)
+    // Note: weight already includes alpha, so don't multiply by color.a again
+    gl_FragData[0] = vec4(color.rgb * weight, weight);
+
+    // Reveal: accumulate alpha (to GL_COLOR_ATTACHMENT1)
+    gl_FragData[1] = vec4(color.a);
+}
+)";
+
+// Composite shader for WBOIT final pass
+static const char* g_CompositeVertexShaderSource = R"(
+#version 130
+
+in vec2 Position;
+in vec2 UV;
+
+out vec2 Frag_UV;
+
+void main() {
+    Frag_UV = UV;
+    gl_Position = vec4(Position * 1.11, 0.0, 1.0);
+}
+)";
+
+static const char* g_CompositeFragmentShaderSource = R"(
+#version 130
+
+in vec2 Frag_UV;
+
+uniform sampler2D u_AccumTexture;
+uniform sampler2D u_RevealTexture;
+
+void main() {
+    vec4 accum = texture2D(u_AccumTexture, Frag_UV);
+    float reveal = texture2D(u_RevealTexture, Frag_UV).r;
+
+    // Avoid division by zero
+    if (accum.a < 0.00001) {
+        discard;
+    }
+
+    // Average color from accumulated weighted colors
+    vec3 average_color = accum.rgb / accum.a;
+
+    // Use sqrt for more natural alpha response matching ImGui rendering
+    float alpha = sqrt(clamp(reveal, 0.0, 1.0));
+
+    gl_FragColor = vec4(average_color, alpha);
 }
 )";
 
 // Backend data stored in ImPlot3D context
 struct ImPlot3D_ImplOpenGL3_Data {
     GLuint ShaderProgram;
+    GLuint CompositeShaderProgram;
     GLint AttribLocationPosition;
     GLint AttribLocationColor;
     GLint UniformLocationRotation;
     GLint UniformLocationViewportSize;
+    GLint CompositeAttribLocationPosition;
+    GLint CompositeAttribLocationUV;
+    GLint CompositeUniformLocationAccum;
+    GLint CompositeUniformLocationReveal;
     GLuint VBO;
     GLuint EBO; // Element buffer for indices
     GLuint VAO;
+    GLuint CompositeVAO;
     GLuint FBO;
 };
 static ImPlot3D_ImplOpenGL3_Data g_Data;
@@ -144,6 +225,8 @@ IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init() {
     glDepthFunc = (PFNGLDEPTHFUNCPROC)imgl3wGetProcAddress("glDepthFunc");
     glDrawArrays = (PFNGLDRAWARRAYSPROC)imgl3wGetProcAddress("glDrawArrays");
     glUniform2f = (PFNGLUNIFORM2FPROC)imgl3wGetProcAddress("glUniform2f");
+    glDrawBuffers = (PFNGLDRAWBUFFERSPROC)imgl3wGetProcAddress("glDrawBuffers");
+    glClearBufferfv = (PFNGLCLEARBUFFERFVPROC)imgl3wGetProcAddress("glClearBufferfv");
 #endif
 
     // Compile vertex shader
@@ -206,6 +289,61 @@ IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init() {
     g_Data.UniformLocationRotation = glGetUniformLocation(g_Data.ShaderProgram, "u_Rotation");
     g_Data.UniformLocationViewportSize = glGetUniformLocation(g_Data.ShaderProgram, "u_ViewportSize");
 
+    // Compile composite vertex shader for WBOIT
+    GLuint comp_vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(comp_vertex_shader, 1, &g_CompositeVertexShaderSource, nullptr);
+    glCompileShader(comp_vertex_shader);
+
+    glGetShaderiv(comp_vertex_shader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char info_log[512];
+        glGetShaderInfoLog(comp_vertex_shader, 512, nullptr, info_log);
+        IM_ASSERT_USER_ERROR(false, "ImPlot3D: Composite vertex shader compilation failed!");
+        IMGUI_DEBUG_PRINTF("ImPlot3D: Composite vertex shader error: %s\n", info_log);
+        return false;
+    }
+
+    // Compile composite fragment shader for WBOIT
+    GLuint comp_fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(comp_fragment_shader, 1, &g_CompositeFragmentShaderSource, nullptr);
+    glCompileShader(comp_fragment_shader);
+
+    glGetShaderiv(comp_fragment_shader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char info_log[512];
+        glGetShaderInfoLog(comp_fragment_shader, 512, nullptr, info_log);
+        IM_ASSERT_USER_ERROR(false, "ImPlot3D: Composite fragment shader compilation failed!");
+        IMGUI_DEBUG_PRINTF("ImPlot3D: Composite fragment shader error: %s\n", info_log);
+        glDeleteShader(comp_vertex_shader);
+        return false;
+    }
+
+    // Link composite shader program
+    g_Data.CompositeShaderProgram = glCreateProgram();
+    glAttachShader(g_Data.CompositeShaderProgram, comp_vertex_shader);
+    glAttachShader(g_Data.CompositeShaderProgram, comp_fragment_shader);
+    glLinkProgram(g_Data.CompositeShaderProgram);
+
+    glGetProgramiv(g_Data.CompositeShaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        char info_log[512];
+        glGetProgramInfoLog(g_Data.CompositeShaderProgram, 512, nullptr, info_log);
+        IM_ASSERT_USER_ERROR(false, "ImPlot3D: Composite shader linking failed!");
+        IMGUI_DEBUG_PRINTF("ImPlot3D: Composite shader linking error: %s\n", info_log);
+        glDeleteShader(comp_vertex_shader);
+        glDeleteShader(comp_fragment_shader);
+        return false;
+    }
+
+    glDeleteShader(comp_vertex_shader);
+    glDeleteShader(comp_fragment_shader);
+
+    // Get composite shader locations
+    g_Data.CompositeAttribLocationPosition = glGetAttribLocation(g_Data.CompositeShaderProgram, "Position");
+    g_Data.CompositeAttribLocationUV = glGetAttribLocation(g_Data.CompositeShaderProgram, "UV");
+    g_Data.CompositeUniformLocationAccum = glGetUniformLocation(g_Data.CompositeShaderProgram, "u_AccumTexture");
+    g_Data.CompositeUniformLocationReveal = glGetUniformLocation(g_Data.CompositeShaderProgram, "u_RevealTexture");
+
     // Create buffers
     glGenVertexArrays(1, &g_Data.VAO);
     glGenBuffers(1, &g_Data.VBO);
@@ -235,6 +373,17 @@ IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+    // Setup composite VAO for full-screen quad
+    glGenVertexArrays(1, &g_Data.CompositeVAO);
+    glBindVertexArray(g_Data.CompositeVAO);
+
+    // Note: Composite VAO doesn't need buffers bound yet - they'll be set during rendering
+    // Just configure attribute locations for when we do bind them
+    glEnableVertexAttribArray(g_Data.CompositeAttribLocationPosition);
+    glEnableVertexAttribArray(g_Data.CompositeAttribLocationUV);
+
+    glBindVertexArray(0);
+
     // Create FBO for offscreen rendering
     glGenFramebuffers(1, &g_Data.FBO);
 
@@ -245,8 +394,12 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_Shutdown() {
     // Delete OpenGL resources
     if (g_Data.ShaderProgram)
         glDeleteProgram(g_Data.ShaderProgram);
+    if (g_Data.CompositeShaderProgram)
+        glDeleteProgram(g_Data.CompositeShaderProgram);
     if (g_Data.VAO)
         glDeleteVertexArrays(1, &g_Data.VAO);
+    if (g_Data.CompositeVAO)
+        glDeleteVertexArrays(1, &g_Data.CompositeVAO);
     if (g_Data.VBO)
         glDeleteBuffers(1, &g_Data.VBO);
     if (g_Data.EBO)
@@ -264,26 +417,14 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_Shutdown() {
     g_Data = ImPlot3D_ImplOpenGL3_Data();
 }
 
-ImTextureID ImPlot3D_ImplOpenGL3_CreateRGBATexture(const ImVec2& size) {
+// Generic texture creation function
+static ImTextureID CreateTexture(const ImVec2& size, GLint internalFormat, GLenum format, GLenum type, GLint minFilter, GLint magFilter) {
     int width = (int)size.x;
     int height = (int)size.y;
 
-    // Use ImGui's error handling for user-facing errors
-    IM_ASSERT_USER_ERROR(width > 0 && height > 0, "ImPlot3D_ImplOpenGL3_CreateTexture: size must be positive!");
     if (width <= 0 || height <= 0)
         return ImTextureID_Invalid;
 
-    // Create rainbow gradient pixel data (RGBA)
-    size_t pixel_count = (size_t)width * (size_t)height;
-    size_t data_size = pixel_count * 4; // 4 bytes per pixel (RGBA)
-
-    // Allocate using ImGui's allocation
-    unsigned char* pixels = (unsigned char*)IM_ALLOC(data_size);
-
-    // Fill with zeros (transparent black)
-    memset(pixels, 0, data_size);
-
-    // Generate OpenGL texture
     GLuint texture_id = 0;
     GLint last_texture = 0;
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
@@ -291,64 +432,27 @@ ImTextureID ImPlot3D_ImplOpenGL3_CreateRGBATexture(const ImVec2& size) {
     glGenTextures(1, &texture_id);
     glBindTexture(GL_TEXTURE_2D, texture_id);
 
-    // Set texture parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, type, nullptr);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    // Upload pixel data to GPU
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-
-    // Free CPU memory
-    IM_FREE(pixels);
-
-    // Restore previous texture binding
     glBindTexture(GL_TEXTURE_2D, last_texture);
 
-    // Track this texture for cleanup
     g_CreatedTextures.push_back(texture_id);
-
-    // Return as ImTextureID (cast GLuint to ImTextureID)
     return (ImTextureID)(intptr_t)texture_id;
 }
 
+ImTextureID ImPlot3D_ImplOpenGL3_CreateRGBATexture(const ImVec2& size) {
+    IM_ASSERT_USER_ERROR(size.x > 0 && size.y > 0, "ImPlot3D_ImplOpenGL3_CreateTexture: size must be positive!");
+    return CreateTexture(size, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR, GL_LINEAR);
+}
+
 IMPLOT3D_IMPL_API ImTextureID ImPlot3D_ImplOpenGL3_CreateDepthTexture(const ImVec2& size) {
-    int width = (int)size.x;
-    int height = (int)size.y;
-
-    // Use ImGui's error handling for user-facing errors
-    IM_ASSERT_USER_ERROR(width > 0 && height > 0, "ImPlot3D_ImplOpenGL3_CreateDepthTexture: size must be positive!");
-    if (width <= 0 || height <= 0)
-        return ImTextureID_Invalid;
-
-    // Generate OpenGL depth texture
-    GLuint texture_id = 0;
-    GLint last_texture = 0;
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
-
-    glGenTextures(1, &texture_id);
-    glBindTexture(GL_TEXTURE_2D, texture_id);
-
-    // Create depth texture
-    // GL_DEPTH_COMPONENT24: 24-bit depth precision (good balance of precision and memory)
-    // Note: ImPlot3D targets OpenGL 3.0+ where depth textures are core
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
-
-    // Set texture parameters (recommended for depth textures)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); // No interpolation for depth
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // Clamp to avoid edge artifacts
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    // Restore previous texture binding
-    glBindTexture(GL_TEXTURE_2D, last_texture);
-
-    // Track this texture for cleanup
-    g_CreatedTextures.push_back(texture_id);
-
-    // Return as ImTextureID (cast GLuint to ImTextureID)
-    return (ImTextureID)(intptr_t)texture_id;
+    IM_ASSERT_USER_ERROR(size.x > 0 && size.y > 0, "ImPlot3D_ImplOpenGL3_CreateDepthTexture: size must be positive!");
+    return CreateTexture(size, GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, GL_NEAREST, GL_NEAREST);
 }
 
 void ImPlot3D_ImplOpenGL3_DestroyTexture(ImTextureID tex_id) {
@@ -367,6 +471,16 @@ void ImPlot3D_ImplOpenGL3_DestroyTexture(ImTextureID tex_id) {
     }
 }
 
+// Create WBOIT accumulation texture (RGBA16F)
+ImTextureID ImPlot3D_ImplOpenGL3_CreateAccumTexture(const ImVec2& size) {
+    return CreateTexture(size, GL_RGBA16F, GL_RGBA, GL_FLOAT, GL_LINEAR, GL_LINEAR);
+}
+
+// Create WBOIT reveal texture (R16F)
+ImTextureID ImPlot3D_ImplOpenGL3_CreateRevealTexture(const ImVec2& size) {
+    return CreateTexture(size, GL_R16F, GL_RED, GL_FLOAT, GL_LINEAR, GL_LINEAR);
+}
+
 IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_data) {
     if (!draw_data)
         return;
@@ -381,6 +495,12 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
             }
             if (plot_data->DepthTextureID != ImTextureID_Invalid) {
                 ImPlot3D_ImplOpenGL3_DestroyTexture(plot_data->DepthTextureID);
+            }
+            if (plot_data->AccumTextureID != ImTextureID_Invalid) {
+                ImPlot3D_ImplOpenGL3_DestroyTexture(plot_data->AccumTextureID);
+            }
+            if (plot_data->RevealTextureID != ImTextureID_Invalid) {
+                ImPlot3D_ImplOpenGL3_DestroyTexture(plot_data->RevealTextureID);
             }
             // Remove from array
             draw_data->PlotData.erase(draw_data->PlotData.Data + i);
@@ -404,35 +524,72 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
                 ImPlot3D_ImplOpenGL3_DestroyTexture(plot_data->DepthTextureID);
                 plot_data->DepthTextureID = ImTextureID_Invalid;
             }
+            if (plot_data->AccumTextureID != ImTextureID_Invalid) {
+                ImPlot3D_ImplOpenGL3_DestroyTexture(plot_data->AccumTextureID);
+                plot_data->AccumTextureID = ImTextureID_Invalid;
+            }
+            if (plot_data->RevealTextureID != ImTextureID_Invalid) {
+                ImPlot3D_ImplOpenGL3_DestroyTexture(plot_data->RevealTextureID);
+                plot_data->RevealTextureID = ImTextureID_Invalid;
+            }
 
             // Create new textures with current size
             plot_data->ColorTextureID = ImPlot3D_ImplOpenGL3_CreateRGBATexture(plot_data->TextureSize);
             plot_data->DepthTextureID = ImPlot3D_ImplOpenGL3_CreateDepthTexture(plot_data->TextureSize);
+            plot_data->AccumTextureID = ImPlot3D_ImplOpenGL3_CreateAccumTexture(plot_data->TextureSize);
+            plot_data->RevealTextureID = ImPlot3D_ImplOpenGL3_CreateRevealTexture(plot_data->TextureSize);
         }
 
         // Get texture IDs
         GLuint color_texture = (GLuint)(intptr_t)plot_data->ColorTextureID;
         GLuint depth_texture = (GLuint)(intptr_t)plot_data->DepthTextureID;
-        if (color_texture == 0)
+        GLuint accum_texture = (GLuint)(intptr_t)plot_data->AccumTextureID;
+        GLuint reveal_texture = (GLuint)(intptr_t)plot_data->RevealTextureID;
+        if (color_texture == 0 || accum_texture == 0 || reveal_texture == 0)
             continue;
 
         // Skip if no vertices to render
         if (plot_data->VtxBuffer.Size == 0 || plot_data->IdxBuffer.Size == 0)
             continue;
 
-        // Bind framebuffer
+        // Convert vertices from double to float for OpenGL 3.x compatibility
+        struct GLVertex {
+            float x, y, z;
+            ImU32 col;
+        };
+
+        ImVector<GLVertex> gl_vertices;
+        gl_vertices.resize(plot_data->VtxBuffer.Size);
+        for (int v = 0; v < plot_data->VtxBuffer.Size; v++) {
+            const ImDrawVert3D& src = plot_data->VtxBuffer.Data[v];
+            GLVertex& dst = gl_vertices.Data[v];
+            dst.x = (float)src.pos.x;
+            dst.y = (float)src.pos.y;
+            dst.z = (float)src.pos.z;
+            dst.col = src.col;
+        }
+
+        // ====================
+        // WBOIT Pass 1: Render geometry to accum/reveal targets
+        // ====================
+
         glBindFramebuffer(GL_FRAMEBUFFER, g_Data.FBO);
 
-        // Attach textures to framebuffer
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_texture, 0);
+        // Attach accum and reveal textures as color attachments
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, accum_texture, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, reveal_texture, 0);
         if (depth_texture != 0) {
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_texture, 0);
         }
 
+        // Specify which color attachments to draw to
+        GLenum draw_buffers[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+        glDrawBuffers(2, draw_buffers);
+
         // Check framebuffer status
         GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (status != GL_FRAMEBUFFER_COMPLETE) {
-            IMGUI_DEBUG_PRINTF("ImPlot3D: Framebuffer not complete! Status: 0x%x\n", status);
+            IMGUI_DEBUG_PRINTF("ImPlot3D: WBOIT framebuffer not complete! Status: 0x%x\n", status);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             continue;
         }
@@ -440,30 +597,32 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
         // Set viewport to texture size
         glViewport(0, 0, (int)plot_data->GetPlotWidth(), (int)plot_data->GetPlotHeight());
 
-        // Clear color and depth
+        // Clear accum to (0,0,0,0) and reveal to 0.0
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClearDepth(1.0); // Clear depth to far plane
+        glClearDepth(1.0);
         glClear(GL_COLOR_BUFFER_BIT | (depth_texture != 0 ? GL_DEPTH_BUFFER_BIT : 0));
 
-        // Enable depth testing
+        // For reveal texture (attachment 1), clear to 0.0 (we're accumulating alpha)
+        GLfloat clear_reveal[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        glClearBufferfv(GL_COLOR, 1, clear_reveal);
+
+        // Enable depth testing but disable depth writes (WBOIT requirement)
         if (depth_texture != 0) {
             glEnable(GL_DEPTH_TEST);
-            glDepthFunc(GL_LESS); // Closer = smaller Z after negation
-            glDepthMask(GL_TRUE); // Enable depth writes
+            glDepthFunc(GL_LESS);
+            glDepthMask(GL_FALSE); // Disable depth writes for WBOIT
         }
 
-        // Enable alpha blending (same as ImGui's OpenGL3 backend)
+        // Enable additive blending for WBOIT
         glEnable(GL_BLEND);
-        glBlendEquation(GL_FUNC_ADD);
-        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendFunc(GL_ONE, GL_ONE); // Additive blending
 
-        // Use shader program
+        // Use WBOIT geometry shader
         glUseProgram(g_Data.ShaderProgram);
 
         // Convert quaternion to rotation matrix and upload to shader
         ImPlot3DQuat rot = plot_data->Rotation;
         float rot_matrix[16];
-        // Quaternion to matrix conversion (column-major for OpenGL)
         float xx = (float)(rot.x * rot.x);
         float yy = (float)(rot.y * rot.y);
         float zz = (float)(rot.z * rot.z);
@@ -495,49 +654,95 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
         rot_matrix[15] = 1.0f;
 
         glUniformMatrix4fv(g_Data.UniformLocationRotation, 1, GL_FALSE, rot_matrix);
-
-        // Upload viewport size uniform
         glUniform2f(g_Data.UniformLocationViewportSize, plot_data->GetPlotWidth(), plot_data->GetPlotHeight());
 
-        // Convert vertices from double to float for OpenGL 3.x compatibility
-        struct GLVertex {
-            float x, y, z;
-            ImU32 col;
-        };
-
-        ImVector<GLVertex> gl_vertices;
-        gl_vertices.resize(plot_data->VtxBuffer.Size);
-        for (int v = 0; v < plot_data->VtxBuffer.Size; v++) {
-            const ImDrawVert3D& src = plot_data->VtxBuffer.Data[v];
-            GLVertex& dst = gl_vertices.Data[v];
-            dst.x = (float)src.pos.x;
-            dst.y = (float)src.pos.y;
-            dst.z = (float)src.pos.z;
-            dst.col = src.col;
-        }
-
-        // Bind VAO (this restores all the vertex attribute configuration from Init)
+        // Bind VAO and upload vertex/index data
         glBindVertexArray(g_Data.VAO);
-
-        // Bind and upload vertex data to VBO
         glBindBuffer(GL_ARRAY_BUFFER, g_Data.VBO);
         glBufferData(GL_ARRAY_BUFFER, gl_vertices.Size * sizeof(GLVertex), gl_vertices.Data, GL_STREAM_DRAW);
-
-        // Bind and upload index data to EBO
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_Data.EBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, plot_data->IdxBuffer.Size * sizeof(ImDrawIdx3D), plot_data->IdxBuffer.Data, GL_STREAM_DRAW);
 
-        // Draw triangles
+        // Draw triangles to accum/reveal
         glDrawElements(GL_TRIANGLES, plot_data->IdxBuffer.Size, GL_UNSIGNED_INT, nullptr);
 
-        // Unbind VAO
+        glBindVertexArray(0);
+        glUseProgram(0);
+
+        // ====================
+        // WBOIT Pass 2: Composite pass to final color texture
+        // ====================
+
+        // Attach final color texture as output
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color_texture, 0);
+        glDrawBuffers(1, draw_buffers); // Only draw to color attachment 0 now
+
+        // Clear final color to transparent
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Disable depth test for composite pass (full-screen quad)
+        glDisable(GL_DEPTH_TEST);
+
+        // Use standard alpha blending for final composite
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+        // Use composite shader
+        glUseProgram(g_Data.CompositeShaderProgram);
+
+        // Bind accum and reveal textures
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, accum_texture);
+        glUniform1i(g_Data.CompositeUniformLocationAccum, 0);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, reveal_texture);
+        glUniform1i(g_Data.CompositeUniformLocationReveal, 1);
+
+        // Draw full-screen quad
+        // Define quad vertices: position (XY in NDC) + UV
+        float quad_vertices[] = {
+            // X     Y     U    V
+            -1.0f, -1.0f, 0.0f, 0.0f, // Bottom-left
+            1.0f,  -1.0f, 1.0f, 0.0f, // Bottom-right
+            1.0f,  1.0f,  1.0f, 1.0f, // Top-right
+            -1.0f, 1.0f,  0.0f, 1.0f  // Top-left
+        };
+        unsigned int quad_indices[] = {0, 1, 2, 0, 2, 3};
+
+        glBindVertexArray(g_Data.CompositeVAO);
+
+        // Upload quad vertices (position + UV)
+        GLuint quad_vbo;
+        glGenBuffers(1, &quad_vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, quad_vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STREAM_DRAW);
+
+        // Configure attributes
+        glVertexAttribPointer(g_Data.CompositeAttribLocationPosition, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+        glVertexAttribPointer(g_Data.CompositeAttribLocationUV, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+        // Upload quad indices
+        GLuint quad_ebo;
+        glGenBuffers(1, &quad_ebo);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quad_ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_indices), quad_indices, GL_STREAM_DRAW);
+
+        // Draw quad
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+        // Cleanup temporary buffers
+        glDeleteBuffers(1, &quad_vbo);
+        glDeleteBuffers(1, &quad_ebo);
+
         glBindVertexArray(0);
         glUseProgram(0);
 
         // Disable states
         glDisable(GL_BLEND);
         if (depth_texture != 0) {
-            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_TRUE); // Re-enable depth writes
         }
     }
 
