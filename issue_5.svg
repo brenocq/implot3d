@@ -1,0 +1,247 @@
+
+    <svg width="670" height="100" xmlns="http://www.w3.org/2000/svg">
+        <!-- https://github.com/brenocq/implot3d/issues/144 -->
+
+        <!-- Definitions -->
+        <defs>
+            <clipPath id="circle-clip">
+                <circle cx="0" cy="0" r="17.5" />
+            </clipPath>
+        </defs>
+
+        <!-- Style -->
+        
+<style>
+    :root {
+         --border-color: #d1d9e0;
+         --fgColor-default: #1f2328;
+         --fgColor-accent: #0969da;
+         --fgColor-muted: #59636e;
+         --fgColor-success: #1a7f37;
+         --fgColor-danger: #d1242f;
+         --fgColor-done: #8250df;
+         --bgColor-neutral-muted: #818b981f;
+         --bgColor-success: #1f883d;
+         --text-large: 1rem;
+         --text-medium: 0.875rem;
+         --text-small: 0.75rem;
+         --text-weight-light: 300;
+         --text-weight-normal: 400;
+         --text-weight-medium: 500;
+         --text-weight-semibold: 600;
+     }
+
+    text {
+        font-family: Arial, sans-serif;
+        font-size: var(--text-medium);
+    }
+
+    text.title {
+        fill: var(--fgColor-default);
+        font-size: var(--text-large);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.small {
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.medium {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.muted {
+        fill: var(--fgColor-muted);
+    }
+
+    text.counter {
+        fill: var(--fgColor-muted);
+        font-size: 40px;
+        text-anchor: middle;
+    }
+
+    text.button {
+        font-size: 14px;
+        fill: var(--fgColor-default);
+    }
+
+    text.label {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.label-muted {
+        fill: var(--fgColor-muted);
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    rect.labelBg {
+        fill-opacity: 1.0;
+    }
+
+    rect.labelBg-muted {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 0.5px;
+    }
+
+    rect.card {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 1.5px;
+        rx: 6px;
+        ry: 6px;
+    }
+
+    rect.progress-bg {
+        fill: var(--bgColor-neutral-muted);
+    }
+
+    rect.progress-fill {
+        fill: var(--bgColor-success);
+    }
+
+    .icon-open {
+        fill: var(--fgColor-success);
+    }
+
+    .icon-closed {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-completed {
+        fill: var(--fgColor-done);
+    }
+
+    .icon-danger {
+        fill: var(--fgColor-danger);
+    }
+
+    .icon-muted {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-default {
+        fill: var(--fgColor-default);
+    }
+
+    @media (prefers-color-scheme: light) {
+        text.label {
+            fill: #000000;
+        }
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --border-color: #3d444d;
+            --fgColor-default: #d1d7e0;
+            --fgColor-muted: #9198a1;
+            --fgColor-accent: #478be6;
+            --fgColor-success: #57ab5a;
+            --fgColor-danger: #e5534b;
+            --fgColor-done: #986ee2;
+            --bgColor-neutral-muted: #656c7633;
+            --bgColor-success: #347d39;
+            --button-background-color: #2a313c;
+        }
+
+        rect.labelBg {
+            fill-opacity: 0.2;
+        }
+    }
+</style>
+
+
+        <!-- Card Background -->
+        <rect class="card" x="0" y="0" width="670" height="100"/>
+
+        <!-- Issue Icon -->
+        <path class="icon-open" transform="translate(8, 8)" d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/>
+
+        <!-- Issue Title -->
+        <text class="title" x="28" y="18.0" text-anchor="start" dominant-baseline="middle">
+            Per-point custom colors <tspan style="fill: var(--fgColor-muted);font-weight: var(--text-weight-normal);">#144</tspan>
+        </text>
+
+        
+        <!-- Label -->
+        <g transform="translate(627.5, 8)">
+            <rect class="labelBg-muted" x="-30.5" y="0" width="61" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">type:feat</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(563.0, 8)">
+            <rect class="labelBg-muted" x="-30.0" y="0" width="60" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">prio:high</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(491.0, 8)">
+            <rect class="labelBg-muted" x="-38.0" y="0" width="76" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">status:doing</text>
+        </g>
+        
+        <!-- Contributor Comment -->
+        <text class="small" fill="var(--fgColor-muted)" x="8" y="91"><tspan style="text-decoration: underline;">brenocq</tspan> opened on Oct 16 · <tspan style="text-decoration: underline;">vincentjzy</tspan> commented on Dec 31</text>
+    
+            <!-- Deletions -->
+            <text class="small" fill="var(--fgColor-danger)" x="650" y="92">-0</text>
+            
+            <!-- Additions -->
+            <text class="small" fill="var(--fgColor-success)" x="631" y="92">+0</text>
+            
+            <!-- Linked PR -->
+            <text class="small muted" x="602" y="92">#141</text>
+            
+            <path class="icon-danger" transform="translate(588, 82) scale(0.75)" d="M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.251 2.251 0 0 1 3.25 1Zm9.5 5.5a.75.75 0 0 1 .75.75v3.378a2.251 2.251 0 1 1-1.5 0V7.25a.75.75 0 0 1 .75-.75Zm-2.03-5.273a.75.75 0 0 1 1.06 0l.97.97.97-.97a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.97.97.97.97a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-.97-.97-.97.97a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l.97-.97-.97-.97a.75.75 0 0 1 0-1.06ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"/>
+            
+        <!-- Avatars -->
+        
+            <g transform="translate(644.5, 54.0)">
+                <image x="-17.5" y="-17.5" width="35" height="35" href="data:image/png;base64,/9j/2wCEAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDIBCQkJDAsMGA0NGDIhHCEyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMv/AABEIACgAKAMBIgACEQEDEQH/xAGiAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgsQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+gEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoLEQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2gAMAwEAAhEDEQA/APAQKekZdgo6mkArX0XT3vruNAGEe/Ejhc7R/nPFD0BauxSlsxAMSuQ46jbx+dV2TafWvVtQsPCQ0kPAuJQPLJl3F2P9fw4rzW8gWK6lRAQqtgZGCaUZXLnDl6meRTcVI4waZimQSrXcfDjVVtNY+wSxho7k7gxP3Cqsf5Zrh1rrfAs9hba0st02y4UfuCxwuSCCD74PFKavFlU3aSZ3/ieSFPs6+XiMPv5w2euBk15Tq1xHdahLJEoWMfKuB1x3/PNeg+IrYzXO6KJwgQ55O1f1wK8xuHSK6ljjO+NWIVs9RUUjWvJsrS9ajqSRgTkVHWhgPRqmDcdarL1qYdKaETNPI0YjMjFB0UtwKgZscU7tUTfeFADSeaSg9qKQz//Z" clip-path="url(#circle-clip)" />
+                <circle cx="0" cy="0" r="17.5" fill="none" stroke="var(--border-color)" stroke-width="1" />
+            </g>
+            
+            <g transform="translate(624.5, 54.0)">
+                <image x="-17.5" y="-17.5" width="35" height="35" href="data:image/png;base64,/9j/2wCEAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDIBCQkJDAsMGA0NGDIhHCEyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMv/AABEIACgAKAMBIgACEQEDEQH/xAGiAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgsQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+gEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoLEQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2gAMAwEAAhEDEQA/APMbGF/+EqvZCrBVuSdxHH369TWMpYrISDlc8EHHNX30jR51Pnw3OC27ckoBH5rVKWD7LczqzubRhiKDPIUjBLH1OOgH5Vgqqm9DSVNx3LCTxroUSl1yE6Z5rnfD0LJYvlMBWI9KksSk8oFzvSNApVQASQeo/T/61aNuZpLuKzNusURzI8idCoOAB+eatyJUSW0ZHuptz4XywP1q15cH/PRf++hVy2sbKCdpC0r5GMHHFW/LsP7kn5is/bwK9jLsUOp/xqpFp2p3t/Hb2kT3EayBpt6rjYSv3SfQZzzXQ6loN3p9ublNs8QAIZDnOelQJJdQ6WrQHDTK3mlTjI9Kzo05Ru2bVmnoUNb0aXStRiQWQWzSNEluXUkb+SxGDyPmPTv16VVtWl2jMMLQ7iyzRnjntjJIPqK6SyvL64sYtPYbooxgFuSfqas6ppAbQpJGcLJE28EHH4VrJOSsjJNRepzxlVfvNzSfaF/vCo9Jga8lDMpMe3DEDJ59K2P7Ftv7k/5VwqD6nZe+w6fWbLTrNEs/ENvdwxKQArjdzwFI5DDp6dDXNt4sazYpfWbmN2JjdUKofpmuKtP9RJ/vD+Zrf8U/8gjTfr/7LXXF2k0i6tO9Nyk7s7iz1ywFh58ci8jOM859KdZ+Jo9UmewaEmMjDZPFcRpv/IKP+8K0fDP/ACGJfr/jWqPPaO90/TdPWyPlfKo3FYw3y/Wj7DF/dT86bpf/AB7H/rnViueW7Oxwtomf/9k=" clip-path="url(#circle-clip)" />
+                <circle cx="0" cy="0" r="17.5" fill="none" stroke="var(--border-color)" stroke-width="1" />
+            </g>
+            
+            <g transform="translate(604.5, 54.0)">
+                <image x="-17.5" y="-17.5" width="35" height="35" href="data:image/png;base64,/9j/2wCEAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDIBCQkJDAsMGA0NGDIhHCEyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMv/AABEIACgAKAMBIgACEQEDEQH/xAGiAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgsQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+gEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoLEQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2gAMAwEAAhEDEQA/APYqhlureBwks0aORkKWGT9BTbyUxxqofy97EGTGdigFmP12qce+KkFwLW1ktbazktpDhiwIkfbld5bBJ3hWzg5z79K+fwuCddczdkdlSryuyEiuYJyRFKjleoVgSPr6VLUdpZwX7yIZHZUUNHKs7SlGyc7Hbk8bcjp29ary3y2L+RfMqTCQR5HAbP3WHoD+hyO2aMTgpUdY6oKdVS0ZcooorhNiGUwrc2rXG0QF2WQucKFKMOf0H41leIm8iSCKR3kidcxSvOuJV4yucD/ZJJyeBjPNT3Vzb3vlQmS4t1L7vMeOSEAhSV+YgY+YL35qlDef2VAsNpc3I3SiNXW33xqBGNzLleQWQ8A85z659rD0qksM6TvFv7zknJKpzbk2i6fepfxarMVtreIEO83GV9Bu+Yjtk7QOwNO14Q6vcx3ojxLYNvjikG0yR8byxI7Ag7eo74LcVRqUrTedLJdSyKchnhIOfVVKsB+GKZLfySXStC1x5pVpQrWzlSwABVkGcgg4JAAB5zW8MNKlS9mr289yJVFKXMdFDMsyblyCDhlYYKn0I9akrE07VfNRJLi3u45EiWFw1tIWZlzycKR345Pv6C//AGnB/wA87r/wEl/+JryK2FnGbUE2vQ6o1E1dsuVFPbxXMJimXchwcZIwR0II5BqWivojiM/+yEHCXVyq+m4N+rAn9antbGG0LNHuLv8Aed2LE/n0HsKs0VTlJ6NkqKWyCiiipKP/2Q==" clip-path="url(#circle-clip)" />
+                <circle cx="0" cy="0" r="17.5" fill="none" stroke="var(--border-color)" stroke-width="1" />
+            </g>
+            
+            <g transform="translate(584.5, 54.0)">
+                <image x="-17.5" y="-17.5" width="35" height="35" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAD5klEQVR4nOyWTWskRRjH/9XdMz09PT3d85JNWGJcdolBZI34thtXFAT14sWDV3PyE3jyKHhU2C/gRURkVUQRPAgrCxrDJmxMvKyirkEPSzJvPW/93i1Vkx5nJslOz/SaGcL+YZiq6qee+lV31fM8Anq0rBUf/uCp568u54ovEwIZE1HgvrezuXr11+1PaK8LmE+m0tdeePV6QZTOTwYsFBEekpXFsMeFjdXzS29MHu6wuoDzaWVhsihHizumPTWaSqheTT2gcD+cBITAOLcAe/YM6yf3S5Du7IL4fmzfIwN6aQntxQtwNA0kCMCZJvRLT8PLKn12fL0BdX0DflpiGxCqOtK//wGh1f5/AOki1RevMBgI/dM4QqDIEsRkgvUt20GLI6i88lKfXdn1oN7cRO7Gj5HfbiTAAMDe66+h/egSBIGHIqdBKEC1Do7jMFNQwfN81z6ZTCAtiSiVdXi+j3wuiyAI0Gwa0J+7BLuQx+znX4FEWDvSJWk88TiDS4lJzBQ0SJII23bYMy2b6YMLRcfUbIa1LcuBlBJRLKjs31haROPJ5ShLRwPUV54BxxFoqgJCOvu2bZe1RTFx7Dz6jNrYTmcztK2pGfbWayvPsi8TG9DJKnDzOaRSIoMMFSBgnzsEPkr0GbMZGJNSSXiaCjenDQUcegY9uVPU8Fz/Xgo5dajz4+zCI+HKMhLVWjxAzrLYvz9w63rf5j3nH2EX+uJNc/j8YQZ0h3yjCcO02U0cFA0pvt8Zd10Pjut2IayDi9Qr6sMwLPDNJhLlSnxAGoxZwPV96PVmHySFKVd0tNoG61dqdVRrDdZutU32zHHcPn96vcVCj7KxxXzHBqTKbm4hdWcXbcNCuVpnb4aBRrmGB6JhiQK3DRPi7t/Q1jcizYsESKP+7LUvkbm1Ddu02EL0c0YVtS1VdFimhczWDuY+/eL+ZhIqznUx8+134A0D+pXLkeF6pa7dRP7GDyPNGbncIt74Fco41U2scosG4awiI5VKsr6qyN1jSdMhDTHUxouxqViANCtkZKnbF8Xkf455HkJaiuOeaeor6tMLGGYNGg9Nq5NlnHuMjauxz2BVb7CyiVbRhmmxOi9MbYNjg3n8RABxkG8pCFX439vuHRtXIwNmb/0M+fZvYy3Gt1ojzxkZkG+12e+kdHpv8UnpAWBcTStgN3AeusXkTBFkYf7EiULt7e//89n333wd9nsBWT4S3noT/CMXJgJHA/9fa2s76++/u30IcLtW+olRfvgxvPmzEwGkOlcqXbxcnLu4Xrr7Sx/gR3/evr6sFd9eBd4J7u4VJwVYRHB2pTj3WAj4bwAAAP//+l2XDasnpwcAAAAASUVORK5CYII=" clip-path="url(#circle-clip)" />
+                <circle cx="0" cy="0" r="17.5" fill="none" stroke="var(--border-color)" stroke-width="1" />
+            </g>
+            
+        
+        <!-- Comments -->
+        <g transform="translate(516.5, 43.0)">
+            <rect class="labelBg-muted" x="0" y="0" width="44" height="22.0" rx="11.0"/>
+            <path class="icon-muted" transform="translate(7, 4.0) scale(0.875)" d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/>
+            <text class="small muted" x="24" y="15">10</text>
+        </g>
+        
+                <!-- Comments -->
+                <g transform="translate(473.5, 43.0)">
+                    <rect class="labelBg-muted" x="0" y="0" width="39" height="22.0" rx="11.0"/>
+                    <text class="small muted" x="7" y="15">❤️</text>
+                    <text class="small muted" x="24" y="15">2</text>
+                </g>
+                
+        <!-- Progress Bar -->
+        <g transform="translate(8, 42.0)">
+            <rect class="progress-bg" rx="4.0" ry="4.0" x="0" y="0" width="335.0" height="8"/>
+            <rect class="progress-fill" rx="4.0" ry="4.0" x="0" y="0" width="8.0" height="8"/>
+            <text class="small muted" x="0" y="20"><tspan style="font-weight: var(--text-weight-semibold);">0%</tspan> complete · <tspan style="font-weight: var(--text-weight-semibold);">12</tspan> to do</text>
+        </g>
+        
+    </svg>
+    
