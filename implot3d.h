@@ -1129,6 +1129,9 @@ struct ImDrawData3DPlot {
     bool ShouldResize;                // Set by Render() if texture needs resizing
     bool ShouldRender;                // Set by Render() if plot should be rendered
     bool ShouldDelete;                // Set by Render() if plot no longer exists
+    bool ShouldClip;                  // Set by Render() if clipping is enabled
+    ImPlot3DPoint ClipMin;            // Min clip bounds in NDC space
+    ImPlot3DPoint ClipMax;            // Max clip bounds in NDC space
 
     ImDrawData3DPlot() {
         PlotID = 0;
@@ -1141,6 +1144,8 @@ struct ImDrawData3DPlot {
         ShouldResize = false;
         ShouldRender = false;
         ShouldDelete = false;
+        ShouldClip = true;
+        ClipMin = ClipMax = ImPlot3DPoint(0.0, 0.0, 0.0);
     }
 
     float GetPlotWidth() const { return PlotRectMax.x - PlotRectMin.x; }

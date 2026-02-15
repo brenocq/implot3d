@@ -57,6 +57,7 @@ typedef void(APIENTRYP PFNGLDEPTHMASKPROC)(GLboolean flag);
 typedef void(APIENTRYP PFNGLBLENDFUNCPROC)(GLenum sfactor, GLenum dfactor);
 typedef void(APIENTRYP PFNGLDRAWARRAYSPROC)(GLenum mode, GLint first, GLsizei count);
 typedef void(APIENTRYP PFNGLUNIFORM2FPROC)(GLint location, GLfloat v0, GLfloat v1);
+typedef void(APIENTRYP PFNGLUNIFORM3FPROC)(GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
 
 static PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
 static PFNGLDELETEFRAMEBUFFERSPROC glDeleteFramebuffers;
@@ -69,6 +70,7 @@ static PFNGLDEPTHMASKPROC glDepthMask;
 static PFNGLBLENDFUNCPROC glBlendFunc;
 static PFNGLDRAWARRAYSPROC glDrawArrays;
 static PFNGLUNIFORM2FPROC glUniform2f;
+static PFNGLUNIFORM3FPROC glUniform3f;
 #endif
 
 // Shader sources
@@ -79,6 +81,7 @@ in vec3 Position;  // 3D NDC position (before rotation)
 in vec4 Color;     // RGBA color
 
 out vec4 Frag_Color;
+out vec3 Frag_Position;  // Pass through 3D position for clipping
 
 uniform mat4 u_Rotation;      // Rotation matrix from quaternion
 uniform vec2 u_ViewportSize;  // Viewport size (width, height) in pixels
@@ -99,6 +102,7 @@ void main() {
     // Apply scale to maintain aspect ratio, flip Y, negate Z for depth
     gl_Position = vec4(rotated_pos.x * scale.x, -rotated_pos.y * scale.y, -rotated_pos.z, 1.0);
     Frag_Color = Color;
+    Frag_Position = Position;  // Pass original NDC position for clipping
 }
 )";
 
@@ -106,9 +110,23 @@ static const char* g_FragmentShaderSource = R"(
 #version 130
 
 in vec4 Frag_Color;
+in vec3 Frag_Position;
 out vec4 Out_Color;
 
+uniform bool u_EnableClip;
+uniform vec3 u_ClipMin;  // Min bounds in NDC space
+uniform vec3 u_ClipMax;  // Max bounds in NDC space
+
 void main() {
+    // Clip fragments outside the plot range
+    if (u_EnableClip) {
+        if (Frag_Position.x < u_ClipMin.x || Frag_Position.x > u_ClipMax.x ||
+            Frag_Position.y < u_ClipMin.y || Frag_Position.y > u_ClipMax.y ||
+            Frag_Position.z < u_ClipMin.z || Frag_Position.z > u_ClipMax.z) {
+            discard;
+        }
+    }
+
     // Apply sqrt to alpha for more natural transparency response
     // This matches the visual behavior users expect and improves alpha blending quality
     vec4 color = Frag_Color;
@@ -124,6 +142,9 @@ struct ImPlot3D_ImplOpenGL3_Data {
     GLint AttribLocationColor;
     GLint UniformLocationRotation;
     GLint UniformLocationViewportSize;
+    GLint UniformLocationEnableClip;
+    GLint UniformLocationClipMin;
+    GLint UniformLocationClipMax;
     GLuint VBO;
     GLuint EBO; // Element buffer for indices
     GLuint VAO;
@@ -148,6 +169,7 @@ IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init() {
     glDepthFunc = (PFNGLDEPTHFUNCPROC)imgl3wGetProcAddress("glDepthFunc");
     glDrawArrays = (PFNGLDRAWARRAYSPROC)imgl3wGetProcAddress("glDrawArrays");
     glUniform2f = (PFNGLUNIFORM2FPROC)imgl3wGetProcAddress("glUniform2f");
+    glUniform3f = (PFNGLUNIFORM3FPROC)imgl3wGetProcAddress("glUniform3f");
 #endif
 
     // Compile vertex shader
@@ -209,6 +231,9 @@ IMPLOT3D_IMPL_API bool ImPlot3D_ImplOpenGL3_Init() {
     g_Data.AttribLocationColor = glGetAttribLocation(g_Data.ShaderProgram, "Color");
     g_Data.UniformLocationRotation = glGetUniformLocation(g_Data.ShaderProgram, "u_Rotation");
     g_Data.UniformLocationViewportSize = glGetUniformLocation(g_Data.ShaderProgram, "u_ViewportSize");
+    g_Data.UniformLocationEnableClip = glGetUniformLocation(g_Data.ShaderProgram, "u_EnableClip");
+    g_Data.UniformLocationClipMin = glGetUniformLocation(g_Data.ShaderProgram, "u_ClipMin");
+    g_Data.UniformLocationClipMax = glGetUniformLocation(g_Data.ShaderProgram, "u_ClipMax");
 
     // Create buffers
     glGenVertexArrays(1, &g_Data.VAO);
@@ -502,6 +527,13 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
 
         // Upload viewport size uniform
         glUniform2f(g_Data.UniformLocationViewportSize, plot_data->GetPlotWidth(), plot_data->GetPlotHeight());
+
+        // Upload clipping uniforms
+        glUniform1i(g_Data.UniformLocationEnableClip, plot_data->ShouldClip ? 1 : 0);
+        if (plot_data->ShouldClip) {
+            glUniform3f(g_Data.UniformLocationClipMin, (float)plot_data->ClipMin.x, (float)plot_data->ClipMin.y, (float)plot_data->ClipMin.z);
+            glUniform3f(g_Data.UniformLocationClipMax, (float)plot_data->ClipMax.x, (float)plot_data->ClipMax.y, (float)plot_data->ClipMax.z);
+        }
 
         // Convert vertices from double to float for OpenGL 3.x compatibility
         struct GLVertex {

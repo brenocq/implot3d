@@ -253,6 +253,19 @@ void Render() {
         plot_data->PlotRectMin = plot->PlotRect.Min;
         plot_data->PlotRectMax = plot->PlotRect.Max;
 
+        // Set clipping parameters
+        // Note: NDC cube is [-0.5*NDCScale, 0.5*NDCScale] per axis
+        plot_data->ShouldClip = !(plot->Flags & ImPlot3DFlags_NoClip);
+        if (plot_data->ShouldClip) {
+            // Clip to full NDC cube using per-axis NDCScale
+            plot_data->ClipMin = ImPlot3DPoint(-0.5 * plot->Axes[ImAxis3D_X].NDCScale,
+                                               -0.5 * plot->Axes[ImAxis3D_Y].NDCScale,
+                                               -0.5 * plot->Axes[ImAxis3D_Z].NDCScale);
+            plot_data->ClipMax = ImPlot3DPoint(0.5 * plot->Axes[ImAxis3D_X].NDCScale,
+                                               0.5 * plot->Axes[ImAxis3D_Y].NDCScale,
+                                               0.5 * plot->Axes[ImAxis3D_Z].NDCScale);
+        }
+
         plot->DrawList.ResetBuffers(); // Clear plot's draw list for next frame
     }
 }
