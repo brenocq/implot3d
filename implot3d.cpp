@@ -175,15 +175,50 @@ void Render() {
     ImPlot3DContext& gp = *GImPlot3D;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot == nullptr, "Render() called between BeginPlot() and EndPlot()!");
 
-    // Clear previous draw data
-    gp.DrawData.Clear();
+    // Mark all existing plot data for deletion
+    for (int i = 0; i < gp.DrawData.PlotData.Size; i++) {
+        gp.DrawData.PlotData[i].ShouldDelete = true;
+        gp.DrawData.PlotData[i].ShouldRender = false;
+    }
 
-    // Collect all active plots
+    // Update plot data for all active plots
     for (int i = 0; i < gp.Plots.GetBufSize(); i++) {
         ImPlot3DPlot* plot = gp.Plots.GetByIndex(i);
-        if (plot && plot->Initialized) {
-            gp.DrawData.Plots.push_back(plot);
+        if (!plot || !plot->Initialized)
+            continue;
+
+        // Find or create render data for this plot
+        ImDrawData3DPlot* plot_data = gp.DrawData.FindOrAddPlot(plot->ID);
+        plot_data->ShouldDelete = false;
+        plot_data->ShouldRender = true;
+
+        // Check if texture needs resizing
+        ImVec2 current_size = plot->PlotRect.GetSize();
+        if (plot_data->ColorTextureID == ImTextureID_Invalid) {
+            plot_data->ShouldResize = true;
+            plot_data->TextureSize = current_size;
+        } else {
+            if (ImFabs(plot_data->TextureSize.x - current_size.x) > 1.0f || ImFabs(plot_data->TextureSize.y - current_size.y) > 1.0f) {
+                plot_data->ShouldResize = true;
+                plot_data->TextureSize = current_size;
+            } else {
+                plot_data->ShouldResize = false;
+            }
         }
+
+        // Copy draw list data
+        plot_data->IdxBuffer.resize(plot->DrawList.IdxBuffer.Size);
+        memcpy(plot_data->IdxBuffer.Data, plot->DrawList.IdxBuffer.Data, plot->DrawList.IdxBuffer.Size * sizeof(ImDrawIdx3D));
+
+        plot_data->VtxBuffer.resize(plot->DrawList.VtxBuffer.Size);
+        memcpy(plot_data->VtxBuffer.Data, plot->DrawList.VtxBuffer.Data, plot->DrawList.VtxBuffer.Size * sizeof(ImDrawVert3D));
+
+        // Copy plot state needed for rendering
+        plot_data->Rotation = plot->Rotation;
+        plot_data->PlotRectMin = plot->PlotRect.Min;
+        plot_data->PlotRectMax = plot->PlotRect.Max;
+
+        plot->DrawList.ResetBuffers(); // Clear plot's draw list for next frame
     }
 }
 
@@ -1657,12 +1692,24 @@ void EndPlot() {
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "Mismatched BeginPlot()/EndPlot()!");
     ImPlot3DPlot& plot = *gp.CurrentPlot;
 
-    if (gp.UseImPlot3DBackend && plot.ColorTextureID != ImTextureID_Invalid) {
-        ImDrawList& draw_list = *ImGui::GetWindowDrawList();
-        ImVec2 uv0 = ImVec2(0, 0);
-        ImVec2 uv1 = ImVec2(1, 1);
-        ImU32 col = IM_COL32(255, 255, 255, 255);
-        draw_list.AddImage(plot.ColorTextureID, plot.PlotRect.Min, plot.PlotRect.Max, uv0, uv1, col);
+    if (gp.UseImPlot3DBackend) {
+        // Find the texture from the draw data
+        ImTextureID texture_id = ImTextureID_Invalid;
+        for (int i = 0; i < gp.DrawData.PlotData.Size; i++) {
+            if (gp.DrawData.PlotData[i].PlotID == plot.ID) {
+                texture_id = gp.DrawData.PlotData[i].ColorTextureID;
+                break;
+            }
+        }
+
+        // Only draw if texture is valid
+        if (texture_id != ImTextureID_Invalid) {
+            ImDrawList& draw_list = *ImGui::GetWindowDrawList();
+            ImVec2 uv0 = ImVec2(0, 0);
+            ImVec2 uv1 = ImVec2(1, 1);
+            ImU32 col = IM_COL32(255, 255, 255, 255);
+            draw_list.AddImage(texture_id, plot.PlotRect.Min, plot.PlotRect.Max, uv0, uv1, col);
+        }
     } else {
         //  Move triangles from 3D draw list to ImGui draw list
         plot.DrawList.SortedMoveToImGuiDrawList();
@@ -4210,8 +4257,19 @@ void ImPlot3D::ShowMetricsWindow(bool* p_popen) {
                 ImGui::BulletText("Animation: Time=%.4f RotationEnd=[%.2f,%.2f,%.2f,%.2f]", plot.AnimationTime, plot.RotationAnimationEnd.x,
                                   plot.RotationAnimationEnd.y, plot.Rotation.z, plot.RotationAnimationEnd.w);
                 ImGui::BulletText("ViewScale: %.2f", plot.GetViewScale());
-                ImGui::BulletText("ColorTextureID: %d", (int)plot.ColorTextureID);
-                ImGui::BulletText("DepthTextureID: %d", (int)plot.DepthTextureID);
+
+                // Look up texture IDs from draw data
+                ImTextureID color_tex = ImTextureID_Invalid;
+                ImTextureID depth_tex = ImTextureID_Invalid;
+                for (int j = 0; j < gp.DrawData.PlotData.Size; j++) {
+                    if (gp.DrawData.PlotData[j].PlotID == plot.ID) {
+                        color_tex = gp.DrawData.PlotData[j].ColorTextureID;
+                        depth_tex = gp.DrawData.PlotData[j].DepthTextureID;
+                        break;
+                    }
+                }
+                ImGui::BulletText("ColorTextureID: %d", (int)(size_t)color_tex);
+                ImGui::BulletText("DepthTextureID: %d", (int)(size_t)depth_tex);
 
                 ImGui::TreePop();
             }

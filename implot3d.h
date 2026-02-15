@@ -69,6 +69,7 @@ struct ImPlot3DBox;
 struct ImPlot3DRange;
 struct ImPlot3DQuat;
 struct ImDrawData3D;
+struct ImDrawData3DPlot;
 struct ImPlot3DPlot;
 
 // Enums
@@ -1049,15 +1050,121 @@ extern unsigned int duck_idx[DUCK_IDX_COUNT];  // Duck indices
 } // namespace ImPlot3D
 
 //-----------------------------------------------------------------------------
+// [SECTION] ImDrawList3D
+//-----------------------------------------------------------------------------
+
+typedef unsigned int ImDrawIdx3D;
+
+struct ImDrawVert3D {
+    ImPlot3DPoint pos;
+    ImVec2 uv;
+    ImU32 col;
+};
+
+// List of all triangles to render for a given plot
+struct ImDrawList3D {
+    // [Internal] Define which texture should be used when rendering triangles.
+    struct ImTextureBufferItem {
+        ImTextureRef TexRef;
+        unsigned int VtxIdx;
+    };
+
+    ImVector<ImDrawIdx3D> IdxBuffer;  // Index buffer (32-bit indices)
+    ImVector<ImDrawVert3D> VtxBuffer; // Vertex buffer (stores 3D NDC positions)
+    ImVector<double> ZBuffer;         // Z buffer. Depth value for each triangle
+    unsigned int _VtxCurrentIdx;      // [Internal] current vertex index
+    ImDrawVert3D* _VtxWritePtr; // [Internal] point within VtxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    ImDrawIdx3D* _IdxWritePtr;  // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    double* _ZWritePtr;         // [Internal] point within ZBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    ImDrawListFlags _Flags;     // [Internal] draw list flags
+    ImVector<ImTextureBufferItem> _TextureBuffer; // [Internal] buffer for SetTexture/ResetTexture
+    ImDrawListSharedData* _SharedData;            // [Internal] shared draw list data
+
+    ImDrawList3D() {
+        _Flags = ImDrawListFlags_None;
+        _SharedData = nullptr;
+        ResetBuffers();
+    }
+
+    void PrimReserve(int idx_count, int vtx_count);
+    void PrimUnreserve(int idx_count, int vtx_count);
+
+    void SetTexture(ImTextureRef tex_ref);
+    void ResetTexture();
+
+    void SortedMoveToImGuiDrawList();
+
+    void ResetBuffers() {
+        IdxBuffer.clear();
+        VtxBuffer.clear();
+        ZBuffer.clear();
+        _VtxCurrentIdx = 0;
+        _VtxWritePtr = VtxBuffer.Data;
+        _IdxWritePtr = IdxBuffer.Data;
+        _ZWritePtr = ZBuffer.Data;
+        _TextureBuffer.clear();
+        ResetTexture();
+    }
+
+    constexpr static unsigned int MaxIdx() { return 4294967295u; } // ImDrawIdx3D is always 32-bit
+};
+
+//-----------------------------------------------------------------------------
 // [SECTION] ImDrawData3D
 //-----------------------------------------------------------------------------
 
+// Render data for a single plot. Contains a copy of the plot's draw list and texture state.
+struct ImDrawData3DPlot {
+    ImGuiID PlotID;                   // ID of the plot this render data belongs to
+    ImVector<ImDrawIdx3D> IdxBuffer;  // Copy of index buffer from plot
+    ImVector<ImDrawVert3D> VtxBuffer; // Copy of vertex buffer from plot
+    ImPlot3DQuat Rotation;            // Rotation quaternion for this plot
+    ImVec2 PlotRectMin;               // Plot rectangle min (for viewport)
+    ImVec2 PlotRectMax;               // Plot rectangle max (for viewport)
+    ImTextureID ColorTextureID;       // RGBA texture for rendering
+    ImTextureID DepthTextureID;       // Depth texture for depth testing
+    ImVec2 TextureSize;               // Current texture size
+    bool ShouldResize;                // Set by Render() if texture needs resizing
+    bool ShouldRender;                // Set by Render() if plot should be rendered
+    bool ShouldDelete;                // Set by Render() if plot no longer exists
+
+    ImDrawData3DPlot() {
+        PlotID = 0;
+        Rotation = ImPlot3DQuat(0.0, 0.0, 0.0, 1.0);
+        ColorTextureID = ImTextureID_Invalid;
+        DepthTextureID = ImTextureID_Invalid;
+        TextureSize = ImVec2(0.0f, 0.0f);
+        ShouldResize = false;
+        ShouldRender = false;
+        ShouldDelete = false;
+    }
+
+    float GetPlotWidth() const { return PlotRectMax.x - PlotRectMin.x; }
+    float GetPlotHeight() const { return PlotRectMax.y - PlotRectMin.y; }
+
+    void ResetBuffers() {
+        IdxBuffer.clear();
+        VtxBuffer.clear();
+    }
+};
+
 // Draw data for rendering all plots. Valid after Render() and before next NewFrame()
 struct ImDrawData3D {
-    ImVector<ImPlot3DPlot*> Plots; // All plots to be rendered
+    ImVector<ImDrawData3DPlot> PlotData; // Render data for all plots
 
-    ImDrawData3D() { Clear(); }
-    void Clear() { Plots.clear(); }
+    ImDrawData3D() { PlotData.clear(); }
+
+    // Find or create render data for a given plot ID
+    ImDrawData3DPlot* FindOrAddPlot(ImGuiID plot_id) {
+        for (int i = 0; i < PlotData.Size; i++) {
+            if (PlotData[i].PlotID == plot_id)
+                return &PlotData[i];
+        }
+        ImDrawData3DPlot new_plot;
+        new_plot.PlotID = plot_id;
+        PlotData.push_back(new_plot);
+        return &PlotData[PlotData.Size - 1];
+    }
 };
 
 //-----------------------------------------------------------------------------

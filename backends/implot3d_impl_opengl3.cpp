@@ -371,58 +371,53 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
     if (!draw_data)
         return;
 
-    // Iterate through all plots in the draw data
-    for (int i = 0; i < draw_data->Plots.Size; i++) {
-        ImPlot3DPlot* plot = draw_data->Plots[i];
-        if (!plot || !plot->Initialized)
+    // First pass: Handle deletions and cleanup
+    for (int i = draw_data->PlotData.Size - 1; i >= 0; i--) {
+        ImDrawData3DPlot* plot_data = &draw_data->PlotData[i];
+        if (plot_data->ShouldDelete) {
+            // Clean up textures
+            if (plot_data->ColorTextureID != ImTextureID_Invalid) {
+                ImPlot3D_ImplOpenGL3_DestroyTexture(plot_data->ColorTextureID);
+            }
+            if (plot_data->DepthTextureID != ImTextureID_Invalid) {
+                ImPlot3D_ImplOpenGL3_DestroyTexture(plot_data->DepthTextureID);
+            }
+            // Remove from array
+            draw_data->PlotData.erase(draw_data->PlotData.Data + i);
+        }
+    }
+
+    // Second pass: Render active plots
+    for (int i = 0; i < draw_data->PlotData.Size; i++) {
+        ImDrawData3DPlot* plot_data = &draw_data->PlotData[i];
+        if (!plot_data->ShouldRender)
             continue;
 
-        // Get current plot size
-        ImVec2 current_size = plot->PlotRect.GetSize();
-
-        // Check if textures need to be created or resized
-        bool needs_resize = false;
-        if (plot->ColorTextureID == ImTextureID_Invalid) {
-            needs_resize = true;
-        } else {
-            // Check if size changed (store size in plot's TextureSize field if available,
-            // or compare with texture actual size)
-            // For now, we'll check if the size differs significantly (>1 pixel difference)
-            ImVec2 stored_size = plot->TextureSize;
-            if (ImFabs(stored_size.x - current_size.x) > 1.0f || ImFabs(stored_size.y - current_size.y) > 1.0f) {
-                needs_resize = true;
-            }
-        }
-
-        // Resize textures if needed
-        if (needs_resize) {
+        // Handle texture resizing
+        if (plot_data->ShouldResize) {
             // Destroy old textures if they exist
-            if (plot->ColorTextureID != ImTextureID_Invalid) {
-                ImPlot3D_ImplOpenGL3_DestroyTexture(plot->ColorTextureID);
-                plot->ColorTextureID = ImTextureID_Invalid;
+            if (plot_data->ColorTextureID != ImTextureID_Invalid) {
+                ImPlot3D_ImplOpenGL3_DestroyTexture(plot_data->ColorTextureID);
+                plot_data->ColorTextureID = ImTextureID_Invalid;
             }
-            if (plot->DepthTextureID != ImTextureID_Invalid) {
-                ImPlot3D_ImplOpenGL3_DestroyTexture(plot->DepthTextureID);
-                plot->DepthTextureID = ImTextureID_Invalid;
+            if (plot_data->DepthTextureID != ImTextureID_Invalid) {
+                ImPlot3D_ImplOpenGL3_DestroyTexture(plot_data->DepthTextureID);
+                plot_data->DepthTextureID = ImTextureID_Invalid;
             }
 
             // Create new textures with current size
-            plot->ColorTextureID = ImPlot3D_ImplOpenGL3_CreateRGBATexture(current_size);
-            plot->DepthTextureID = ImPlot3D_ImplOpenGL3_CreateDepthTexture(current_size);
-            plot->TextureSize = current_size;
+            plot_data->ColorTextureID = ImPlot3D_ImplOpenGL3_CreateRGBATexture(plot_data->TextureSize);
+            plot_data->DepthTextureID = ImPlot3D_ImplOpenGL3_CreateDepthTexture(plot_data->TextureSize);
         }
 
         // Get texture IDs
-        GLuint color_texture = (GLuint)(intptr_t)plot->ColorTextureID;
-        GLuint depth_texture = (GLuint)(intptr_t)plot->DepthTextureID;
+        GLuint color_texture = (GLuint)(intptr_t)plot_data->ColorTextureID;
+        GLuint depth_texture = (GLuint)(intptr_t)plot_data->DepthTextureID;
         if (color_texture == 0)
             continue;
 
-        // Get the draw list for this plot
-        ImDrawList3D& draw_list = plot->DrawList;
-
         // Skip if no vertices to render
-        if (draw_list.VtxBuffer.Size == 0 || draw_list.IdxBuffer.Size == 0)
+        if (plot_data->VtxBuffer.Size == 0 || plot_data->IdxBuffer.Size == 0)
             continue;
 
         // Bind framebuffer
@@ -443,11 +438,11 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
         }
 
         // Set viewport to texture size
-        glViewport(0, 0, (int)plot->PlotRect.GetWidth(), (int)plot->PlotRect.GetHeight());
+        glViewport(0, 0, (int)plot_data->GetPlotWidth(), (int)plot_data->GetPlotHeight());
 
         // Clear color and depth
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // Opaque white
-        glClearDepth(1.0);                    // Clear depth to far plane
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClearDepth(1.0); // Clear depth to far plane
         glClear(GL_COLOR_BUFFER_BIT | (depth_texture != 0 ? GL_DEPTH_BUFFER_BIT : 0));
 
         // Enable depth testing
@@ -466,7 +461,7 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
         glUseProgram(g_Data.ShaderProgram);
 
         // Convert quaternion to rotation matrix and upload to shader
-        ImPlot3DQuat rot = plot->Rotation;
+        ImPlot3DQuat rot = plot_data->Rotation;
         float rot_matrix[16];
         // Quaternion to matrix conversion (column-major for OpenGL)
         float xx = (float)(rot.x * rot.x);
@@ -502,7 +497,7 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
         glUniformMatrix4fv(g_Data.UniformLocationRotation, 1, GL_FALSE, rot_matrix);
 
         // Upload viewport size uniform
-        glUniform2f(g_Data.UniformLocationViewportSize, plot->PlotRect.GetWidth(), plot->PlotRect.GetHeight());
+        glUniform2f(g_Data.UniformLocationViewportSize, plot_data->GetPlotWidth(), plot_data->GetPlotHeight());
 
         // Convert vertices from double to float for OpenGL 3.x compatibility
         struct GLVertex {
@@ -511,9 +506,9 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
         };
 
         ImVector<GLVertex> gl_vertices;
-        gl_vertices.resize(draw_list.VtxBuffer.Size);
-        for (int v = 0; v < draw_list.VtxBuffer.Size; v++) {
-            const ImDrawVert3D& src = draw_list.VtxBuffer.Data[v];
+        gl_vertices.resize(plot_data->VtxBuffer.Size);
+        for (int v = 0; v < plot_data->VtxBuffer.Size; v++) {
+            const ImDrawVert3D& src = plot_data->VtxBuffer.Data[v];
             GLVertex& dst = gl_vertices.Data[v];
             dst.x = (float)src.pos.x;
             dst.y = (float)src.pos.y;
@@ -530,10 +525,10 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
 
         // Bind and upload index data to EBO
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_Data.EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, draw_list.IdxBuffer.Size * sizeof(ImDrawIdx3D), draw_list.IdxBuffer.Data, GL_STREAM_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, plot_data->IdxBuffer.Size * sizeof(ImDrawIdx3D), plot_data->IdxBuffer.Data, GL_STREAM_DRAW);
 
         // Draw triangles
-        glDrawElements(GL_TRIANGLES, draw_list.IdxBuffer.Size, GL_UNSIGNED_INT, nullptr);
+        glDrawElements(GL_TRIANGLES, plot_data->IdxBuffer.Size, GL_UNSIGNED_INT, nullptr);
 
         // Unbind VAO
         glBindVertexArray(0);
@@ -544,9 +539,12 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
         if (depth_texture != 0) {
             glDisable(GL_DEPTH_TEST);
         }
+    }
 
-        // Clear the draw list for next frame
-        draw_list.ResetBuffers();
+    // Third pass: Reset buffers
+    for (int i = 0; i < draw_data->PlotData.Size; i++) {
+        ImDrawData3DPlot* plot_data = &draw_data->PlotData[i];
+        plot_data->ResetBuffers();
     }
 
     // Unbind framebuffer (return to default)
