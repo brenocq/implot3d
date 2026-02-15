@@ -363,10 +363,39 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderPlots(ImPool<ImPlot3DPlot>* pl
         if (!plot || !plot->Initialized)
             continue;
 
-        // Create textures if they don't exist yet
+        // Get current plot size
+        ImVec2 current_size = plot->PlotRect.GetSize();
+
+        // Check if textures need to be created or resized
+        bool needs_resize = false;
         if (plot->ColorTextureID == ImTextureID_Invalid) {
-            plot->ColorTextureID = ImPlot3D_ImplOpenGL3_CreateRGBATexture(plot->PlotRect.GetSize());
-            plot->DepthTextureID = ImPlot3D_ImplOpenGL3_CreateDepthTexture(plot->PlotRect.GetSize());
+            needs_resize = true;
+        } else {
+            // Check if size changed (store size in plot's TextureSize field if available,
+            // or compare with texture actual size)
+            // For now, we'll check if the size differs significantly (>1 pixel difference)
+            ImVec2 stored_size = plot->TextureSize;
+            if (ImFabs(stored_size.x - current_size.x) > 1.0f || ImFabs(stored_size.y - current_size.y) > 1.0f) {
+                needs_resize = true;
+            }
+        }
+
+        // Resize textures if needed
+        if (needs_resize) {
+            // Destroy old textures if they exist
+            if (plot->ColorTextureID != ImTextureID_Invalid) {
+                ImPlot3D_ImplOpenGL3_DestroyTexture(plot->ColorTextureID);
+                plot->ColorTextureID = ImTextureID_Invalid;
+            }
+            if (plot->DepthTextureID != ImTextureID_Invalid) {
+                ImPlot3D_ImplOpenGL3_DestroyTexture(plot->DepthTextureID);
+                plot->DepthTextureID = ImTextureID_Invalid;
+            }
+
+            // Create new textures with current size
+            plot->ColorTextureID = ImPlot3D_ImplOpenGL3_CreateRGBATexture(current_size);
+            plot->DepthTextureID = ImPlot3D_ImplOpenGL3_CreateDepthTexture(current_size);
+            plot->TextureSize = current_size;
         }
 
         // Get texture IDs

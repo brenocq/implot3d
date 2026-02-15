@@ -742,6 +742,7 @@ struct ImPlot3DPlot {
     ImDrawList3D DrawList;
     ImTextureID ColorTextureID; // RGBA texture to be rendered at PlotRect
     ImTextureID DepthTextureID; // Depth texture to be used for depth testing when rendering ColorTextureRef
+    ImVec2 TextureSize;         // Current size of the textures (for detecting resize)
     // Misc
     bool ContextClick; // True if context button was clicked (to distinguish from double click)
     bool OpenContextThisFrame;
@@ -765,6 +766,7 @@ struct ImPlot3DPlot {
         FitThisFrame = true;
         ColorTextureID = ImTextureID_Invalid;
         DepthTextureID = ImTextureID_Invalid;
+        TextureSize = ImVec2(0.0f, 0.0f);
         ContextClick = false;
         OpenContextThisFrame = false;
     }
