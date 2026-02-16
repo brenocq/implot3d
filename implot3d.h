@@ -1061,6 +1061,17 @@ struct ImDrawVert3D {
     ImU32 col;
 };
 
+// Command type for 3D rendering
+enum ImDrawCmd3DType { ImDrawCmd3DType_Triangles, ImDrawCmd3DType_Lines };
+
+// Draw command for 3D primitives. Tracks batches of lines or triangles.
+struct ImDrawCmd3D {
+    ImDrawCmd3DType Type;   // Primitive type (lines or triangles)
+    unsigned int IdxOffset; // Start index in IdxBuffer
+    unsigned int IdxCount;  // Number of indices in this command
+    float LineWeight;       // Line weight in pixels (only used for lines)
+};
+
 // List of all triangles to render for a given plot
 struct ImDrawList3D {
     // [Internal] Define which texture should be used when rendering triangles.
@@ -1071,11 +1082,13 @@ struct ImDrawList3D {
 
     ImVector<ImDrawIdx3D> IdxBuffer;  // Index buffer (32-bit indices)
     ImVector<ImDrawVert3D> VtxBuffer; // Vertex buffer (stores 3D NDC positions)
-    ImVector<double> ZBuffer;         // Z buffer. Depth value for each triangle
+    ImVector<double> ZBuffer;         // Z buffer. Depth value for each primitive
+    ImVector<ImDrawCmd3D> CmdBuffer;  // Command buffer (tracks primitive types and ranges)
     unsigned int _VtxCurrentIdx;      // [Internal] current vertex index
     ImDrawVert3D* _VtxWritePtr; // [Internal] point within VtxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
     ImDrawIdx3D* _IdxWritePtr;  // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
     double* _ZWritePtr;         // [Internal] point within ZBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    ImDrawCmd3D* _CmdWritePtr;  // [Internal] point within CmdBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
     ImDrawListFlags _Flags;     // [Internal] draw list flags
     ImVector<ImTextureBufferItem> _TextureBuffer; // [Internal] buffer for SetTexture/ResetTexture
     ImDrawListSharedData* _SharedData;            // [Internal] shared draw list data
@@ -1088,6 +1101,9 @@ struct ImDrawList3D {
 
     void PrimReserve(int idx_count, int vtx_count, int z_count);
     void PrimUnreserve(int idx_count, int vtx_count, int z_count);
+    void PrimReserveCmd(int cmd_count);
+
+    void AddTriangleCmd(int idx_count);
 
     void SetTexture(ImTextureRef tex_ref);
     void ResetTexture();
@@ -1098,10 +1114,12 @@ struct ImDrawList3D {
         IdxBuffer.clear();
         VtxBuffer.clear();
         ZBuffer.clear();
+        CmdBuffer.clear();
         _VtxCurrentIdx = 0;
         _VtxWritePtr = VtxBuffer.Data;
         _IdxWritePtr = IdxBuffer.Data;
         _ZWritePtr = ZBuffer.Data;
+        _CmdWritePtr = CmdBuffer.Data;
         _TextureBuffer.clear();
         ResetTexture();
     }
@@ -1118,6 +1136,7 @@ struct ImDrawData3DPlot {
     ImGuiID PlotID;                   // ID of the plot this render data belongs to
     ImVector<ImDrawIdx3D> IdxBuffer;  // Copy of index buffer from plot
     ImVector<ImDrawVert3D> VtxBuffer; // Copy of vertex buffer from plot
+    ImVector<ImDrawCmd3D> CmdBuffer;  // Copy of command buffer from plot
     ImPlot3DQuat Rotation;            // Rotation quaternion for this plot
     ImVec2 PlotRectMin;               // Plot rectangle min (for viewport)
     ImVec2 PlotRectMax;               // Plot rectangle max (for viewport)

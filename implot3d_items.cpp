@@ -318,6 +318,9 @@ IMPLOT3D_INLINE void PrimLine(ImDrawList3D& draw_list_3d, const ImPlot3DPoint& P
     draw_list_3d._ZWritePtr[0] = z;
     draw_list_3d._ZWritePtr[1] = z;
     draw_list_3d._ZWritePtr += 2;
+
+    // Add triangle command (6 indices = 2 triangles for the line quad)
+    draw_list_3d.AddTriangleCmd(6);
 }
 
 //-----------------------------------------------------------------------------
@@ -383,6 +386,10 @@ template <class _Getter> struct RendererMarkersFill : RendererBase {
         }
         // Update vertex count
         draw_list_3d._VtxCurrentIdx += (ImDrawIdx)Count;
+
+        // Add triangle command
+        draw_list_3d.AddTriangleCmd((Count - 2) * 3);
+
         return true;
     }
     const _Getter& Getter;
@@ -585,12 +592,15 @@ template <class _Getter> struct RendererTriangleFill : RendererBase {
         draw_list_3d._IdxWritePtr[1] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 1);
         draw_list_3d._IdxWritePtr[2] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + 2);
         draw_list_3d._IdxWritePtr += 3;
-        // 1 Z per vertex
+        // 1 Z per triangle
         draw_list_3d._ZWritePtr[0] = GetPointDepth((p_plot[0] + p_plot[1] + p_plot[2]) / 3);
         draw_list_3d._ZWritePtr++;
 
         // Update vertex count
         draw_list_3d._VtxCurrentIdx += 3;
+
+        // Add triangle command
+        draw_list_3d.AddTriangleCmd(3);
 
         return true;
     }
@@ -661,6 +671,9 @@ template <class _Getter> struct RendererQuadFill : RendererBase {
 
         // Update vertex count
         draw_list_3d._VtxCurrentIdx += 4;
+
+        // Add triangle command (6 indices = 2 triangles)
+        draw_list_3d.AddTriangleCmd(6);
 
         return true;
     }
@@ -736,6 +749,9 @@ template <class _Getter> struct RendererQuadImage : RendererBase {
 
         // Update vertex count
         draw_list_3d._VtxCurrentIdx += 4;
+
+        // Add triangle command
+        draw_list_3d.AddTriangleCmd(6);
 
         // Reset texture ID
         draw_list_3d.ResetTexture();
@@ -846,6 +862,9 @@ template <class _Getter> struct RendererSurfaceFill : RendererBase {
 
         // Update vertex count
         draw_list_3d._VtxCurrentIdx += 4;
+
+        // Add triangle command
+        draw_list_3d.AddTriangleCmd(6);
 
         return true;
     }
@@ -1016,8 +1035,7 @@ template <template <class> class _Renderer, class _Getter, typename... Args> voi
     unsigned int prims_to_render = ImMin(renderer.Prims, (ImDrawList3D::MaxIdx() - draw_list_3d._VtxCurrentIdx) / renderer.VtxConsumed);
 
     // Reserve vertices, indices, and depth values to render the primitives
-    draw_list_3d.PrimReserve(prims_to_render * renderer.IdxConsumed, prims_to_render * renderer.VtxConsumed,
-                             prims_to_render * renderer.ZConsumed);
+    draw_list_3d.PrimReserve(prims_to_render * renderer.IdxConsumed, prims_to_render * renderer.VtxConsumed, prims_to_render * renderer.ZConsumed);
 
     // Initialize renderer
     renderer.Init(draw_list_3d);

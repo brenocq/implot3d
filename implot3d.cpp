@@ -248,6 +248,9 @@ void Render() {
         plot_data->VtxBuffer.resize(plot->DrawList.VtxBuffer.Size);
         memcpy(plot_data->VtxBuffer.Data, plot->DrawList.VtxBuffer.Data, plot->DrawList.VtxBuffer.Size * sizeof(ImDrawVert3D));
 
+        // Copy commands
+        plot_data->CmdBuffer = plot->DrawList.CmdBuffer;
+
         // Copy plot state needed for rendering
         plot_data->Rotation = plot->Rotation;
         plot_data->PlotRectMin = plot->PlotRect.Min;
@@ -258,12 +261,10 @@ void Render() {
         plot_data->ShouldClip = !(plot->Flags & ImPlot3DFlags_NoClip);
         if (plot_data->ShouldClip) {
             // Clip to full NDC cube using per-axis NDCScale
-            plot_data->ClipMin = ImPlot3DPoint(-0.5 * plot->Axes[ImAxis3D_X].NDCScale,
-                                               -0.5 * plot->Axes[ImAxis3D_Y].NDCScale,
-                                               -0.5 * plot->Axes[ImAxis3D_Z].NDCScale);
-            plot_data->ClipMax = ImPlot3DPoint(0.5 * plot->Axes[ImAxis3D_X].NDCScale,
-                                               0.5 * plot->Axes[ImAxis3D_Y].NDCScale,
-                                               0.5 * plot->Axes[ImAxis3D_Z].NDCScale);
+            plot_data->ClipMin =
+                ImPlot3DPoint(-0.5 * plot->Axes[ImAxis3D_X].NDCScale, -0.5 * plot->Axes[ImAxis3D_Y].NDCScale, -0.5 * plot->Axes[ImAxis3D_Z].NDCScale);
+            plot_data->ClipMax =
+                ImPlot3DPoint(0.5 * plot->Axes[ImAxis3D_X].NDCScale, 0.5 * plot->Axes[ImAxis3D_Y].NDCScale, 0.5 * plot->Axes[ImAxis3D_Z].NDCScale);
         }
 
         plot->DrawList.ResetBuffers(); // Clear plot's draw list for next frame
@@ -3749,6 +3750,38 @@ void ImDrawList3D::PrimUnreserve(int idx_count, int vtx_count, int z_count) {
     VtxBuffer.shrink(VtxBuffer.Size - vtx_count);
     IdxBuffer.shrink(IdxBuffer.Size - idx_count);
     ZBuffer.shrink(ZBuffer.Size - z_count);
+}
+
+void ImDrawList3D::PrimReserveCmd(int cmd_count) {
+    int cmd_buffer_old_size = CmdBuffer.Size;
+    CmdBuffer.resize(cmd_buffer_old_size + cmd_count);
+    _CmdWritePtr = CmdBuffer.Data + cmd_buffer_old_size;
+}
+
+void ImDrawList3D::AddTriangleCmd(int idx_count) {
+    // Check if we can extend the last command
+    if (CmdBuffer.Size > 0) {
+        ImDrawCmd3D* last_cmd = &CmdBuffer[CmdBuffer.Size - 1];
+        if (last_cmd->Type == ImDrawCmd3DType_Triangles) {
+            // Extend existing triangle command
+            last_cmd->IdxCount += idx_count;
+            return;
+        }
+    }
+
+    // Create new triangle command
+    // IdxOffset is where the next set of indices will start
+    unsigned int next_offset = 0;
+    if (CmdBuffer.Size > 0) {
+        const ImDrawCmd3D& prev_cmd = CmdBuffer[CmdBuffer.Size - 1];
+        next_offset = prev_cmd.IdxOffset + prev_cmd.IdxCount;
+    }
+
+    PrimReserveCmd(1);
+    _CmdWritePtr->Type = ImDrawCmd3DType_Triangles;
+    _CmdWritePtr->IdxOffset = next_offset;
+    _CmdWritePtr->IdxCount = idx_count;
+    _CmdWritePtr->LineWeight = 0.0f;
 }
 
 void ImDrawList3D::SetTexture(ImTextureRef tex_ref) {
