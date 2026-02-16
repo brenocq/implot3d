@@ -341,15 +341,17 @@ double GetPointDepth(ImPlot3DPoint p) {
 }
 
 struct RendererBase {
-    RendererBase(int prims, int idx_consumed, int vtx_consumed) : Prims(prims), IdxConsumed(idx_consumed), VtxConsumed(vtx_consumed) {}
+    RendererBase(int prims, int idx_consumed, int vtx_consumed, int z_consumed)
+        : Prims(prims), IdxConsumed(idx_consumed), VtxConsumed(vtx_consumed), ZConsumed(z_consumed) {}
     const unsigned int Prims;       // Number of primitives to render
     const unsigned int IdxConsumed; // Number of indices consumed per primitive
     const unsigned int VtxConsumed; // Number of vertices consumed per primitive
+    const unsigned int ZConsumed;   // Number of depth values consumed per primitive
 };
 
 template <class _Getter> struct RendererMarkersFill : RendererBase {
     RendererMarkersFill(const _Getter& getter, const ImVec2* marker, int count, float size, ImU32 col)
-        : RendererBase(getter.Count, (count - 2) * 3, count), Getter(getter), Marker(marker), Count(count), Size(size), Col(col) {}
+        : RendererBase(getter.Count, (count - 2) * 3, count, count - 2), Getter(getter), Marker(marker), Count(count), Size(size), Col(col) {}
 
     void Init(ImDrawList3D& draw_list_3d) const { UV = draw_list_3d._SharedData->TexUvWhitePixel; }
 
@@ -393,7 +395,7 @@ template <class _Getter> struct RendererMarkersFill : RendererBase {
 
 template <class _Getter> struct RendererMarkersLine : RendererBase {
     RendererMarkersLine(const _Getter& getter, const ImVec2* marker, int count, float size, float weight, ImU32 col)
-        : RendererBase(getter.Count, count / 2 * 6, count / 2 * 4), Getter(getter), Marker(marker), Count(count),
+        : RendererBase(getter.Count, count / 2 * 6, count / 2 * 4, count / 2 * 2), Getter(getter), Marker(marker), Count(count),
           HalfWeight(ImMax(1.0f, weight) * 0.5f), Size(size), Col(col) {}
 
     void Init(ImDrawList3D& draw_list_3d) const { GetLineRenderProps(draw_list_3d, HalfWeight, UV0, UV1); }
@@ -426,7 +428,7 @@ template <class _Getter> struct RendererMarkersLine : RendererBase {
 
 template <class _Getter> struct RendererLineStrip : RendererBase {
     RendererLineStrip(const _Getter& getter, ImU32 col, float weight)
-        : RendererBase(getter.Count - 1, 6, 4), Getter(getter), Col(col), HalfWeight(ImMax(1.0f, weight) * 0.5f) {
+        : RendererBase(getter.Count - 1, 6, 4, 2), Getter(getter), Col(col), HalfWeight(ImMax(1.0f, weight) * 0.5f) {
         // Initialize the first point in plot coordinates
         P1_plot = Getter(0);
     }
@@ -464,7 +466,7 @@ template <class _Getter> struct RendererLineStrip : RendererBase {
 
 template <class _Getter> struct RendererLineStripSkip : RendererBase {
     RendererLineStripSkip(const _Getter& getter, ImU32 col, float weight)
-        : RendererBase(getter.Count - 1, 6, 4), Getter(getter), Col(col), HalfWeight(ImMax(1.0f, weight) * 0.5f) {
+        : RendererBase(getter.Count - 1, 6, 4, 2), Getter(getter), Col(col), HalfWeight(ImMax(1.0f, weight) * 0.5f) {
         // Initialize the first point in plot coordinates
         P1_plot = Getter(0);
     }
@@ -509,7 +511,7 @@ template <class _Getter> struct RendererLineStripSkip : RendererBase {
 
 template <class _Getter> struct RendererLineSegments : RendererBase {
     RendererLineSegments(const _Getter& getter, ImU32 col, float weight)
-        : RendererBase(getter.Count / 2, 6, 4), Getter(getter), Col(col), HalfWeight(ImMax(1.0f, weight) * 0.5f) {}
+        : RendererBase(getter.Count / 2, 6, 4, 2), Getter(getter), Col(col), HalfWeight(ImMax(1.0f, weight) * 0.5f) {}
 
     void Init(ImDrawList3D& draw_list_3d) const { GetLineRenderProps(draw_list_3d, HalfWeight, UV0, UV1); }
 
@@ -546,7 +548,7 @@ template <class _Getter> struct RendererLineSegments : RendererBase {
 };
 
 template <class _Getter> struct RendererTriangleFill : RendererBase {
-    RendererTriangleFill(const _Getter& getter, ImU32 col) : RendererBase(getter.Count / 3, 3, 3), Getter(getter), Col(col) {}
+    RendererTriangleFill(const _Getter& getter, ImU32 col) : RendererBase(getter.Count / 3, 3, 3, 1), Getter(getter), Col(col) {}
 
     void Init(ImDrawList3D& draw_list_3d) const { UV = draw_list_3d._SharedData->TexUvWhitePixel; }
 
@@ -599,7 +601,7 @@ template <class _Getter> struct RendererTriangleFill : RendererBase {
 };
 
 template <class _Getter> struct RendererQuadFill : RendererBase {
-    RendererQuadFill(const _Getter& getter, ImU32 col) : RendererBase(getter.Count / 4, 6, 4), Getter(getter), Col(col) {}
+    RendererQuadFill(const _Getter& getter, ImU32 col) : RendererBase(getter.Count / 4, 6, 4, 2), Getter(getter), Col(col) {}
 
     void Init(ImDrawList3D& draw_list_3d) const { UV = draw_list_3d._SharedData->TexUvWhitePixel; }
 
@@ -671,7 +673,7 @@ template <class _Getter> struct RendererQuadFill : RendererBase {
 template <class _Getter> struct RendererQuadImage : RendererBase {
     RendererQuadImage(const _Getter& getter, ImTextureRef tex_ref, const ImVec2& uv0, const ImVec2& uv1, const ImVec2& uv2, const ImVec2& uv3,
                       ImU32 col)
-        : RendererBase(getter.Count / 4, 6, 4), Getter(getter), TexRef(tex_ref), UV0(uv0), UV1(uv1), UV2(uv2), UV3(uv3), Col(col) {}
+        : RendererBase(getter.Count / 4, 6, 4, 2), Getter(getter), TexRef(tex_ref), UV0(uv0), UV1(uv1), UV2(uv2), UV3(uv3), Col(col) {}
 
     void Init(ImDrawList3D& /*draw_list_3d*/) const {}
 
@@ -749,7 +751,7 @@ template <class _Getter> struct RendererQuadImage : RendererBase {
 
 template <class _Getter> struct RendererSurfaceFill : RendererBase {
     RendererSurfaceFill(const _Getter& getter, int x_count, int y_count, ImU32 col, double scale_min, double scale_max)
-        : RendererBase((x_count - 1) * (y_count - 1), 6, 4), Getter(getter), XCount(x_count), YCount(y_count), Col(col), ScaleMin(scale_min),
+        : RendererBase((x_count - 1) * (y_count - 1), 6, 4, 2), Getter(getter), XCount(x_count), YCount(y_count), Col(col), ScaleMin(scale_min),
           ScaleMax(scale_max) {}
 
     void Init(ImDrawList3D& draw_list_3d) const {
@@ -1013,8 +1015,9 @@ template <template <class> class _Renderer, class _Getter, typename... Args> voi
     // Find how many can be reserved up to end of current draw command's limit
     unsigned int prims_to_render = ImMin(renderer.Prims, (ImDrawList3D::MaxIdx() - draw_list_3d._VtxCurrentIdx) / renderer.VtxConsumed);
 
-    // Reserve vertices and indices to render the primitives
-    draw_list_3d.PrimReserve(prims_to_render * renderer.IdxConsumed, prims_to_render * renderer.VtxConsumed);
+    // Reserve vertices, indices, and depth values to render the primitives
+    draw_list_3d.PrimReserve(prims_to_render * renderer.IdxConsumed, prims_to_render * renderer.VtxConsumed,
+                             prims_to_render * renderer.ZConsumed);
 
     // Initialize renderer
     renderer.Init(draw_list_3d);
@@ -1024,8 +1027,8 @@ template <template <class> class _Renderer, class _Getter, typename... Args> voi
     for (unsigned int i = 0; i < prims_to_render; i++)
         if (!renderer.Render(draw_list_3d, cull_box, i))
             num_culled++;
-    // Unreserve unused vertices and indices
-    draw_list_3d.PrimUnreserve(num_culled * renderer.IdxConsumed, num_culled * renderer.VtxConsumed);
+    // Unreserve unused vertices, indices, and depth values
+    draw_list_3d.PrimUnreserve(num_culled * renderer.IdxConsumed, num_culled * renderer.VtxConsumed, num_culled * renderer.ZConsumed);
 }
 
 //-----------------------------------------------------------------------------

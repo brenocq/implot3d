@@ -1086,8 +1086,8 @@ struct ImDrawList3D {
         ResetBuffers();
     }
 
-    void PrimReserve(int idx_count, int vtx_count);
-    void PrimUnreserve(int idx_count, int vtx_count);
+    void PrimReserve(int idx_count, int vtx_count, int z_count);
+    void PrimUnreserve(int idx_count, int vtx_count, int z_count);
 
     void SetTexture(ImTextureRef tex_ref);
     void ResetTexture();

@@ -3727,8 +3727,8 @@ double ImPlot3DQuat::Dot(const ImPlot3DQuat& rhs) const { return x * rhs.x + y *
 // [SECTION] ImDrawList3D
 //-----------------------------------------------------------------------------
 
-void ImDrawList3D::PrimReserve(int idx_count, int vtx_count) {
-    IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0 && idx_count % 3 == 0);
+void ImDrawList3D::PrimReserve(int idx_count, int vtx_count, int z_count) {
+    IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0 && z_count >= 0);
 
     int vtx_buffer_old_size = VtxBuffer.Size;
     VtxBuffer.resize(vtx_buffer_old_size + vtx_count);
@@ -3739,16 +3739,16 @@ void ImDrawList3D::PrimReserve(int idx_count, int vtx_count) {
     _IdxWritePtr = IdxBuffer.Data + idx_buffer_old_size;
 
     int z_buffer_old_size = ZBuffer.Size;
-    ZBuffer.resize(z_buffer_old_size + idx_count / 3);
+    ZBuffer.resize(z_buffer_old_size + z_count);
     _ZWritePtr = ZBuffer.Data + z_buffer_old_size;
 }
 
-void ImDrawList3D::PrimUnreserve(int idx_count, int vtx_count) {
-    IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0 && idx_count % 3 == 0);
+void ImDrawList3D::PrimUnreserve(int idx_count, int vtx_count, int z_count) {
+    IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0 && z_count >= 0);
 
     VtxBuffer.shrink(VtxBuffer.Size - vtx_count);
     IdxBuffer.shrink(IdxBuffer.Size - idx_count);
-    ZBuffer.shrink(ZBuffer.Size - idx_count / 3);
+    ZBuffer.shrink(ZBuffer.Size - z_count);
 }
 
 void ImDrawList3D::SetTexture(ImTextureRef tex_ref) {
