@@ -151,9 +151,12 @@ enum ImPlot3DCol_ {
     ImPlot3DCol_LegendBorder, // Legend border color
     ImPlot3DCol_LegendText,   // Legend text color
     // Axis colors
-    ImPlot3DCol_AxisText, // Axis label and tick lables color
-    ImPlot3DCol_AxisGrid, // Axis grid color
-    ImPlot3DCol_AxisTick, // Axis tick color (defaults to AxisGrid)
+    ImPlot3DCol_AxisText,      // Axis label and tick lables color
+    ImPlot3DCol_AxisGrid,      // Axis grid color
+    ImPlot3DCol_AxisTick,      // Axis tick color (defaults to AxisGrid)
+    ImPlot3DCol_AxisBg,        // Background color of axis hover region (defaults to transparent)
+    ImPlot3DCol_AxisBgHovered, // Axis hover color (defaults to ImGuiCol_ButtonHovered)
+    ImPlot3DCol_AxisBgActive,  // Axis active color (defaults to ImGuiCol_ButtonActive)
     ImPlot3DCol_COUNT,
 };
 

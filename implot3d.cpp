@@ -48,6 +48,7 @@ Below is a change-log of API breaking changes only. If you are using one of the 
 When you are not sure about an old symbol or function name, try using the Search/Find function of your IDE to look for comments or references in all
 implot3d files. You can read releases logs https://github.com/brenocq/implot3d/releases for more details.
 
+- 2026/02/17 (0.4) - Added ImPlot3DCol_AxisBg, ImPlot3DCol_AxisBgHovered, ImPlot3DCol_AxisBgActive colors for axis hover regions.
 - 2026/02/03 (0.4) - ImPlotSpec was made the default and _only_ way of styling plot items. The SetNextXXXStyle functions have been removed.
                       - SetNextLineStyle has been removed, styling should be set via ImPlot3DSpec.
                           ```cpp
@@ -589,13 +590,56 @@ int GetMouseOverPlane(const bool* active_faces, const ImVec2* corners_pix, int* 
     return -1; // Not over any active plane
 }
 
+// Check if a point is inside an edge's hover region (a rectangle extending outward from the edge)
+bool IsPointInEdgeHoverRegion(const ImVec2& point, const ImVec2& p0, const ImVec2& p1, const ImVec2& outward_dir, float width) {
+    ImVec2 dir = p1 - p0;
+    float len = ImSqrt(ImLengthSqr(dir));
+    if (len < 0.001f)
+        return false;
+    dir = dir / len;
+
+    // Transform point to edge's local coordinate system
+    ImVec2 local = point - p0;
+    float along = local.x * dir.x + local.y * dir.y;
+    float across = local.x * outward_dir.x + local.y * outward_dir.y;
+
+    // Check if within bounds (rectangle extends from edge outward)
+    return along >= 0 && along <= len && across >= 0 && across <= width;
+}
+
+// Compute the outward direction for an edge (perpendicular, pointing away from box center)
+ImVec2 ComputeEdgeOutwardDir(const ImVec2& p0, const ImVec2& p1, const ImVec2& box_center) {
+    ImVec2 dir = p1 - p0;
+    float len = ImSqrt(ImLengthSqr(dir));
+    if (len < 0.001f)
+        return ImVec2(0, 0);
+    dir = dir / len;
+
+    // Perpendicular direction
+    ImVec2 perp(-dir.y, dir.x);
+
+    // Make sure it points away from box center
+    ImVec2 edge_center = (p0 + p1) * 0.5f;
+    ImVec2 to_edge = edge_center - box_center;
+    if (ImDot(perp, to_edge) < 0)
+        perp = ImVec2(-perp.x, -perp.y);
+
+    return perp;
+}
+
 int GetMouseOverAxis(const bool* active_faces, const ImVec2* corners_pix, const int plane_2d, int* edge_out = nullptr) {
-    const float axis_proximity_threshold = 15.0f; // Distance in pixels to consider the mouse "close" to an axis
+    const float axis_hover_width = 30.0f; // Width of the hover rectangle in pixels
 
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 mouse_pos = io.MousePos;
     if (edge_out)
         *edge_out = -1;
+
+    // Compute box center in screen space (average of all corners)
+    ImVec2 box_center(0, 0);
+    for (int i = 0; i < 8; i++)
+        box_center = box_center + corners_pix[i];
+    box_center = box_center * (1.0f / 8.0f);
 
     bool visible_edges[12];
     for (int i = 0; i < 12; i++)
@@ -608,18 +652,17 @@ int GetMouseOverAxis(const bool* active_faces, const ImVec2* corners_pix, const 
             visible_edges[face_edges[face_idx][i]] = true;
     }
 
-    // Check each edge for proximity to the mouse
+    // Check each edge for mouse containment in hover rectangle
     for (int edge = 0; edge < 12; edge++) {
         if (!visible_edges[edge])
             continue;
 
         ImVec2 p0 = corners_pix[edges[edge][0]];
         ImVec2 p1 = corners_pix[edges[edge][1]];
+        ImVec2 outward_dir = ComputeEdgeOutwardDir(p0, p1, box_center);
 
-        // Check distance to the edge
-        ImVec2 closest_point = ImLineClosestPoint(p0, p1, mouse_pos);
-        float dist = ImLengthSqr(mouse_pos - closest_point);
-        if (dist <= axis_proximity_threshold) {
+        // Check if mouse is within the edge's hover region
+        if (IsPointInEdgeHoverRegion(mouse_pos, p0, p1, outward_dir, axis_hover_width)) {
             if (edge_out)
                 *edge_out = edge;
 
@@ -661,11 +704,19 @@ void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const
 }
 
 void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d) {
+    const float axis_hover_width = 30.0f;
+
     int hovered_edge = -1;
     if (!plot.Held)
         GetMouseOverAxis(active_faces, corners_pix, plane_2d, &hovered_edge);
     else
         hovered_edge = plot.HeldEdgeIdx;
+
+    // Compute box center in screen space
+    ImVec2 box_center(0, 0);
+    for (int i = 0; i < 8; i++)
+        box_center = box_center + corners_pix[i];
+    box_center = box_center * (1.0f / 8.0f);
 
     bool render_edge[12];
     for (int i = 0; i < 12; i++)
@@ -678,13 +729,52 @@ void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImV
             render_edge[face_edges[face_idx][i]] = true;
     }
 
+    // Render axis hover rectangles
+    for (int i = 0; i < 12; i++) {
+        if (!render_edge[i])
+            continue;
+
+        // Determine which axis this edge belongs to
+        int axis_idx;
+        if (i == 0 || i == 2 || i == 4 || i == 6)
+            axis_idx = 0; // X-axis
+        else if (i == 1 || i == 3 || i == 5 || i == 7)
+            axis_idx = 1; // Y-axis
+        else
+            axis_idx = 2; // Z-axis
+
+        const ImPlot3DAxis& axis = plot.Axes[axis_idx];
+
+        // Determine color based on state
+        ImU32 col;
+        if (i == hovered_edge) {
+            col = axis.Held ? axis.ColorAct : axis.ColorHov;
+        } else {
+            col = axis.ColorBg;
+        }
+
+        // Draw hover rectangle if color is not transparent
+        if (col != IM_COL32_BLACK_TRANS) {
+            ImVec2 p0 = corners_pix[edges[i][0]];
+            ImVec2 p1 = corners_pix[edges[i][1]];
+            ImVec2 outward_dir = ComputeEdgeOutwardDir(p0, p1, box_center);
+
+            // Draw rectangle extending outward from edge
+            ImVec2 c0 = p0;
+            ImVec2 c1 = p0 + outward_dir * axis_hover_width;
+            ImVec2 c2 = p1 + outward_dir * axis_hover_width;
+            ImVec2 c3 = p1;
+            draw_list->AddQuadFilled(c0, c1, c2, c3, col);
+        }
+    }
+
+    // Render edge lines
     ImU32 col_bd = GetStyleColorU32(ImPlot3DCol_PlotBorder);
     for (int i = 0; i < 12; i++) {
         if (render_edge[i]) {
             int idx0 = edges[i][0];
             int idx1 = edges[i][1];
-            float thickness = i == hovered_edge ? 3.0f : 1.0f;
-            draw_list->AddLine(corners_pix[idx0], corners_pix[idx1], col_bd, thickness);
+            draw_list->AddLine(corners_pix[idx0], corners_pix[idx1], col_bd, 1.0f);
         }
     }
 }
@@ -2728,6 +2818,14 @@ void SetupLock() {
         }
     }
 
+    // Cache axis colors
+    for (int i = 0; i < 3; i++) {
+        ImPlot3DAxis& axis = plot.Axes[i];
+        axis.ColorBg = GetStyleColorU32(ImPlot3DCol_AxisBg);
+        axis.ColorHov = GetStyleColorU32(ImPlot3DCol_AxisBgHovered);
+        axis.ColorAct = GetStyleColorU32(ImPlot3DCol_AxisBgActive);
+    }
+
     // Render title
     if (plot.HasTitle()) {
         ImU32 col = GetStyleColorU32(ImPlot3DCol_TitleText);
@@ -2819,6 +2917,9 @@ void StyleColorsAuto(ImPlot3DStyle* dst) {
     colors[ImPlot3DCol_AxisText] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_AxisGrid] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_AxisTick] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBg] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgHovered] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgActive] = IMPLOT3D_AUTO_COL;
 }
 
 void StyleColorsDark(ImPlot3DStyle* dst) {
@@ -2836,6 +2937,9 @@ void StyleColorsDark(ImPlot3DStyle* dst) {
     colors[ImPlot3DCol_AxisText] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     colors[ImPlot3DCol_AxisGrid] = ImVec4(1.00f, 1.00f, 1.00f, 0.25f);
     colors[ImPlot3DCol_AxisTick] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBg] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgHovered] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgActive] = IMPLOT3D_AUTO_COL;
 }
 
 void StyleColorsLight(ImPlot3DStyle* dst) {
@@ -2853,6 +2957,9 @@ void StyleColorsLight(ImPlot3DStyle* dst) {
     colors[ImPlot3DCol_AxisText] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
     colors[ImPlot3DCol_AxisGrid] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     colors[ImPlot3DCol_AxisTick] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBg] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgHovered] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgActive] = IMPLOT3D_AUTO_COL;
 }
 
 void StyleColorsClassic(ImPlot3DStyle* dst) {
@@ -2870,6 +2977,9 @@ void StyleColorsClassic(ImPlot3DStyle* dst) {
     colors[ImPlot3DCol_AxisText] = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
     colors[ImPlot3DCol_AxisGrid] = ImVec4(0.90f, 0.90f, 0.90f, 0.25f);
     colors[ImPlot3DCol_AxisTick] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBg] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgHovered] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgActive] = IMPLOT3D_AUTO_COL;
 }
 
 bool ShowStyleSelector(const char* label) {
@@ -3264,13 +3374,17 @@ ImVec4 GetAutoColor(ImPlot3DCol idx) {
         case ImPlot3DCol_AxisText: return ImGui::GetStyleColorVec4(ImGuiCol_Text);
         case ImPlot3DCol_AxisGrid: return ImGui::GetStyleColorVec4(ImGuiCol_Text) * ImVec4(1, 1, 1, 0.25f);
         case ImPlot3DCol_AxisTick: return GetStyleColorVec4(ImPlot3DCol_AxisGrid);
+        case ImPlot3DCol_AxisBg: return ImVec4(0, 0, 0, 0);
+        case ImPlot3DCol_AxisBgHovered: return ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered);
+        case ImPlot3DCol_AxisBgActive: return ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
         default: return IMPLOT3D_AUTO_COL;
     }
 }
 
 const char* GetStyleColorName(ImPlot3DCol idx) {
     static const char* color_names[ImPlot3DCol_COUNT] = {
-        "TitleText", "InlayText", "FrameBg", "PlotBg", "PlotBorder", "LegendBg", "LegendBorder", "LegendText", "AxisText", "AxisGrid", "AxisTick",
+        "TitleText", "InlayText", "FrameBg", "PlotBg", "PlotBorder", "LegendBg", "LegendBorder", "LegendText",
+        "AxisText", "AxisGrid", "AxisTick", "AxisBg", "AxisBgHovered", "AxisBgActive",
     };
     return color_names[idx];
 }
