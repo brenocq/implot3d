@@ -2650,11 +2650,15 @@ void HandleInput(ImPlot3DPlot& plot) {
     // Handle context click with right mouse button
     if (plot.Held && ImGui::IsMouseClicked(gp.InputMap.Menu) && !ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_NoMenus))
         plot.ContextClick = true;
-    if (rotating || (ImGui::IsMouseDoubleClicked(gp.InputMap.Rotate) && allow_rotate))
+    if (rotating || (ImGui::IsMouseDoubleClicked(gp.InputMap.Reset) && allow_rotate) || (ImGui::IsMouseDoubleClicked(gp.InputMap.Fit) && (allow_pan || allow_zoom)))
         plot.ContextClick = false;
 
     // Handle context menu (should not happen if it is not a double click action)
-    bool not_double_click = allow_rotate ? (float)(ImGui::GetTime() - IO.MouseClickedTime[gp.InputMap.Menu]) > IO.MouseDoubleClickTime : true;
+    bool wait_for_double_click = false;
+    if (gp.InputMap.Menu == gp.InputMap.Reset && allow_rotate) wait_for_double_click = true;
+    if (gp.InputMap.Menu == gp.InputMap.Fit && (allow_pan || allow_zoom)) wait_for_double_click = true;
+
+    bool not_double_click = wait_for_double_click ? (float)(ImGui::GetTime() - IO.MouseClickedTime[gp.InputMap.Menu]) > IO.MouseDoubleClickTime : true;
     if (plot.Hovered && plot.ContextClick && not_double_click && !ImGui::IsMouseDown(gp.InputMap.Menu)) {
         plot.ContextClick = false;
         plot.OpenContextThisFrame = true;
