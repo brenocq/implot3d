@@ -2551,10 +2551,10 @@ void HandleInput(ImPlot3DPlot& plot) {
     // ZOOM -------------------------------------------------------------------
 
     // Handle zoom with mouse wheel
-    if (plot.Hovered && allow_zoom) {
+    if (plot.Hovered && allow_zoom && ImHasFlag(IO.KeyMods, gp.InputMap.ZoomMod)) {
         ImGui::SetKeyOwner(ImGuiKey_MouseWheelY, plot.ID);
-        if ((ImGui::IsMouseDown(gp.InputMap.Zoom) && ImHasFlag(IO.KeyMods, gp.InputMap.ZoomMod)) || IO.MouseWheel != 0.0f) {
-            float delta = (ImGui::IsMouseDown(gp.InputMap.Zoom) && ImHasFlag(IO.KeyMods, gp.InputMap.ZoomMod)) ? (-0.01f * IO.MouseDelta.y) : (gp.InputMap.ZoomRate * IO.MouseWheel);
+        if (ImGui::IsMouseDown(gp.InputMap.Zoom) || IO.MouseWheel != 0.0f) {
+            float delta = ImGui::IsMouseDown(gp.InputMap.Zoom) ? (-0.01f * IO.MouseDelta.y) : (gp.InputMap.ZoomRate * IO.MouseWheel);
             float zoom_rate = delta; // Positive = zoom in, negative = zoom out
 
             // For transforms like log scale, we use the approach from ImPlot:
