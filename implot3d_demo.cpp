@@ -1473,6 +1473,49 @@ void DemoCustomPerPointStyle() {
     }
 }
 
+static void ButtonSelector(const char* label, ImGuiMouseButton* b) {
+    ImGui::PushID(label);
+    if (ImGui::RadioButton("LMB", *b == ImGuiMouseButton_Left))   *b = ImGuiMouseButton_Left;   ImGui::SameLine();
+    if (ImGui::RadioButton("RMB", *b == ImGuiMouseButton_Right))  *b = ImGuiMouseButton_Right;  ImGui::SameLine();
+    if (ImGui::RadioButton("MMB", *b == ImGuiMouseButton_Middle)) *b = ImGuiMouseButton_Middle;
+    ImGui::PopID();
+}
+
+static void ModSelector(const char* label, int* k) {
+    ImGui::PushID(label);
+    ImGui::CheckboxFlags("Ctrl",  (unsigned int*)k, ImGuiMod_Ctrl);  ImGui::SameLine();
+    ImGui::CheckboxFlags("Shift", (unsigned int*)k, ImGuiMod_Shift); ImGui::SameLine();
+    ImGui::CheckboxFlags("Alt",   (unsigned int*)k, ImGuiMod_Alt);   ImGui::SameLine();
+    ImGui::CheckboxFlags("Super", (unsigned int*)k, ImGuiMod_Super);
+    ImGui::PopID();
+}
+
+static void InputMapping(const char* label, ImGuiMouseButton* b, int* k) {
+    ImGui::LabelText("##", "%s", label);
+    if (b != nullptr) {
+        ImGui::SameLine(100);
+        ButtonSelector(label, b);
+    }
+    if (k != nullptr) {
+        ImGui::SameLine(300);
+        ModSelector(label, k);
+    }
+}
+
+void DemoInputMap() {
+    ImPlot3D::ShowInputMapSelector("Input Map");
+    ImGui::Separator();
+    ImPlot3DInputMap& map = ImPlot3D::GetInputMap();
+    InputMapping("Pan", &map.Pan, &map.PanMod);
+    InputMapping("Fit", &map.Fit, nullptr);
+    InputMapping("Rotate", &map.Rotate, &map.RotateMod);
+    InputMapping("Reset", &map.Reset, nullptr);
+    InputMapping("Menu", &map.Menu, nullptr);
+    InputMapping("OverrideMod", nullptr, &map.OverrideMod);
+    InputMapping("ZoomMod", nullptr, &map.ZoomMod);
+    ImGui::SliderFloat("ZoomRate", &map.ZoomRate, -1, 1);
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Config
 //-----------------------------------------------------------------------------
@@ -1634,6 +1677,8 @@ void ShowAllDemos() {
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Config")) {
+            DemoInputMap();
+            ImGui::Separator();
             DemoConfig();
             ImGui::EndTabItem();
         }

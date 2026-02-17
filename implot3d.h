@@ -64,6 +64,7 @@ struct ImPlot3DPlane;
 struct ImPlot3DBox;
 struct ImPlot3DRange;
 struct ImPlot3DQuat;
+struct ImPlot3DInputMap;
 
 // Enums
 typedef int ImPlot3DCond;     // -> ImPlot3DCond_              // Enum: Condition for flags
@@ -176,6 +177,23 @@ enum ImPlot3DStyleVar_ {
     ImPlot3DStyleVar_LegendSpacing,      // ImVec2, spacing between legend entries
     ImPlot3DStyleVar_COUNT
 };
+
+// Input mapping structure. Default values listed. See also MapInputDefault, MapInputReverse.
+struct ImPlot3DInputMap {
+    ImGuiMouseButton Pan;         // LMB    enables panning when held
+    int              PanMod;      // none   optional modifier that must be held for panning
+    ImGuiMouseButton Fit;         // LMB    initiates fit when double clicked
+    ImGuiMouseButton Rotate;      // RMB    enables rotation when held
+    int              RotateMod;   // none   optional modifier that must be held for rotation
+    ImGuiMouseButton Reset;       // RMB    initiates rotation reset when double clicked
+    ImGuiMouseButton Menu;        // RMB    opens context menus (if enabled) when clicked
+    int              OverrideMod; // Ctrl   when held, all input is ignored
+    ImGuiMouseButton Zoom;        // MMB    enables zooming when held
+    int              ZoomMod;     // none   optional modifier that must be held for zooming
+    float            ZoomRate;    // 0.1f   zoom rate for scroll (e.g. 0.1f = 10% plot range every scroll click); make negative to invert
+    IMPLOT3D_API ImPlot3DInputMap();
+};
+
 
 enum ImPlot3DMarker_ {
     ImPlot3DMarker_None = -2, // No marker
@@ -684,6 +702,17 @@ IMPLOT3D_API ImDrawList* GetPlotDrawList();
 // Get current style
 IMPLOT3D_API ImPlot3DStyle& GetStyle();
 IMPLOT3D_API void SetStyle(const ImPlot3DStyle& style);
+
+// Provides access to input mapping structure for permanant modifications to controls for pan, select, etc.
+IMPLOT3D_API ImPlot3DInputMap& GetInputMap();
+
+// Default input mapping: pan = LMB drag, rotate = RMB drag, fit = LMB double click, context menu = RMB click, zoom = scroll.
+IMPLOT3D_API void MapInputDefault(ImPlot3DInputMap* dst = nullptr);
+// Reverse input mapping: pan = RMB drag, rotate = LMB drag.
+IMPLOT3D_API void MapInputReverse(ImPlot3DInputMap* dst = nullptr);
+
+// Shows ImPlot3D input map selector and returns true if selection is changed (not a window)
+IMPLOT3D_API bool ShowInputMapSelector(const char* label);
 
 // Set color styles
 IMPLOT3D_API void StyleColorsAuto(ImPlot3DStyle* dst = nullptr);    // Set colors with ImGui style

@@ -2192,6 +2192,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     if (ImHasFlag(plot.Flags, ImPlot3DFlags_NoInputs))
         return;
 
+    ImPlot3DContext& gp = *GImPlot3D;
     ImGuiIO& IO = ImGui::GetIO();
 
     // clang-format off
@@ -2208,7 +2209,7 @@ void HandleInput(ImPlot3DPlot& plot) {
 #endif
 
     // State
-    const ImVec2 rot_drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
+    const ImVec2 rot_drag = ImGui::GetMouseDragDelta(gp.InputMap.Rotate);
     const bool rotating = ImLengthSqr(rot_drag) > MOUSE_CURSOR_DRAG_THRESHOLD;
     const bool axis_equal = ImHasFlag(plot.Flags, ImPlot3DFlags_Equal);
     const bool allow_rotate = !ImHasFlag(plot.Flags, ImPlot3DFlags_NoRotate);
@@ -2238,7 +2239,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     }
 
     // If the user is no longer pressing the translation/zoom buttons, set axes as not held
-    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) && !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
+    if (!ImGui::IsMouseDown(gp.InputMap.Pan) && !ImGui::IsMouseDown(gp.InputMap.Zoom)) {
         for (int i = 0; i < 3; i++)
             plot.Axes[i].Held = false;
     }
@@ -2324,7 +2325,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     // AUTO FIT -------------------------------------------------------------------
 
     // Handle translation/zoom fit with double click
-    if (plot_clicked && (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Middle)) &&
+    if (plot_clicked && (ImGui::IsMouseDoubleClicked(gp.InputMap.Fit) || (ImGui::IsMouseDoubleClicked(gp.InputMap.Zoom) && allow_zoom)) &&
         (allow_pan && allow_zoom)) {
         plot.FitThisFrame = true;
         for (int i = 0; i < 3; i++)
@@ -2340,8 +2341,12 @@ void HandleInput(ImPlot3DPlot& plot) {
 
     // TRANSLATION -------------------------------------------------------------------
 
+    // cancel due to DND activity
+    if (GImGui->DragDropActive || (IO.KeyMods == gp.InputMap.OverrideMod && gp.InputMap.OverrideMod != 0))
+        return;
+
     // Handle translation with right mouse button
-    if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Left) && allow_pan) {
+    if (plot.Held && ImGui::IsMouseDown(gp.InputMap.Pan) && ImHasFlag(IO.KeyMods, gp.InputMap.PanMod) && allow_pan) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
         if (plot.Axes[0].Hovered && plot.Axes[1].Hovered && plot.Axes[2].Hovered) {
@@ -2456,7 +2461,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     // ROTATION -------------------------------------------------------------------
 
     // Handle reset rotation with left mouse double click
-    if (plot.Held && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && !plot.IsRotationLocked() && allow_rotate) {
+    if (plot.Held && ImGui::IsMouseDoubleClicked(gp.InputMap.Reset) && !plot.IsRotationLocked() && allow_rotate) {
         plot.RotationAnimationEnd = plot.Rotation;
 
         // Calculate rotation to align the z-axis with the camera direction
@@ -2517,7 +2522,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     }
 
     // Handle rotation with left mouse dragging
-    if (plot.Held && ImGui::IsMouseDown(ImGuiMouseButton_Right) && !plot.IsRotationLocked() && allow_rotate) {
+    if (plot.Held && ImGui::IsMouseDown(gp.InputMap.Rotate) && ImHasFlag(IO.KeyMods, gp.InputMap.RotateMod) && !plot.IsRotationLocked() && allow_rotate) {
         ImVec2 delta(IO.MouseDelta.x, IO.MouseDelta.y);
 
         // Map delta to rotation angles (in radians)
@@ -2548,8 +2553,8 @@ void HandleInput(ImPlot3DPlot& plot) {
     // Handle zoom with mouse wheel
     if (plot.Hovered && allow_zoom) {
         ImGui::SetKeyOwner(ImGuiKey_MouseWheelY, plot.ID);
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Middle) || IO.MouseWheel != 0.0f) {
-            float delta = ImGui::IsMouseDown(ImGuiMouseButton_Middle) ? (-0.01f * IO.MouseDelta.y) : (-0.1f * IO.MouseWheel);
+        if ((ImGui::IsMouseDown(gp.InputMap.Zoom) && ImHasFlag(IO.KeyMods, gp.InputMap.ZoomMod)) || IO.MouseWheel != 0.0f) {
+            float delta = (ImGui::IsMouseDown(gp.InputMap.Zoom) && ImHasFlag(IO.KeyMods, gp.InputMap.ZoomMod)) ? (-0.01f * IO.MouseDelta.y) : (gp.InputMap.ZoomRate * IO.MouseWheel);
             float zoom_rate = delta; // Positive = zoom in, negative = zoom out
 
             // For transforms like log scale, we use the approach from ImPlot:
@@ -2643,14 +2648,14 @@ void HandleInput(ImPlot3DPlot& plot) {
     // CONTEXT MENU -------------------------------------------------------------------
 
     // Handle context click with right mouse button
-    if (plot.Held && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_NoMenus))
+    if (plot.Held && ImGui::IsMouseClicked(gp.InputMap.Menu) && !ImPlot3D::ImHasFlag(plot.Flags, ImPlot3DFlags_NoMenus))
         plot.ContextClick = true;
-    if (rotating || (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Right) && allow_rotate))
+    if (rotating || (ImGui::IsMouseDoubleClicked(gp.InputMap.Rotate) && allow_rotate))
         plot.ContextClick = false;
 
     // Handle context menu (should not happen if it is not a double click action)
-    bool not_double_click = allow_rotate ? (float)(ImGui::GetTime() - IO.MouseClickedTime[ImGuiMouseButton_Right]) > IO.MouseDoubleClickTime : true;
-    if (plot.Hovered && plot.ContextClick && not_double_click && !ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+    bool not_double_click = allow_rotate ? (float)(ImGui::GetTime() - IO.MouseClickedTime[gp.InputMap.Menu]) > IO.MouseDoubleClickTime : true;
+    if (plot.Hovered && plot.ContextClick && not_double_click && !ImGui::IsMouseDown(gp.InputMap.Menu)) {
         plot.ContextClick = false;
         plot.OpenContextThisFrame = true;
     }
@@ -3241,6 +3246,7 @@ void ResetContext(ImPlot3DContext* ctx) {
     ctx->CurrentItem = nullptr;
     ctx->NextItemData.Reset();
     ctx->Style = ImPlot3DStyle();
+    MapInputDefault(&ctx->InputMap);
 }
 
 //-----------------------------------------------------------------------------
@@ -3883,6 +3889,64 @@ ImPlot3DStyle::ImPlot3DStyle() {
     ImPlot3D::StyleColorsAuto(this);
     Colormap = ImPlot3DColormap_Deep;
 };
+
+//-----------------------------------------------------------------------------
+// [SECTION] ImPlot3DInputMap
+//-----------------------------------------------------------------------------
+
+ImPlot3DInputMap::ImPlot3DInputMap() {
+    ImPlot3D::MapInputDefault(this);
+}
+
+namespace ImPlot3D {
+
+ImPlot3DInputMap& GetInputMap() {
+    return GImPlot3D->InputMap;
+}
+
+void MapInputDefault(ImPlot3DInputMap* dst) {
+    ImPlot3DInputMap& map = dst ? *dst : GetInputMap();
+    map.Pan         = ImGuiMouseButton_Left;
+    map.PanMod      = ImGuiMod_None;
+    map.Fit         = ImGuiMouseButton_Left;
+    map.Rotate      = ImGuiMouseButton_Right;
+    map.RotateMod   = ImGuiMod_None;
+    map.Reset       = ImGuiMouseButton_Right;
+    map.Menu        = ImGuiMouseButton_Right;
+    map.OverrideMod = ImGuiMod_Ctrl;
+    map.Zoom        = ImGuiMouseButton_Middle;
+    map.ZoomMod     = ImGuiMod_None;
+    map.ZoomRate    = 0.1f;
+}
+
+void MapInputReverse(ImPlot3DInputMap* dst) {
+    ImPlot3DInputMap& map = dst ? *dst : GetInputMap();
+    map.Pan         = ImGuiMouseButton_Right;
+    map.PanMod      = ImGuiMod_None;
+    map.Fit         = ImGuiMouseButton_Right;
+    map.Rotate      = ImGuiMouseButton_Left;
+    map.RotateMod   = ImGuiMod_None;
+    map.Reset       = ImGuiMouseButton_Left;
+    map.Menu        = ImGuiMouseButton_Right;
+    map.OverrideMod = ImGuiMod_Ctrl;
+    map.Zoom        = ImGuiMouseButton_Middle;
+    map.ZoomMod     = ImGuiMod_None;
+    map.ZoomRate    = 0.1f;
+}
+
+bool ShowInputMapSelector(const char* label) {
+    static int map_idx = 0;
+    if (ImGui::Combo(label, &map_idx, "Default\0Reverse\0")) {
+        switch (map_idx) {
+            case 0: MapInputDefault(); break;
+            case 1: MapInputReverse(); break;
+        }
+        return true;
+    }
+    return false;
+}
+
+} // namespace ImPlot3D
 
 //-----------------------------------------------------------------------------
 // [SECTION] Metrics
