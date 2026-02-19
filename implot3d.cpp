@@ -741,7 +741,7 @@ void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const
     }
 }
 
-void RenderAxisRects(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d,
+void RenderAxisRects(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool*, const int plane_2d,
                      const int axis_corners[3][2]) {
     const float tick_label_offset = 20.0f; // Base offset from axis to tick labels
     const float axis_label_padding = 5.0f; // Padding between tick labels and axis label
@@ -838,7 +838,7 @@ void RenderAxisRects(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVe
     }
 }
 
-void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d) {
+void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot&, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d) {
     // Determine which edges to render (all visible edges)
     bool render_edge[12];
     for (int i = 0; i < 12; i++)
@@ -1188,7 +1188,7 @@ void RenderTickLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
     }
 }
 
-void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint* corners, const ImVec2* corners_pix,
+void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint*, const ImVec2* corners_pix,
                       const int axis_corners[3][2]) {
     ImU32 col_ax_txt = GetStyleColorU32(ImPlot3DCol_AxisText);
     const float tick_label_offset = 20.0f; // Base offset from axis to tick labels
