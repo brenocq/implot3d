@@ -752,8 +752,8 @@ template <class _Getter> struct RendererQuadImage : RendererBase {
 
 template <class _Getter> struct RendererSurfaceFill : RendererBase {
     RendererSurfaceFill(const _Getter& getter, int x_count, int y_count, ImU32 col, double scale_min, double scale_max)
-        : RendererBase((x_count - 1) * (y_count - 1), 6, 4), Getter(getter), XCount(x_count), YCount(y_count), Col(col), ScaleMin(scale_min),
-          ScaleMax(scale_max) {}
+        : RendererBase((x_count - 1) * (y_count - 1), 6, 4), Getter(getter), Min(0.), Max(0.), XCount(x_count), YCount(y_count), Col(col),
+          ScaleMin(scale_min), ScaleMax(scale_max) {}
 
     void Init(ImDrawList3D& draw_list_3d) const {
         UV = draw_list_3d._SharedData->TexUvWhitePixel;
