@@ -641,22 +641,21 @@ int GetMouseOverAxis(const bool* active_faces, const ImVec2* corners_pix, const 
         box_center = box_center + corners_pix[i];
     box_center = box_center * (1.0f / 8.0f);
 
-    bool visible_edges[12];
-    for (int i = 0; i < 12; i++)
-        visible_edges[i] = false;
-    for (int a = 0; a < 3; a++) {
-        int face_idx = a + 3 * active_faces[a];
-        if (plane_2d != -1 && a != plane_2d)
-            continue;
-        for (size_t i = 0; i < 4; i++)
-            visible_edges[face_edges[face_idx][i]] = true;
-    }
+    // Get the labeled edges for the current view
+    int index = Active3DFacesToAxisLookupIndex(active_faces);
+    int labeled_edges[3] = {
+        axis_edges_lookup_3d[index][0], // X-axis edge
+        axis_edges_lookup_3d[index][1], // Y-axis edge
+        axis_edges_lookup_3d[index][2], // Z-axis edge
+    };
 
-    // Check each edge for mouse containment in hover rectangle
-    for (int edge = 0; edge < 12; edge++) {
-        if (!visible_edges[edge])
+    // Check each labeled edge for mouse containment in hover rectangle
+    for (int axis_idx = 0; axis_idx < 3; axis_idx++) {
+        // In 2D mode, skip axes that are not in the plane
+        if (plane_2d != -1 && axis_idx != (plane_2d + 1) % 3 && axis_idx != (plane_2d + 2) % 3)
             continue;
 
+        int edge = labeled_edges[axis_idx];
         ImVec2 p0 = corners_pix[edges[edge][0]];
         ImVec2 p1 = corners_pix[edges[edge][1]];
         ImVec2 outward_dir = ComputeEdgeOutwardDir(p0, p1, box_center);
@@ -665,14 +664,7 @@ int GetMouseOverAxis(const bool* active_faces, const ImVec2* corners_pix, const 
         if (IsPointInEdgeHoverRegion(mouse_pos, p0, p1, outward_dir, axis_hover_width)) {
             if (edge_out)
                 *edge_out = edge;
-
-            // Determine which axis the edge belongs to
-            if (edge == 0 || edge == 2 || edge == 4 || edge == 6)
-                return 0; // X-axis
-            else if (edge == 1 || edge == 3 || edge == 5 || edge == 7)
-                return 1; // Y-axis
-            else
-                return 2; // Z-axis
+            return axis_idx;
         }
     }
 
@@ -718,6 +710,7 @@ void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImV
         box_center = box_center + corners_pix[i];
     box_center = box_center * (1.0f / 8.0f);
 
+    // Determine which edges to render (all visible edges)
     bool render_edge[12];
     for (int i = 0; i < 12; i++)
         render_edge[i] = false;
@@ -729,25 +722,26 @@ void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImV
             render_edge[face_edges[face_idx][i]] = true;
     }
 
-    // Render axis hover rectangles
-    for (int i = 0; i < 12; i++) {
-        if (!render_edge[i])
+    // Get the labeled edges for the current view (only these get hover rectangles)
+    int index = Active3DFacesToAxisLookupIndex(active_faces);
+    int labeled_edges[3] = {
+        axis_edges_lookup_3d[index][0], // X-axis edge
+        axis_edges_lookup_3d[index][1], // Y-axis edge
+        axis_edges_lookup_3d[index][2], // Z-axis edge
+    };
+
+    // Render axis hover rectangles (only for labeled edges)
+    for (int axis_idx = 0; axis_idx < 3; axis_idx++) {
+        // In 2D mode, skip axes that are not in the plane
+        if (plane_2d != -1 && axis_idx != (plane_2d + 1) % 3 && axis_idx != (plane_2d + 2) % 3)
             continue;
 
-        // Determine which axis this edge belongs to
-        int axis_idx;
-        if (i == 0 || i == 2 || i == 4 || i == 6)
-            axis_idx = 0; // X-axis
-        else if (i == 1 || i == 3 || i == 5 || i == 7)
-            axis_idx = 1; // Y-axis
-        else
-            axis_idx = 2; // Z-axis
-
+        int edge = labeled_edges[axis_idx];
         const ImPlot3DAxis& axis = plot.Axes[axis_idx];
 
         // Determine color based on state
         ImU32 col;
-        if (i == hovered_edge) {
+        if (edge == hovered_edge) {
             col = axis.Held ? axis.ColorAct : axis.ColorHov;
         } else {
             col = axis.ColorBg;
@@ -755,8 +749,8 @@ void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImV
 
         // Draw hover rectangle if color is not transparent
         if (col != IM_COL32_BLACK_TRANS) {
-            ImVec2 p0 = corners_pix[edges[i][0]];
-            ImVec2 p1 = corners_pix[edges[i][1]];
+            ImVec2 p0 = corners_pix[edges[edge][0]];
+            ImVec2 p1 = corners_pix[edges[edge][1]];
             ImVec2 outward_dir = ComputeEdgeOutwardDir(p0, p1, box_center);
 
             // Draw rectangle extending outward from edge
@@ -768,7 +762,7 @@ void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImV
         }
     }
 
-    // Render edge lines
+    // Render edge lines (all visible edges)
     ImU32 col_bd = GetStyleColorU32(ImPlot3DCol_PlotBorder);
     for (int i = 0; i < 12; i++) {
         if (render_edge[i]) {
