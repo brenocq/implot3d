@@ -627,7 +627,7 @@ ImVec2 ComputeEdgeOutwardDir(const ImVec2& p0, const ImVec2& p1, const ImVec2& b
     return perp;
 }
 
-int GetMouseOverAxis(const bool* active_faces, const ImVec2* corners_pix, const int plane_2d, int* edge_out = nullptr) {
+int GetMouseOverAxis(const ImVec2* corners_pix, const int plane_2d, const int axis_corners[3][2], int* edge_out = nullptr) {
     const float axis_hover_width = 30.0f; // Width of the hover rectangle in pixels
 
     ImGuiIO& io = ImGui::GetIO();
@@ -641,23 +641,33 @@ int GetMouseOverAxis(const bool* active_faces, const ImVec2* corners_pix, const 
         box_center = box_center + corners_pix[i];
     box_center = box_center * (1.0f / 8.0f);
 
-    // Get the labeled edges for the current view
-    int index = Active3DFacesToAxisLookupIndex(active_faces);
-    int labeled_edges[3] = {
-        axis_edges_lookup_3d[index][0], // X-axis edge
-        axis_edges_lookup_3d[index][1], // Y-axis edge
-        axis_edges_lookup_3d[index][2], // Z-axis edge
-    };
-
-    // Check each labeled edge for mouse containment in hover rectangle
+    // Check each axis for mouse containment in hover rectangle
     for (int axis_idx = 0; axis_idx < 3; axis_idx++) {
-        // In 2D mode, skip axes that are not in the plane
-        if (plane_2d != -1 && axis_idx != (plane_2d + 1) % 3 && axis_idx != (plane_2d + 2) % 3)
+        // In 2D mode, skip the perpendicular axis
+        if (plane_2d != -1 && axis_idx == plane_2d)
             continue;
 
-        int edge = labeled_edges[axis_idx];
-        ImVec2 p0 = corners_pix[edges[edge][0]];
-        ImVec2 p1 = corners_pix[edges[edge][1]];
+        int idx0 = axis_corners[axis_idx][0];
+        int idx1 = axis_corners[axis_idx][1];
+
+        // Skip if axis corners are not defined
+        if (idx0 == -1 || idx1 == -1)
+            continue;
+
+        // Find the edge index for these two corners
+        int edge = -1;
+        for (int e = 0; e < 12; e++) {
+            if ((edges[e][0] == idx0 && edges[e][1] == idx1) || (edges[e][0] == idx1 && edges[e][1] == idx0)) {
+                edge = e;
+                break;
+            }
+        }
+
+        if (edge == -1)
+            continue;
+
+        ImVec2 p0 = corners_pix[idx0];
+        ImVec2 p1 = corners_pix[idx1];
         ImVec2 outward_dir = ComputeEdgeOutwardDir(p0, p1, box_center);
 
         // Check if mouse is within the edge's hover region
@@ -671,7 +681,8 @@ int GetMouseOverAxis(const bool* active_faces, const ImVec2* corners_pix, const 
     return -1; // Not over any axis
 }
 
-void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d) {
+void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d,
+                          const int axis_corners[3][2]) {
     const ImVec4 col_bg = GetStyleColorVec4(ImPlot3DCol_PlotBg);
     const ImVec4 col_bg_hov = col_bg + ImVec4(0.03f, 0.03f, 0.03f, 0.0f);
 
@@ -679,7 +690,7 @@ void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const
     if (!plot.Held) {
         // If the mouse is not held, highlight plane hovering when mouse over it
         hovered_plane = GetMouseOverPlane(active_faces, corners_pix);
-        if (GetMouseOverAxis(active_faces, corners_pix, plane_2d) != -1)
+        if (GetMouseOverAxis(corners_pix, plane_2d, axis_corners) != -1)
             hovered_plane = -1;
     } else {
         // If the mouse is held, highlight the held plane
@@ -695,12 +706,13 @@ void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const
     }
 }
 
-void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d) {
+void RenderAxisRects(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d,
+                     const int axis_corners[3][2]) {
     const float axis_hover_width = 30.0f;
 
     int hovered_edge = -1;
     if (!plot.Held)
-        GetMouseOverAxis(active_faces, corners_pix, plane_2d, &hovered_edge);
+        GetMouseOverAxis(corners_pix, plane_2d, axis_corners, &hovered_edge);
     else
         hovered_edge = plot.HeldEdgeIdx;
 
@@ -710,33 +722,31 @@ void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImV
         box_center = box_center + corners_pix[i];
     box_center = box_center * (1.0f / 8.0f);
 
-    // Determine which edges to render (all visible edges)
-    bool render_edge[12];
-    for (int i = 0; i < 12; i++)
-        render_edge[i] = false;
-    for (int a = 0; a < 3; a++) {
-        int face_idx = a + 3 * active_faces[a];
-        if (plane_2d != -1 && a != plane_2d)
-            continue;
-        for (size_t i = 0; i < 4; i++)
-            render_edge[face_edges[face_idx][i]] = true;
-    }
-
-    // Get the labeled edges for the current view (only these get hover rectangles)
-    int index = Active3DFacesToAxisLookupIndex(active_faces);
-    int labeled_edges[3] = {
-        axis_edges_lookup_3d[index][0], // X-axis edge
-        axis_edges_lookup_3d[index][1], // Y-axis edge
-        axis_edges_lookup_3d[index][2], // Z-axis edge
-    };
-
-    // Render axis hover rectangles (only for labeled edges)
+    // Render axis hover rectangles
     for (int axis_idx = 0; axis_idx < 3; axis_idx++) {
-        // In 2D mode, skip axes that are not in the plane
-        if (plane_2d != -1 && axis_idx != (plane_2d + 1) % 3 && axis_idx != (plane_2d + 2) % 3)
+        // In 2D mode, skip the perpendicular axis
+        if (plane_2d != -1 && axis_idx == plane_2d)
             continue;
 
-        int edge = labeled_edges[axis_idx];
+        int idx0 = axis_corners[axis_idx][0];
+        int idx1 = axis_corners[axis_idx][1];
+
+        // Skip if axis corners are not defined
+        if (idx0 == -1 || idx1 == -1)
+            continue;
+
+        // Find the edge index for these two corners
+        int edge = -1;
+        for (int e = 0; e < 12; e++) {
+            if ((edges[e][0] == idx0 && edges[e][1] == idx1) || (edges[e][0] == idx1 && edges[e][1] == idx0)) {
+                edge = e;
+                break;
+            }
+        }
+
+        if (edge == -1)
+            continue;
+
         const ImPlot3DAxis& axis = plot.Axes[axis_idx];
 
         // Determine color based on state
@@ -749,8 +759,8 @@ void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImV
 
         // Draw hover rectangle if color is not transparent
         if (col != IM_COL32_BLACK_TRANS) {
-            ImVec2 p0 = corners_pix[edges[edge][0]];
-            ImVec2 p1 = corners_pix[edges[edge][1]];
+            ImVec2 p0 = corners_pix[idx0];
+            ImVec2 p1 = corners_pix[idx1];
             ImVec2 outward_dir = ComputeEdgeOutwardDir(p0, p1, box_center);
 
             // Draw rectangle extending outward from edge
@@ -760,6 +770,20 @@ void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImV
             ImVec2 c3 = p1;
             draw_list->AddQuadFilled(c0, c1, c2, c3, col);
         }
+    }
+}
+
+void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d) {
+    // Determine which edges to render (all visible edges)
+    bool render_edge[12];
+    for (int i = 0; i < 12; i++)
+        render_edge[i] = false;
+    for (int a = 0; a < 3; a++) {
+        int face_idx = a + 3 * active_faces[a];
+        if (plane_2d != -1 && a != plane_2d)
+            continue;
+        for (size_t i = 0; i < 4; i++)
+            render_edge[face_edges[face_idx][i]] = true;
     }
 
     // Render edge lines (all visible edges)
@@ -1294,7 +1318,8 @@ void RenderPlotBox(ImDrawList* draw_list, const ImPlot3DPlot& plot) {
     GetAxesParameters(plot, active_faces, corners_pix, corners, plane_2d, axis_corners);
 
     // Render components
-    RenderPlotBackground(draw_list, plot, corners_pix, active_faces, plane_2d);
+    RenderPlotBackground(draw_list, plot, corners_pix, active_faces, plane_2d, axis_corners);
+    RenderAxisRects(draw_list, plot, corners_pix, active_faces, plane_2d, axis_corners);
     RenderPlotBorder(draw_list, plot, corners_pix, active_faces, plane_2d);
     RenderGrid(draw_list, plot, corners, active_faces, plane_2d);
     RenderTickMarks(draw_list, plot, corners, corners_pix, axis_corners, plane_2d);
@@ -2302,20 +2327,16 @@ void HandleInput(ImPlot3DPlot& plot) {
     // HOVERING STATE -------------------------------------------------------------------
 
     // Check if any axis/plane is hovered
-    const ImPlot3DQuat& rotation = plot.Rotation;
-    ImPlot3DPoint range_min = plot.RangeMin();
-    ImPlot3DPoint range_max = plot.RangeMax();
     bool active_faces[3];
-    int plane_2d = -1;
-    ComputeActiveFaces(active_faces, rotation, plot.Axes, &plane_2d);
-    ImPlot3DPoint corners[8];
-    ComputeBoxCorners(corners, range_min, range_max);
     ImVec2 corners_pix[8];
-    ComputeBoxCornersPix(plot, corners_pix, corners);
+    ImPlot3DPoint corners[8];
+    int plane_2d;
+    int axis_corners[3][2];
+    GetAxesParameters(plot, active_faces, corners_pix, corners, plane_2d, axis_corners);
     int hovered_plane_idx = -1;
     int hovered_plane = GetMouseOverPlane(active_faces, corners_pix, &hovered_plane_idx);
     int hovered_edge_idx = -1;
-    int hovered_axis = GetMouseOverAxis(active_faces, corners_pix, plane_2d, &hovered_edge_idx);
+    int hovered_axis = GetMouseOverAxis(corners_pix, plane_2d, axis_corners, &hovered_edge_idx);
     if (hovered_axis != -1) {
         hovered_plane_idx = -1;
         hovered_plane = -1;
@@ -3377,8 +3398,8 @@ ImVec4 GetAutoColor(ImPlot3DCol idx) {
 
 const char* GetStyleColorName(ImPlot3DCol idx) {
     static const char* color_names[ImPlot3DCol_COUNT] = {
-        "TitleText", "InlayText", "FrameBg", "PlotBg", "PlotBorder", "LegendBg", "LegendBorder", "LegendText",
-        "AxisText", "AxisGrid", "AxisTick", "AxisBg", "AxisBgHovered", "AxisBgActive",
+        "TitleText",  "InlayText", "FrameBg",  "PlotBg",   "PlotBorder", "LegendBg",      "LegendBorder",
+        "LegendText", "AxisText",  "AxisGrid", "AxisTick", "AxisBg",     "AxisBgHovered", "AxisBgActive",
     };
     return color_names[idx];
 }
