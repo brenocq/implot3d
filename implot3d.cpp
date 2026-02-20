@@ -2610,14 +2610,14 @@ void HandleInput(ImPlot3DPlot& plot) {
                     double zoom_factor = 1.0f + zoom_rate;
 
                     // Create points in NDC space representing the new zoomed range
-                    ImPlot3DPoint p_min(0.0f, 0.0f, 0.0f);
-                    ImPlot3DPoint p_max(0.0f, 0.0f, 0.0f);
-                    p_min[i] = -ndc_limit * zoom_factor;
-                    p_max[i] = ndc_limit * zoom_factor;
+                    ImPlot3DPoint ndc_min(0.0f, 0.0f, 0.0f);
+                    ImPlot3DPoint ndc_max(0.0f, 0.0f, 0.0f);
+                    ndc_min[i] = -ndc_limit * zoom_factor;
+                    ndc_max[i] = ndc_limit * zoom_factor;
 
                     // Convert these NDC points to Plot space to get the new range
-                    ImPlot3DPoint plt_min = NDCToPlot(p_min);
-                    ImPlot3DPoint plt_max = NDCToPlot(p_max);
+                    ImPlot3DPoint plt_min = NDCToPlot(ndc_min);
+                    ImPlot3DPoint plt_max = NDCToPlot(ndc_max);
 
                     axis.SetRange(plt_min[i], plt_max[i]);
                 }
@@ -3734,13 +3734,13 @@ void ImDrawList3D::SortedMoveToImGuiDrawList() {
         // For each triangle added to the draw_list
         for (idx_out = idx_out_begin; idx_out < idx_out_end; idx_out += 3) {
             // Get index of first vertex in the triangle
-            unsigned int idx_in = (unsigned int)(*idx_out - idx_offset);
+            unsigned int vtx_idx = (unsigned int)(*idx_out - idx_offset);
 
             // Get the texture for this triangle
             const ImTextureRef invalid_tex = ImTextureID(0);
             ImTextureRef tri_tex = invalid_tex;
             for (int j = 0; j < _TextureBuffer.Size; j++)
-                if (idx_in >= _TextureBuffer[j].VtxIdx)
+                if (vtx_idx >= _TextureBuffer[j].VtxIdx)
                     tri_tex = _TextureBuffer[j].TexRef;
 
             // If tri_tex is invalid, the default texture should be used
