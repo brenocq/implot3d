@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(ImPlot3DExample LANGUAGES CXX C)
 
+option(IMPLOT3D_STRICT_WARNINGS "Enable strict compiler warnings for ImPlot3D" OFF)
+
 # Set the C++ standard
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -69,6 +71,13 @@ set(IMPLOT3D_SOURCE
 add_library(implot3d STATIC ${IMPLOT3D_SOURCE})
 target_include_directories(implot3d PUBLIC ${IMPLOT3D_SOURCE_DIR})
 target_link_libraries(implot3d PUBLIC imgui)
+if(IMPLOT3D_STRICT_WARNINGS)
+    if(MSVC)
+        target_compile_options(implot3d PRIVATE /W4 /WX)
+    else()
+        target_compile_options(implot3d PRIVATE -Wall -Wextra -Werror)
+    endif()
+endif()
 
 # Add the executable
 set(EXAMPLE_SOURCE

@@ -11,5 +11,5 @@ jobs:
       - name: Build
         run: |
           cd example
-          cmake -B build -DCMAKE_CXX_FLAGS="/EHsc /W4 /WX"
+          cmake -B build -DIMPLOT3D_STRICT_WARNINGS=ON
           cmake --build build

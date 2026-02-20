@@ -18,7 +18,7 @@ jobs:
       - name: Configure
         run: |
           cd example
-          cmake -B build -DCMAKE_CXX_COMPILER=${{ matrix.compiler }} -DCMAKE_CXX_FLAGS="-Wall -Wextra -Werror"
+          cmake -B build -DCMAKE_CXX_COMPILER=${{ matrix.compiler }} -DIMPLOT3D_STRICT_WARNINGS=ON
       - name: Build
         run: |
           cd example
