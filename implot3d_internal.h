@@ -263,7 +263,7 @@ struct ImPlot3DColormapData {
                 for (int s = 0; s < 255; ++s) {
                     ImU32 a = keys[i];
                     ImU32 b = keys[i + 1];
-                    ImU32 c = ImPlot3D::ImMixU32(a, b, s);
+                    ImU32 c = ImPlot3D::ImMixU32(a, b, (ImU32)s);
                     // if (c != last) {
                     Tables.push_back(c);
                     // last = c;
