@@ -691,8 +691,8 @@ void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImV
 
 void RenderGrid(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint* corners, const bool* active_faces, const int plane_2d) {
     ImVec4 col_grid = GetStyleColorVec4(ImPlot3DCol_AxisGrid);
-    ImU32 col_grid_minor = ImGui::GetColorU32(col_grid * ImVec4(1, 1, 1, 0.3f));
-    ImU32 col_grid_major = ImGui::GetColorU32(col_grid * ImVec4(1, 1, 1, 0.6f));
+    ImU32 col_grid_regular = ImGui::GetColorU32(col_grid * ImVec4(1, 1, 1, 0.6f)); // All regular grid lines
+    ImU32 col_grid_world = ImGui::GetColorU32(col_grid * ImVec4(1, 1, 1, 0.9f));   // World axis lines (through origin)
     for (int face = 0; face < 3; face++) {
         if (plane_2d != -1 && face != plane_2d)
             continue;
@@ -733,8 +733,9 @@ void RenderGrid(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DP
                 ImVec2 p_start_pix = PlotToPixels(p_start);
                 ImVec2 p_end_pix = PlotToPixels(p_end);
 
-                // Get color
-                ImU32 col_line = tick.Major ? col_grid_major : col_grid_minor;
+                // Get color - special case for world axis lines (through origin)
+                bool is_world_axis = ImAbs(tick.PlotPos) < 1e-8f; // Very close to zero
+                ImU32 col_line = is_world_axis ? col_grid_world : col_grid_regular;
 
                 // Draw the grid line
                 draw_list->AddLine(p_start_pix, p_end_pix, col_line);
@@ -759,8 +760,9 @@ void RenderGrid(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DP
                 ImVec2 p_start_pix = PlotToPixels(p_start);
                 ImVec2 p_end_pix = PlotToPixels(p_end);
 
-                // Get color
-                ImU32 col_line = tick.Major ? col_grid_major : col_grid_minor;
+                // Get color - special case for world axis lines (through origin)
+                bool is_world_axis = ImAbs(tick.PlotPos) < 1e-8f; // Very close to zero
+                ImU32 col_line = is_world_axis ? col_grid_world : col_grid_regular;
 
                 // Draw the grid line
                 draw_list->AddLine(p_start_pix, p_end_pix, col_line);
