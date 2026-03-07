@@ -1061,18 +1061,34 @@ struct ImDrawVert3D {
     ImU32 col;
 };
 
-// Command type for 3D rendering
-enum ImDrawCmd3DType { ImDrawCmd3DType_Triangles, ImDrawCmd3DType_Lines };
-
-// Draw command for 3D primitives. Tracks batches of lines or triangles.
+// Draw command for 3D triangles. Tracks batches of triangles with optional texturing.
 struct ImDrawCmd3D {
-    ImDrawCmd3DType Type;   // Primitive type (lines or triangles)
     unsigned int IdxOffset; // Start index in IdxBuffer
     unsigned int IdxCount;  // Number of indices in this command
-    float LineWeight;       // Line weight in pixels (only used for lines)
 };
 
-// List of all triangles to render for a given plot
+// Line primitive storing two NDC endpoints. Rendered as a screen-space quad by the backend.
+struct ImDrawLinePrim {
+    ImPlot3DPoint p0; // NDC start position
+    ImPlot3DPoint p1; // NDC end position
+    double z;         // Depth value for Z sorting
+    ImU32 col0;       // Color at p0
+    ImU32 col1;       // Color at p1
+    float weight;     // Line width in pixels
+};
+
+// Marker primitive storing a single NDC center point. Rendered as a screen-aligned sprite by the backend.
+struct ImDrawMarkerPrim {
+    ImPlot3DPoint center; // NDC center position
+    double z;             // Depth value for Z sorting
+    ImU32 fill_col;       // Fill color
+    ImU32 line_col;       // Outline color
+    float size;           // Marker size in pixels
+    float line_weight;    // Outline weight in pixels
+    ImPlot3DMarker type;  // Marker shape
+};
+
+// List of all primitives to render for a given plot
 struct ImDrawList3D {
     // [Internal] Define which texture should be used when rendering triangles.
     struct ImTextureBufferItem {
@@ -1080,16 +1096,21 @@ struct ImDrawList3D {
         unsigned int VtxIdx;
     };
 
+    // Triangle buffers
     ImVector<ImDrawIdx3D> IdxBuffer;  // Index buffer (32-bit indices)
     ImVector<ImDrawVert3D> VtxBuffer; // Vertex buffer (stores 3D NDC positions)
-    ImVector<double> ZBuffer;         // Z buffer. Depth value for each primitive
-    ImVector<ImDrawCmd3D> CmdBuffer;  // Command buffer (tracks primitive types and ranges)
-    unsigned int _VtxCurrentIdx;      // [Internal] current vertex index
-    ImDrawVert3D* _VtxWritePtr; // [Internal] point within VtxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    ImDrawIdx3D* _IdxWritePtr;  // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    double* _ZWritePtr;         // [Internal] point within ZBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    ImDrawCmd3D* _CmdWritePtr;  // [Internal] point within CmdBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    ImDrawListFlags _Flags;     // [Internal] draw list flags
+    ImVector<double> ZBuffer;         // Z buffer. Depth value for each triangle
+    ImVector<ImDrawCmd3D> CmdBuffer;  // Command buffer (tracks triangle batch ranges)
+    // Line and marker buffers (not tessellated; sent to backend for GPU rendering)
+    ImVector<ImDrawLinePrim> LineBuffer;     // Line segment primitives
+    ImVector<ImDrawMarkerPrim> MarkerBuffer; // Marker sprite primitives
+
+    unsigned int _VtxCurrentIdx; // [Internal] current vertex index
+    ImDrawVert3D* _VtxWritePtr;  // [Internal] point within VtxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    ImDrawIdx3D* _IdxWritePtr;   // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    double* _ZWritePtr;          // [Internal] point within ZBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    ImDrawCmd3D* _CmdWritePtr;   // [Internal] point within CmdBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    ImDrawListFlags _Flags;      // [Internal] draw list flags
     ImVector<ImTextureBufferItem> _TextureBuffer; // [Internal] buffer for SetTexture/ResetTexture
     ImDrawListSharedData* _SharedData;            // [Internal] shared draw list data
 
@@ -1104,6 +1125,8 @@ struct ImDrawList3D {
     void PrimReserveCmd(int cmd_count);
 
     void AddTriangleCmd(int idx_count);
+    void AddLine(const ImPlot3DPoint& p0, const ImPlot3DPoint& p1, double z, ImU32 col0, ImU32 col1, float weight);
+    void AddMarker(const ImPlot3DPoint& center, double z, ImU32 fill_col, ImU32 line_col, float size, float line_weight, ImPlot3DMarker type);
 
     void SetTexture(ImTextureRef tex_ref);
     void ResetTexture();
@@ -1115,6 +1138,8 @@ struct ImDrawList3D {
         VtxBuffer.clear();
         ZBuffer.clear();
         CmdBuffer.clear();
+        LineBuffer.clear();
+        MarkerBuffer.clear();
         _VtxCurrentIdx = 0;
         _VtxWritePtr = VtxBuffer.Data;
         _IdxWritePtr = IdxBuffer.Data;
@@ -1133,24 +1158,26 @@ struct ImDrawList3D {
 
 // Render data for a single plot. Contains a copy of the plot's draw list and texture state.
 struct ImDrawData3DPlot {
-    ImGuiID PlotID;                   // ID of the plot this render data belongs to
-    ImVector<ImDrawIdx3D> IdxBuffer;  // Copy of index buffer from plot
-    ImVector<ImDrawVert3D> VtxBuffer; // Copy of vertex buffer from plot
-    ImVector<ImDrawCmd3D> CmdBuffer;  // Copy of command buffer from plot
-    ImPlot3DQuat Rotation;            // Rotation quaternion for this plot
-    ImVec2 PlotRectMin;               // Plot rectangle min (for viewport)
-    ImVec2 PlotRectMax;               // Plot rectangle max (for viewport)
-    ImTextureID ColorTextureID;       // Final RGBA texture for rendering
-    ImTextureID DepthTextureID;       // Depth texture for depth testing
-    ImTextureID AccumTextureID;       // WBOIT accumulation texture
-    ImTextureID RevealTextureID;      // WBOIT reveal texture
-    ImVec2 TextureSize;               // Current texture size
-    bool ShouldResize;                // Set by Render() if texture needs resizing
-    bool ShouldRender;                // Set by Render() if plot should be rendered
-    bool ShouldDelete;                // Set by Render() if plot no longer exists
-    bool ShouldClip;                  // Set by Render() if clipping is enabled
-    ImPlot3DPoint ClipMin;            // Min clip bounds in NDC space
-    ImPlot3DPoint ClipMax;            // Max clip bounds in NDC space
+    ImGuiID PlotID;                          // ID of the plot this render data belongs to
+    ImVector<ImDrawIdx3D> IdxBuffer;         // Triangle index buffer
+    ImVector<ImDrawVert3D> VtxBuffer;        // Triangle vertex buffer
+    ImVector<ImDrawCmd3D> CmdBuffer;         // Triangle command buffer
+    ImVector<ImDrawLinePrim> LineBuffer;     // Line segment primitives
+    ImVector<ImDrawMarkerPrim> MarkerBuffer; // Marker sprite primitives
+    ImPlot3DQuat Rotation;                   // Rotation quaternion for this plot
+    ImVec2 PlotRectMin;                      // Plot rectangle min (for viewport)
+    ImVec2 PlotRectMax;                      // Plot rectangle max (for viewport)
+    ImTextureID ColorTextureID;              // Final RGBA texture for rendering
+    ImTextureID DepthTextureID;              // Depth texture for depth testing
+    ImTextureID AccumTextureID;              // WBOIT accumulation texture
+    ImTextureID RevealTextureID;             // WBOIT reveal texture
+    ImVec2 TextureSize;                      // Current texture size
+    bool ShouldResize;                       // Set by Render() if texture needs resizing
+    bool ShouldRender;                       // Set by Render() if plot should be rendered
+    bool ShouldDelete;                       // Set by Render() if plot no longer exists
+    bool ShouldClip;                         // Set by Render() if clipping is enabled
+    ImPlot3DPoint ClipMin;                   // Min clip bounds in NDC space
+    ImPlot3DPoint ClipMax;                   // Max clip bounds in NDC space
 
     ImDrawData3DPlot() {
         PlotID = 0;
@@ -1173,6 +1200,8 @@ struct ImDrawData3DPlot {
     void ResetBuffers() {
         IdxBuffer.clear();
         VtxBuffer.clear();
+        LineBuffer.clear();
+        MarkerBuffer.clear();
     }
 };
 

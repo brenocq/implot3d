@@ -251,6 +251,10 @@ void Render() {
         // Copy commands
         plot_data->CmdBuffer = plot->DrawList.CmdBuffer;
 
+        // Copy line and marker primitives
+        plot_data->LineBuffer = plot->DrawList.LineBuffer;
+        plot_data->MarkerBuffer = plot->DrawList.MarkerBuffer;
+
         // Copy plot state needed for rendering
         plot_data->Rotation = plot->Rotation;
         plot_data->PlotRectMin = plot->PlotRect.Min;
@@ -258,7 +262,7 @@ void Render() {
 
         // Set clipping parameters
         // Note: NDC cube is [-0.5*NDCScale, 0.5*NDCScale] per axis
-        plot_data->ShouldClip = !(plot->Flags & ImPlot3DFlags_NoClip);
+        plot_data->ShouldClip = !ImHasFlag(plot->Flags, ImPlot3DFlags_NoClip);
         if (plot_data->ShouldClip) {
             // Clip to full NDC cube using per-axis NDCScale
             plot_data->ClipMin =
@@ -3762,11 +3766,9 @@ void ImDrawList3D::AddTriangleCmd(int idx_count) {
     // Check if we can extend the last command
     if (CmdBuffer.Size > 0) {
         ImDrawCmd3D* last_cmd = &CmdBuffer[CmdBuffer.Size - 1];
-        if (last_cmd->Type == ImDrawCmd3DType_Triangles) {
-            // Extend existing triangle command
-            last_cmd->IdxCount += idx_count;
-            return;
-        }
+        // Extend existing triangle command
+        last_cmd->IdxCount += idx_count;
+        return;
     }
 
     // Create new triangle command
@@ -3778,10 +3780,32 @@ void ImDrawList3D::AddTriangleCmd(int idx_count) {
     }
 
     PrimReserveCmd(1);
-    _CmdWritePtr->Type = ImDrawCmd3DType_Triangles;
     _CmdWritePtr->IdxOffset = next_offset;
     _CmdWritePtr->IdxCount = idx_count;
-    _CmdWritePtr->LineWeight = 0.0f;
+}
+
+void ImDrawList3D::AddLine(const ImPlot3DPoint& p0, const ImPlot3DPoint& p1, double z, ImU32 col0, ImU32 col1, float weight) {
+    ImDrawLinePrim prim;
+    prim.p0 = p0;
+    prim.p1 = p1;
+    prim.z = z;
+    prim.col0 = col0;
+    prim.col1 = col1;
+    prim.weight = weight;
+    LineBuffer.push_back(prim);
+}
+
+void ImDrawList3D::AddMarker(const ImPlot3DPoint& center, double z, ImU32 fill_col, ImU32 line_col, float size, float line_weight,
+                             ImPlot3DMarker type) {
+    ImDrawMarkerPrim prim;
+    prim.center = center;
+    prim.z = z;
+    prim.fill_col = fill_col;
+    prim.line_col = line_col;
+    prim.size = size;
+    prim.line_weight = line_weight;
+    prim.type = type;
+    MarkerBuffer.push_back(prim);
 }
 
 void ImDrawList3D::SetTexture(ImTextureRef tex_ref) {

@@ -567,9 +567,6 @@ IMPLOT3D_IMPL_API void ImPlot3D_ImplOpenGL3_RenderDrawData(ImDrawData3D* draw_da
         for (int cmd_i = 0; cmd_i < plot_data->CmdBuffer.Size; cmd_i++) {
             const ImDrawCmd3D& cmd = plot_data->CmdBuffer[cmd_i];
 
-            // Phase 3: Assert all commands are triangles (line support comes in Phase 6)
-            IM_ASSERT(cmd.Type == ImDrawCmd3DType_Triangles && "Phase 3: Only triangle commands supported");
-
             // Draw triangles for this command
             glDrawElements(GL_TRIANGLES, cmd.IdxCount, GL_UNSIGNED_INT, (void*)(cmd.IdxOffset * sizeof(ImDrawIdx3D)));
         }

@@ -14,7 +14,6 @@
 // [SECTION] Macros & Defines
 // [SECTION] Template instantiation utility
 // [SECTION] Item Utils
-// [SECTION] Draw Utils
 // [SECTION] Renderers
 // [SECTION] Indexers
 // [SECTION] Getters
@@ -46,9 +45,6 @@
 // [SECTION] Macros & Defines
 //-----------------------------------------------------------------------------
 
-#define SQRT_1_2 0.70710678118f
-#define SQRT_3_2 0.86602540378f
-
 // clang-format off
 #ifndef IMPLOT3D_NO_FORCE_INLINE
     #ifdef _MSC_VER
@@ -78,19 +74,6 @@
             VY *= inv_len;                                                                                                                           \
         }                                                                                                                                            \
     } while (0)
-
-IMPLOT3D_INLINE void GetLineRenderProps(const ImDrawList3D& draw_list_3d, float& half_weight, ImVec2& tex_uv0, ImVec2& tex_uv1) {
-    const bool aa = ImPlot3D::ImHasFlag(draw_list_3d._Flags, ImDrawListFlags_AntiAliasedLines) &&
-                    ImPlot3D::ImHasFlag(draw_list_3d._Flags, ImDrawListFlags_AntiAliasedLinesUseTex);
-    if (aa) {
-        ImVec4 tex_uvs = draw_list_3d._SharedData->TexUvLines[(int)(half_weight * 2)];
-        tex_uv0 = ImVec2(tex_uvs.x, tex_uvs.y);
-        tex_uv1 = ImVec2(tex_uvs.z, tex_uvs.w);
-        half_weight += 1;
-    } else {
-        tex_uv0 = tex_uv1 = draw_list_3d._SharedData->TexUvWhitePixel;
-    }
-}
 
 //-----------------------------------------------------------------------------
 // [SECTION] Template instantiation utility
@@ -277,53 +260,6 @@ void BustItemCache() {
 }
 
 //-----------------------------------------------------------------------------
-// [SECTION] Draw Utils
-//-----------------------------------------------------------------------------
-
-IMPLOT3D_INLINE void PrimLine(ImDrawList3D& draw_list_3d, const ImPlot3DPoint& P1_ndc, const ImPlot3DPoint& P2_ndc, float half_weight, ImU32 col,
-                              const ImVec2& tex_uv0, const ImVec2& tex_uv1, double z) {
-    // TODO Compute perpendicular direction in NDC space
-    // Scale the half_weight from pixel units to NDC units
-    const float ndc_half_weight = 0.01f * half_weight;
-
-    float dx = (float)(P2_ndc.x - P1_ndc.x);
-    float dy = (float)(P2_ndc.y - P1_ndc.y);
-    IMPLOT3D_NORMALIZE2F(dx, dy);
-    dx *= ndc_half_weight;
-    dy *= ndc_half_weight;
-
-    // Create the 4 corners of the line quad
-    draw_list_3d._VtxWritePtr[0].pos = ImPlot3DPoint(P1_ndc.x + dy, P1_ndc.y - dx, P1_ndc.z);
-    draw_list_3d._VtxWritePtr[0].uv = tex_uv0;
-    draw_list_3d._VtxWritePtr[0].col = col;
-    draw_list_3d._VtxWritePtr[1].pos = ImPlot3DPoint(P2_ndc.x + dy, P2_ndc.y - dx, P2_ndc.z);
-    draw_list_3d._VtxWritePtr[1].uv = tex_uv0;
-    draw_list_3d._VtxWritePtr[1].col = col;
-    draw_list_3d._VtxWritePtr[2].pos = ImPlot3DPoint(P2_ndc.x - dy, P2_ndc.y + dx, P2_ndc.z);
-    draw_list_3d._VtxWritePtr[2].uv = tex_uv1;
-    draw_list_3d._VtxWritePtr[2].col = col;
-    draw_list_3d._VtxWritePtr[3].pos = ImPlot3DPoint(P1_ndc.x - dy, P1_ndc.y + dx, P1_ndc.z);
-    draw_list_3d._VtxWritePtr[3].uv = tex_uv1;
-    draw_list_3d._VtxWritePtr[3].col = col;
-    draw_list_3d._VtxWritePtr += 4;
-
-    draw_list_3d._IdxWritePtr[0] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx);
-    draw_list_3d._IdxWritePtr[1] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx + 1);
-    draw_list_3d._IdxWritePtr[2] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx + 2);
-    draw_list_3d._IdxWritePtr[3] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx);
-    draw_list_3d._IdxWritePtr[4] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx + 2);
-    draw_list_3d._IdxWritePtr[5] = (ImDrawIdx3D)(draw_list_3d._VtxCurrentIdx + 3);
-    draw_list_3d._IdxWritePtr += 6;
-    draw_list_3d._VtxCurrentIdx += 4;
-    draw_list_3d._ZWritePtr[0] = z;
-    draw_list_3d._ZWritePtr[1] = z;
-    draw_list_3d._ZWritePtr += 2;
-
-    // Add triangle command (6 indices = 2 triangles for the line quad)
-    draw_list_3d.AddTriangleCmd(6);
-}
-
-//-----------------------------------------------------------------------------
 // [SECTION] Renderers
 //-----------------------------------------------------------------------------
 
@@ -352,95 +288,14 @@ struct RendererBase {
     const unsigned int ZConsumed;   // Number of depth values consumed per primitive
 };
 
-template <class _Getter> struct RendererMarkersFill : RendererBase {
-    RendererMarkersFill(const _Getter& getter, const ImVec2* marker, int count, float size, ImU32 col)
-        : RendererBase(getter.Count, (count - 2) * 3, count, count - 2), Getter(getter), Marker(marker), Count(count), Size(size), Col(col) {}
-
-    void Init(ImDrawList3D& draw_list_3d) const { UV = draw_list_3d._SharedData->TexUvWhitePixel; }
-
-    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
-        ImPlot3DPoint p_plot = Getter(prim);
-        if (!cull_box.Contains(p_plot))
-            return false;
-        ImPlot3DPoint p_ndc = PlotToNDC(p_plot);
-        // Use a small hardcoded marker size in NDC for now. TODO do it properly
-        const float ndc_marker_size = 0.03f;
-        // 3 vertices per triangle
-        for (int i = 0; i < Count; i++) {
-            draw_list_3d._VtxWritePtr[0].pos =
-                ImPlot3DPoint(p_ndc.x + Marker[i].x * ndc_marker_size, p_ndc.y + Marker[i].y * ndc_marker_size, p_ndc.z);
-            draw_list_3d._VtxWritePtr[0].uv = UV;
-            draw_list_3d._VtxWritePtr[0].col = Col;
-            draw_list_3d._VtxWritePtr++;
-        }
-        // 3 indices per triangle
-        for (int i = 2; i < Count; i++) {
-            // Indices
-            draw_list_3d._IdxWritePtr[0] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx);
-            draw_list_3d._IdxWritePtr[1] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + i - 1);
-            draw_list_3d._IdxWritePtr[2] = (ImDrawIdx)(draw_list_3d._VtxCurrentIdx + i);
-            draw_list_3d._IdxWritePtr += 3;
-            // Z
-            draw_list_3d._ZWritePtr[0] = GetPointDepth(p_plot);
-            draw_list_3d._ZWritePtr++;
-        }
-        // Update vertex count
-        draw_list_3d._VtxCurrentIdx += (ImDrawIdx)Count;
-
-        // Add triangle command
-        draw_list_3d.AddTriangleCmd((Count - 2) * 3);
-
-        return true;
-    }
-    const _Getter& Getter;
-    const ImVec2* Marker;
-    const int Count;
-    const float Size;
-    const ImU32 Col;
-    mutable ImVec2 UV;
-};
-
-template <class _Getter> struct RendererMarkersLine : RendererBase {
-    RendererMarkersLine(const _Getter& getter, const ImVec2* marker, int count, float size, float weight, ImU32 col)
-        : RendererBase(getter.Count, count / 2 * 6, count / 2 * 4, count / 2 * 2), Getter(getter), Marker(marker), Count(count),
-          HalfWeight(ImMax(1.0f, weight) * 0.5f), Size(size), Col(col) {}
-
-    void Init(ImDrawList3D& draw_list_3d) const { GetLineRenderProps(draw_list_3d, HalfWeight, UV0, UV1); }
-
-    IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
-        ImPlot3DPoint p_plot = Getter(prim);
-        if (!cull_box.Contains(p_plot))
-            return false;
-        ImPlot3DPoint p_ndc = PlotToNDC(p_plot);
-        // Use a small hardcoded marker size in NDC for now
-        const float ndc_marker_size = 0.03f;
-        for (int i = 0; i < Count; i = i + 2) {
-            // Compute marker line endpoints in NDC space
-            ImPlot3DPoint p1_ndc = ImPlot3DPoint(p_ndc.x + Marker[i].x * ndc_marker_size, p_ndc.y + Marker[i].y * ndc_marker_size, p_ndc.z);
-            ImPlot3DPoint p2_ndc = ImPlot3DPoint(p_ndc.x + Marker[i + 1].x * ndc_marker_size, p_ndc.y + Marker[i + 1].y * ndc_marker_size, p_ndc.z);
-            PrimLine(draw_list_3d, p1_ndc, p2_ndc, HalfWeight, Col, UV0, UV1, GetPointDepth(p_plot));
-        }
-        return true;
-    }
-
-    const _Getter& Getter;
-    const ImVec2* Marker;
-    const int Count;
-    mutable float HalfWeight;
-    const float Size;
-    const ImU32 Col;
-    mutable ImVec2 UV0;
-    mutable ImVec2 UV1;
-};
-
 template <class _Getter> struct RendererLineStrip : RendererBase {
     RendererLineStrip(const _Getter& getter, ImU32 col, float weight)
-        : RendererBase(getter.Count - 1, 6, 4, 2), Getter(getter), Col(col), HalfWeight(ImMax(1.0f, weight) * 0.5f) {
+        : RendererBase(getter.Count - 1, 0, 0, 0), Getter(getter), Col(col), Weight(ImMax(1.0f, weight)) {
         // Initialize the first point in plot coordinates
         P1_plot = Getter(0);
     }
 
-    void Init(ImDrawList3D& draw_list_3d) const { GetLineRenderProps(draw_list_3d, HalfWeight, UV0, UV1); }
+    void Init(ImDrawList3D&) const {}
 
     IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
         ImPlot3DPoint P2_plot = Getter(prim + 1);
@@ -454,31 +309,28 @@ template <class _Getter> struct RendererLineStrip : RendererBase {
             ImPlot3DPoint P1_ndc = PlotToNDC(P1_clipped);
             ImPlot3DPoint P2_ndc = PlotToNDC(P2_clipped);
             // Render the line segment
-            PrimLine(draw_list_3d, P1_ndc, P2_ndc, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
+            draw_list_3d.AddLine(P1_ndc, P2_ndc, GetPointDepth((P1_plot + P2_plot) * 0.5), Col, Col, Weight);
         }
 
         // Update for next segment
         P1_plot = P2_plot;
-
         return visible;
     }
 
     const _Getter& Getter;
     const ImU32 Col;
-    mutable float HalfWeight;
+    const float Weight;
     mutable ImPlot3DPoint P1_plot;
-    mutable ImVec2 UV0;
-    mutable ImVec2 UV1;
 };
 
 template <class _Getter> struct RendererLineStripSkip : RendererBase {
     RendererLineStripSkip(const _Getter& getter, ImU32 col, float weight)
-        : RendererBase(getter.Count - 1, 6, 4, 2), Getter(getter), Col(col), HalfWeight(ImMax(1.0f, weight) * 0.5f) {
+        : RendererBase(getter.Count - 1, 0, 0, 0), Getter(getter), Col(col), Weight(ImMax(1.0f, weight)) {
         // Initialize the first point in plot coordinates
         P1_plot = Getter(0);
     }
 
-    void Init(ImDrawList3D& draw_list_3d) const { GetLineRenderProps(draw_list_3d, HalfWeight, UV0, UV1); }
+    void Init(ImDrawList3D&) const {}
 
     IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
         // Get the next point in plot coordinates
@@ -487,7 +339,6 @@ template <class _Getter> struct RendererLineStripSkip : RendererBase {
 
         // Check for NaNs in P1_plot and P2_plot
         if (!ImNan(P1_plot.x) && !ImNan(P1_plot.y) && !ImNan(P1_plot.z) && !ImNan(P2_plot.x) && !ImNan(P2_plot.y) && !ImNan(P2_plot.z)) {
-
             // Clip the line segment to the culling box
             ImPlot3DPoint P1_clipped, P2_clipped;
             visible = cull_box.ClipLineSegment(P1_plot, P2_plot, P1_clipped, P2_clipped);
@@ -497,7 +348,7 @@ template <class _Getter> struct RendererLineStripSkip : RendererBase {
                 ImPlot3DPoint P1_ndc = PlotToNDC(P1_clipped);
                 ImPlot3DPoint P2_ndc = PlotToNDC(P2_clipped);
                 // Render the line segment
-                PrimLine(draw_list_3d, P1_ndc, P2_ndc, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
+                draw_list_3d.AddLine(P1_ndc, P2_ndc, GetPointDepth((P1_plot + P2_plot) * 0.5), Col, Col, Weight);
             }
         }
 
@@ -510,17 +361,15 @@ template <class _Getter> struct RendererLineStripSkip : RendererBase {
 
     const _Getter& Getter;
     const ImU32 Col;
-    mutable float HalfWeight;
+    const float Weight;
     mutable ImPlot3DPoint P1_plot;
-    mutable ImVec2 UV0;
-    mutable ImVec2 UV1;
 };
 
 template <class _Getter> struct RendererLineSegments : RendererBase {
     RendererLineSegments(const _Getter& getter, ImU32 col, float weight)
-        : RendererBase(getter.Count / 2, 6, 4, 2), Getter(getter), Col(col), HalfWeight(ImMax(1.0f, weight) * 0.5f) {}
+        : RendererBase(getter.Count / 2, 0, 0, 0), Getter(getter), Col(col), Weight(ImMax(1.0f, weight)) {}
 
-    void Init(ImDrawList3D& draw_list_3d) const { GetLineRenderProps(draw_list_3d, HalfWeight, UV0, UV1); }
+    void Init(ImDrawList3D&) const {}
 
     IMPLOT3D_INLINE bool Render(ImDrawList3D& draw_list_3d, const ImPlot3DBox& cull_box, int prim) const {
         // Get the segment's endpoints in plot coordinates
@@ -529,7 +378,6 @@ template <class _Getter> struct RendererLineSegments : RendererBase {
 
         // Check for NaNs in P1_plot and P2_plot
         if (!ImNan(P1_plot.x) && !ImNan(P1_plot.y) && !ImNan(P1_plot.z) && !ImNan(P2_plot.x) && !ImNan(P2_plot.y) && !ImNan(P2_plot.z)) {
-
             // Clip the line segment to the culling box
             ImPlot3DPoint P1_clipped, P2_clipped;
             bool visible = cull_box.ClipLineSegment(P1_plot, P2_plot, P1_clipped, P2_clipped);
@@ -539,7 +387,7 @@ template <class _Getter> struct RendererLineSegments : RendererBase {
                 ImPlot3DPoint P1_ndc = PlotToNDC(P1_clipped);
                 ImPlot3DPoint P2_ndc = PlotToNDC(P2_clipped);
                 // Render the line segment
-                PrimLine(draw_list_3d, P1_ndc, P2_ndc, HalfWeight, Col, UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
+                draw_list_3d.AddLine(P1_ndc, P2_ndc, GetPointDepth((P1_plot + P2_plot) * 0.5), Col, Col, Weight);
             }
             return visible;
         }
@@ -549,9 +397,7 @@ template <class _Getter> struct RendererLineSegments : RendererBase {
 
     const _Getter& Getter;
     const ImU32 Col;
-    mutable float HalfWeight;
-    mutable ImVec2 UV0;
-    mutable ImVec2 UV1;
+    const float Weight;
 };
 
 template <class _Getter> struct RendererTriangleFill : RendererBase {
@@ -1017,7 +863,7 @@ struct GetterMeshTriangles {
 // [SECTION] RenderPrimitives
 //-----------------------------------------------------------------------------
 
-/// Renders primitive shapes
+/// Renders triangle-based primitive shapes (surfaces, fills)
 template <template <class> class _Renderer, class _Getter, typename... Args> void RenderPrimitives(const _Getter& getter, Args... args) {
     _Renderer<_Getter> renderer(getter, args...);
     ImPlot3DPlot& plot = *GetCurrentPlot();
@@ -1049,92 +895,50 @@ template <template <class> class _Renderer, class _Getter, typename... Args> voi
     draw_list_3d.PrimUnreserve(num_culled * renderer.IdxConsumed, num_culled * renderer.VtxConsumed, num_culled * renderer.ZConsumed);
 }
 
+/// Renders line segment primitives (pushes to LineBuffer, no tessellation)
+template <template <class> class _Renderer, class _Getter, typename... Args> void RenderLinePrimitives(const _Getter& getter, Args... args) {
+    _Renderer<_Getter> renderer(getter, args...);
+    ImPlot3DPlot& plot = *GetCurrentPlot();
+    ImDrawList3D& draw_list_3d = plot.DrawList;
+    ImPlot3DBox cull_box;
+    if (ImHasFlag(plot.Flags, ImPlot3DFlags_NoClip)) {
+        cull_box.Min = ImPlot3DPoint(-HUGE_VAL, -HUGE_VAL, -HUGE_VAL);
+        cull_box.Max = ImPlot3DPoint(HUGE_VAL, HUGE_VAL, HUGE_VAL);
+    } else {
+        cull_box.Min = plot.RangeMin();
+        cull_box.Max = plot.RangeMax();
+    }
+
+    renderer.Init(draw_list_3d);
+    for (unsigned int i = 0; i < renderer.Prims; i++)
+        renderer.Render(draw_list_3d, cull_box, i);
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Markers
 //-----------------------------------------------------------------------------
 
-static const ImVec2 MARKER_FILL_CIRCLE[10] = {ImVec2(1.0f, 0.0f),
-                                              ImVec2(0.809017f, 0.58778524f),
-                                              ImVec2(0.30901697f, 0.95105654f),
-                                              ImVec2(-0.30901703f, 0.9510565f),
-                                              ImVec2(-0.80901706f, 0.5877852f),
-                                              ImVec2(-1.0f, 0.0f),
-                                              ImVec2(-0.80901694f, -0.58778536f),
-                                              ImVec2(-0.3090171f, -0.9510565f),
-                                              ImVec2(0.30901712f, -0.9510565f),
-                                              ImVec2(0.80901694f, -0.5877853f)};
-static const ImVec2 MARKER_FILL_SQUARE[4] = {ImVec2(SQRT_1_2, SQRT_1_2), ImVec2(SQRT_1_2, -SQRT_1_2), ImVec2(-SQRT_1_2, -SQRT_1_2),
-                                             ImVec2(-SQRT_1_2, SQRT_1_2)};
-static const ImVec2 MARKER_FILL_DIAMOND[4] = {ImVec2(1, 0), ImVec2(0, -1), ImVec2(-1, 0), ImVec2(0, 1)};
-static const ImVec2 MARKER_FILL_UP[3] = {ImVec2(SQRT_3_2, 0.5f), ImVec2(0, -1), ImVec2(-SQRT_3_2, 0.5f)};
-static const ImVec2 MARKER_FILL_DOWN[3] = {ImVec2(SQRT_3_2, -0.5f), ImVec2(0, 1), ImVec2(-SQRT_3_2, -0.5f)};
-static const ImVec2 MARKER_FILL_LEFT[3] = {ImVec2(-1, 0), ImVec2(0.5, SQRT_3_2), ImVec2(0.5, -SQRT_3_2)};
-static const ImVec2 MARKER_FILL_RIGHT[3] = {ImVec2(1, 0), ImVec2(-0.5, SQRT_3_2), ImVec2(-0.5, -SQRT_3_2)};
-static const ImVec2 MARKER_LINE_CIRCLE[20] = {ImVec2(1.0f, 0.0f),
-                                              ImVec2(0.809017f, 0.58778524f),
-                                              ImVec2(0.809017f, 0.58778524f),
-                                              ImVec2(0.30901697f, 0.95105654f),
-                                              ImVec2(0.30901697f, 0.95105654f),
-                                              ImVec2(-0.30901703f, 0.9510565f),
-                                              ImVec2(-0.30901703f, 0.9510565f),
-                                              ImVec2(-0.80901706f, 0.5877852f),
-                                              ImVec2(-0.80901706f, 0.5877852f),
-                                              ImVec2(-1.0f, 0.0f),
-                                              ImVec2(-1.0f, 0.0f),
-                                              ImVec2(-0.80901694f, -0.58778536f),
-                                              ImVec2(-0.80901694f, -0.58778536f),
-                                              ImVec2(-0.3090171f, -0.9510565f),
-                                              ImVec2(-0.3090171f, -0.9510565f),
-                                              ImVec2(0.30901712f, -0.9510565f),
-                                              ImVec2(0.30901712f, -0.9510565f),
-                                              ImVec2(0.80901694f, -0.5877853f),
-                                              ImVec2(0.80901694f, -0.5877853f),
-                                              ImVec2(1.0f, 0.0f)};
-static const ImVec2 MARKER_LINE_SQUARE[8] = {ImVec2(SQRT_1_2, SQRT_1_2),   ImVec2(SQRT_1_2, -SQRT_1_2),  ImVec2(SQRT_1_2, -SQRT_1_2),
-                                             ImVec2(-SQRT_1_2, -SQRT_1_2), ImVec2(-SQRT_1_2, -SQRT_1_2), ImVec2(-SQRT_1_2, SQRT_1_2),
-                                             ImVec2(-SQRT_1_2, SQRT_1_2),  ImVec2(SQRT_1_2, SQRT_1_2)};
-static const ImVec2 MARKER_LINE_DIAMOND[8] = {ImVec2(1, 0),  ImVec2(0, -1), ImVec2(0, -1), ImVec2(-1, 0),
-                                              ImVec2(-1, 0), ImVec2(0, 1),  ImVec2(0, 1),  ImVec2(1, 0)};
-static const ImVec2 MARKER_LINE_UP[6] = {ImVec2(SQRT_3_2, 0.5f),  ImVec2(0, -1),           ImVec2(0, -1),
-                                         ImVec2(-SQRT_3_2, 0.5f), ImVec2(-SQRT_3_2, 0.5f), ImVec2(SQRT_3_2, 0.5f)};
-static const ImVec2 MARKER_LINE_DOWN[6] = {ImVec2(SQRT_3_2, -0.5f),  ImVec2(0, 1),           ImVec2(0, 1), ImVec2(-SQRT_3_2, -0.5f),
-                                           ImVec2(-SQRT_3_2, -0.5f), ImVec2(SQRT_3_2, -0.5f)};
-static const ImVec2 MARKER_LINE_LEFT[6] = {ImVec2(-1, 0),          ImVec2(0.5, SQRT_3_2),  ImVec2(0.5, SQRT_3_2),
-                                           ImVec2(0.5, -SQRT_3_2), ImVec2(0.5, -SQRT_3_2), ImVec2(-1, 0)};
-static const ImVec2 MARKER_LINE_RIGHT[6] = {
-    ImVec2(1, 0), ImVec2(-0.5, SQRT_3_2), ImVec2(-0.5, SQRT_3_2), ImVec2(-0.5, -SQRT_3_2), ImVec2(-0.5, -SQRT_3_2), ImVec2(1, 0)};
-static const ImVec2 MARKER_LINE_ASTERISK[6] = {ImVec2(-SQRT_3_2, -0.5f), ImVec2(SQRT_3_2, 0.5f), ImVec2(-SQRT_3_2, 0.5f),
-                                               ImVec2(SQRT_3_2, -0.5f),  ImVec2(0, -1),          ImVec2(0, 1)};
-static const ImVec2 MARKER_LINE_PLUS[4] = {ImVec2(-1, 0), ImVec2(1, 0), ImVec2(0, -1), ImVec2(0, 1)};
-static const ImVec2 MARKER_LINE_CROSS[4] = {ImVec2(-SQRT_1_2, -SQRT_1_2), ImVec2(SQRT_1_2, SQRT_1_2), ImVec2(SQRT_1_2, -SQRT_1_2),
-                                            ImVec2(-SQRT_1_2, SQRT_1_2)};
-
 template <typename _Getter> void RenderMarkers(const _Getter& getter, ImPlot3DMarker marker, float size, bool rend_fill, ImU32 col_fill,
                                                bool rend_line, ImU32 col_line, float weight) {
-    if (rend_fill) {
-        switch (marker) {
-            case ImPlot3DMarker_Circle: RenderPrimitives<RendererMarkersFill>(getter, MARKER_FILL_CIRCLE, 10, size, col_fill); break;
-            case ImPlot3DMarker_Square: RenderPrimitives<RendererMarkersFill>(getter, MARKER_FILL_SQUARE, 4, size, col_fill); break;
-            case ImPlot3DMarker_Diamond: RenderPrimitives<RendererMarkersFill>(getter, MARKER_FILL_DIAMOND, 4, size, col_fill); break;
-            case ImPlot3DMarker_Up: RenderPrimitives<RendererMarkersFill>(getter, MARKER_FILL_UP, 3, size, col_fill); break;
-            case ImPlot3DMarker_Down: RenderPrimitives<RendererMarkersFill>(getter, MARKER_FILL_DOWN, 3, size, col_fill); break;
-            case ImPlot3DMarker_Left: RenderPrimitives<RendererMarkersFill>(getter, MARKER_FILL_LEFT, 3, size, col_fill); break;
-            case ImPlot3DMarker_Right: RenderPrimitives<RendererMarkersFill>(getter, MARKER_FILL_RIGHT, 3, size, col_fill); break;
-        }
+    ImPlot3DPlot& plot = *GetCurrentPlot();
+    ImDrawList3D& draw_list_3d = plot.DrawList;
+    ImPlot3DBox cull_box;
+    if (ImHasFlag(plot.Flags, ImPlot3DFlags_NoClip)) {
+        cull_box.Min = ImPlot3DPoint(-HUGE_VAL, -HUGE_VAL, -HUGE_VAL);
+        cull_box.Max = ImPlot3DPoint(HUGE_VAL, HUGE_VAL, HUGE_VAL);
+    } else {
+        cull_box.Min = plot.RangeMin();
+        cull_box.Max = plot.RangeMax();
     }
-    if (rend_line) {
-        switch (marker) {
-            case ImPlot3DMarker_Circle: RenderPrimitives<RendererMarkersLine>(getter, MARKER_LINE_CIRCLE, 20, size, weight, col_line); break;
-            case ImPlot3DMarker_Square: RenderPrimitives<RendererMarkersLine>(getter, MARKER_LINE_SQUARE, 8, size, weight, col_line); break;
-            case ImPlot3DMarker_Diamond: RenderPrimitives<RendererMarkersLine>(getter, MARKER_LINE_DIAMOND, 8, size, weight, col_line); break;
-            case ImPlot3DMarker_Up: RenderPrimitives<RendererMarkersLine>(getter, MARKER_LINE_UP, 6, size, weight, col_line); break;
-            case ImPlot3DMarker_Down: RenderPrimitives<RendererMarkersLine>(getter, MARKER_LINE_DOWN, 6, size, weight, col_line); break;
-            case ImPlot3DMarker_Left: RenderPrimitives<RendererMarkersLine>(getter, MARKER_LINE_LEFT, 6, size, weight, col_line); break;
-            case ImPlot3DMarker_Right: RenderPrimitives<RendererMarkersLine>(getter, MARKER_LINE_RIGHT, 6, size, weight, col_line); break;
-            case ImPlot3DMarker_Asterisk: RenderPrimitives<RendererMarkersLine>(getter, MARKER_LINE_ASTERISK, 6, size, weight, col_line); break;
-            case ImPlot3DMarker_Plus: RenderPrimitives<RendererMarkersLine>(getter, MARKER_LINE_PLUS, 4, size, weight, col_line); break;
-            case ImPlot3DMarker_Cross: RenderPrimitives<RendererMarkersLine>(getter, MARKER_LINE_CROSS, 4, size, weight, col_line); break;
-        }
+
+    const ImU32 no_col = IM_COL32(0, 0, 0, 0);
+    for (int i = 0; i < getter.Count; i++) {
+        ImPlot3DPoint p_plot = getter(i);
+        if (!cull_box.Contains(p_plot))
+            continue;
+        ImPlot3DPoint p_ndc = PlotToNDC(p_plot);
+        double z = GetPointDepth(p_plot);
+        draw_list_3d.AddMarker(p_ndc, z, rend_fill ? col_fill : no_col, rend_line ? col_line : no_col, size, weight, marker);
     }
 }
 
@@ -1182,17 +986,17 @@ template <typename _Getter> void PlotLineEx(const char* label_id, const _Getter&
         if (getter.Count >= 2 && n.RenderLine) {
             const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
             if (ImHasFlag(spec.Flags, ImPlot3DLineFlags_Segments)) {
-                RenderPrimitives<RendererLineSegments>(getter, col_line, s.LineWeight);
+                RenderLinePrimitives<RendererLineSegments>(getter, col_line, s.LineWeight);
             } else if (ImHasFlag(spec.Flags, ImPlot3DLineFlags_Loop)) {
                 if (ImHasFlag(spec.Flags, ImPlot3DLineFlags_SkipNaN))
-                    RenderPrimitives<RendererLineStripSkip>(GetterLoop<_Getter>(getter), col_line, s.LineWeight);
+                    RenderLinePrimitives<RendererLineStripSkip>(GetterLoop<_Getter>(getter), col_line, s.LineWeight);
                 else
-                    RenderPrimitives<RendererLineStrip>(GetterLoop<_Getter>(getter), col_line, s.LineWeight);
+                    RenderLinePrimitives<RendererLineStrip>(GetterLoop<_Getter>(getter), col_line, s.LineWeight);
             } else {
                 if (ImHasFlag(spec.Flags, ImPlot3DLineFlags_SkipNaN))
-                    RenderPrimitives<RendererLineStripSkip>(getter, col_line, s.LineWeight);
+                    RenderLinePrimitives<RendererLineStripSkip>(getter, col_line, s.LineWeight);
                 else
-                    RenderPrimitives<RendererLineStrip>(getter, col_line, s.LineWeight);
+                    RenderLinePrimitives<RendererLineStrip>(getter, col_line, s.LineWeight);
             }
         }
 
@@ -1239,7 +1043,7 @@ template <typename _Getter> void PlotTriangleEx(const char* label_id, const _Get
         // Render lines
         if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(spec.Flags, ImPlot3DTriangleFlags_NoLines)) {
             const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
-            RenderPrimitives<RendererLineSegments>(GetterTriangleLines<_Getter>(getter), col_line, s.LineWeight);
+            RenderLinePrimitives<RendererLineSegments>(GetterTriangleLines<_Getter>(getter), col_line, s.LineWeight);
         }
 
         // Render markers
@@ -1286,7 +1090,7 @@ template <typename _Getter> void PlotQuadEx(const char* label_id, const _Getter&
         // Render lines
         if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(spec.Flags, ImPlot3DQuadFlags_NoLines)) {
             const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
-            RenderPrimitives<RendererLineSegments>(GetterQuadLines<_Getter>(getter), col_line, s.LineWeight);
+            RenderLinePrimitives<RendererLineSegments>(GetterQuadLines<_Getter>(getter), col_line, s.LineWeight);
         }
 
         // Render markers
@@ -1334,7 +1138,7 @@ template <typename _Getter> void PlotSurfaceEx(const char* label_id, const _Gett
         // Render lines
         if (getter.Count >= 2 && n.RenderLine && !ImHasFlag(spec.Flags, ImPlot3DSurfaceFlags_NoLines)) {
             const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
-            RenderPrimitives<RendererLineSegments>(GetterSurfaceLines<_Getter>(getter, x_count, y_count), col_line, s.LineWeight);
+            RenderLinePrimitives<RendererLineSegments>(GetterSurfaceLines<_Getter>(getter, x_count, y_count), col_line, s.LineWeight);
         }
 
         // Render markers
@@ -1387,7 +1191,7 @@ void PlotMesh(const char* label_id, const ImPlot3DPoint* vtx, const unsigned int
         // Render lines
         if (getter.Count >= 2 && n.RenderLine && !n.IsAutoLine && !ImHasFlag(spec.Flags, ImPlot3DMeshFlags_NoLines)) {
             const ImU32 col_line = ImGui::GetColorU32(s.LineColor);
-            RenderPrimitives<RendererLineSegments>(GetterTriangleLines<GetterMeshTriangles>(getter_triangles), col_line, s.LineWeight);
+            RenderLinePrimitives<RendererLineSegments>(GetterTriangleLines<GetterMeshTriangles>(getter_triangles), col_line, s.LineWeight);
         }
 
         // Render markers
