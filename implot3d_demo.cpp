@@ -29,6 +29,14 @@
 #include "implot3d.h"
 #include "implot3d_internal.h"
 
+// Helper to wire demo markers located in code to an interactive browser (e.g. imgui_explorer)
+#if IMGUI_VERSION_NUM >= 19263
+namespace ImGui { extern IMGUI_API void DemoMarker(const char* file, int line, const char* section); };
+#define IMGUI_DEMO_MARKER(section)  do { ImGui::DemoMarker("implot3d_demo.cpp", __LINE__, section); } while (0)
+#else
+#define IMGUI_DEMO_MARKER(section)
+#endif
+
 //-----------------------------------------------------------------------------
 // [SECTION] User Namespace
 //-----------------------------------------------------------------------------
@@ -106,6 +114,7 @@ int MetricFormatter(double value, char* buff, int size, void* data) {
 //-----------------------------------------------------------------------------
 
 void DemoLinePlots() {
+    IMGUI_DEMO_MARKER("Plots/Line Plots");
     static float xs1[1001], ys1[1001], zs1[1001];
     for (int i = 0; i < 1001; i++) {
         xs1[i] = i * 0.001f;
@@ -127,6 +136,7 @@ void DemoLinePlots() {
 }
 
 void DemoScatterPlots() {
+    IMGUI_DEMO_MARKER("Plots/Scatter Plots");
     srand(0);
     static float xs1[100], ys1[100], zs1[100];
     for (int i = 0; i < 100; i++) {
@@ -155,6 +165,7 @@ void DemoScatterPlots() {
 }
 
 void DemoTrianglePlots() {
+    IMGUI_DEMO_MARKER("Plots/Triangle Plots");
     // Pyramid coordinates
     // Apex
     float ax = 0.0f, ay = 0.0f, az = 1.0f;
@@ -240,6 +251,7 @@ void DemoTrianglePlots() {
 }
 
 void DemoQuadPlots() {
+    IMGUI_DEMO_MARKER("Plots/Quad Plots");
     static float xs[6 * 4], ys[6 * 4], zs[6 * 4];
 
     // clang-format off
@@ -320,6 +332,7 @@ void DemoQuadPlots() {
 }
 
 void DemoSurfacePlots() {
+    IMGUI_DEMO_MARKER("Plots/Surface Plots");
     constexpr int N = 20;
     static float xs[N * N], ys[N * N], zs[N * N];
     static float t = 0.0f;
@@ -417,6 +430,7 @@ void DemoSurfacePlots() {
 }
 
 void DemoMeshPlots() {
+    IMGUI_DEMO_MARKER("Plots/Mesh Plots");
     static int mesh_id = 0;
     ImGui::Combo("Mesh", &mesh_id, "Duck\0Sphere\0Cube\0\0");
 
@@ -466,6 +480,7 @@ void DemoMeshPlots() {
 }
 
 void DemoImagePlots() {
+    IMGUI_DEMO_MARKER("Plots/Image Plots");
     ImGui::BulletText("Below we are displaying the font texture, which is the only texture we have\naccess to in this demo.");
     ImGui::BulletText("Use the 'ImTextureID' type as storage to pass pointers or identifiers to your\nown texture data.");
     ImGui::BulletText("See ImGui Wiki page 'Image Loading and Displaying Examples'.");
@@ -556,6 +571,7 @@ void DemoImagePlots() {
 }
 
 void DemoRealtimePlots() {
+    IMGUI_DEMO_MARKER("Plots/Realtime Plots");
     ImGui::BulletText("Move your mouse to change the data!");
     static ScrollingBuffer sdata1, sdata2, sdata3;
     static ImPlot3DAxisFlags flags = ImPlot3DAxisFlags_NoTickLabels;
@@ -589,6 +605,7 @@ void DemoRealtimePlots() {
 }
 
 void DemoPlotFlags() {
+    IMGUI_DEMO_MARKER("Plots/Plot Flags");
     static ImPlot3DFlags flags = ImPlot3DFlags_None;
 
     CHECKBOX_FLAG(flags, ImPlot3DFlags_NoTitle);
@@ -691,6 +708,7 @@ void DemoPlotFlags() {
 }
 
 void DemoOffsetAndStride() {
+    IMGUI_DEMO_MARKER("Plots/Offset and Stride");
     static const int k_spirals = 11;
     static const int k_points_per = 50;
     static const int k_size = 3 * k_points_per * k_spirals;
@@ -728,6 +746,7 @@ void DemoOffsetAndStride() {
 }
 
 void DemoLegendOptions() {
+    IMGUI_DEMO_MARKER("Plots/Legend Options");
     static ImPlot3DLocation loc = ImPlot3DLocation_East;
     ImGui::CheckboxFlags("North", (unsigned int*)&loc, ImPlot3DLocation_North);
     ImGui::SameLine();
@@ -802,6 +821,7 @@ void DemoLegendOptions() {
 }
 
 void DemoMarkersAndText() {
+    IMGUI_DEMO_MARKER("Plots/Markers and Text");
     static float mk_size = ImPlot3D::GetStyle().MarkerSize;
     static float mk_weight = ImPlot3D::GetStyle().LineWeight;
     ImGui::DragFloat("Marker Size", &mk_size, 0.1f, 2.0f, 10.0f, "%.2f px");
@@ -861,6 +881,7 @@ void DemoMarkersAndText() {
 }
 
 void DemoNaNValues() {
+    IMGUI_DEMO_MARKER("Plots/NaN Values");
     static bool include_nan = true;
     static ImPlot3DLineFlags flags = 0;
 
@@ -886,6 +907,7 @@ void DemoNaNValues() {
 //-----------------------------------------------------------------------------
 
 void DemoBoxScale() {
+    IMGUI_DEMO_MARKER("Axes/Box Scale");
     constexpr int N = 100;
     float xs[N], ys[N], zs[N];
     for (int i = 0; i < N; i++) {
@@ -906,6 +928,7 @@ void DemoBoxScale() {
 }
 
 void DemoBoxRotation() {
+    IMGUI_DEMO_MARKER("Axes/Box Rotation");
     double origin[2] = {0.0, 0.0};
     double axis[2] = {0.0, 1.0};
 
@@ -949,6 +972,7 @@ void DemoBoxRotation() {
 }
 
 void Demo_LogScale() {
+    IMGUI_DEMO_MARKER("Axes/Log Scale");
     static double xs[1001], ys1[1001], ys2[1001], ys3[1001], zs[1001];
     for (int i = 0; i < 1001; i++) {
         xs[i] = i * 0.1;
@@ -970,6 +994,7 @@ void Demo_LogScale() {
 }
 
 void Demo_SymmetricLogScale() {
+    IMGUI_DEMO_MARKER("Axes/Symmetric Log Scale");
     static double xs[1001], ys1[1001], ys2[1001], zs[1001];
     for (int i = 0; i < 1001; i++) {
         xs[i] = i * 0.1f - 50;
@@ -986,6 +1011,7 @@ void Demo_SymmetricLogScale() {
 }
 
 void DemoTickLabels() {
+    IMGUI_DEMO_MARKER("Axes/Tick Labels");
     static bool custom_fmt = true;
     static bool custom_ticks = false;
     static bool custom_labels = true;
@@ -1016,6 +1042,7 @@ void DemoTickLabels() {
 }
 
 void DemoAxisConstraints() {
+    IMGUI_DEMO_MARKER("Axes/Axis Constraints");
     static float limit_constraints[2] = {-10, 10};
     static float zoom_constraints[2] = {1, 20};
     static ImPlot3DAxisFlags flags;
@@ -1036,6 +1063,7 @@ void DemoAxisConstraints() {
 }
 
 void DemoEqualAxes() {
+    IMGUI_DEMO_MARKER("Axes/Equal Axes");
     ImGui::BulletText("Equal constraint applies to all three axes (X, Y, Z)");
     ImGui::BulletText("When enabled, the axes maintain the same units/pixel ratio");
 
@@ -1073,6 +1101,7 @@ void DemoEqualAxes() {
 }
 
 void DemoAutoFittingData() {
+    IMGUI_DEMO_MARKER("Axes/Auto-Fitting Data");
     ImGui::BulletText("Axes can be configured to auto-fit to data extents.");
     ImGui::BulletText("Try panning and zooming to see the axes adjust.");
     ImGui::BulletText("Disable AutoFit on an axis to fix its range.");
@@ -1117,6 +1146,7 @@ void DemoAutoFittingData() {
 //-----------------------------------------------------------------------------
 
 void DemoMousePicking() {
+    IMGUI_DEMO_MARKER("Tools/Mouse Picking");
     static ImVector<ImPlot3DPoint> points;
     static ImVector<ImPlot3DRay> rays;
 
@@ -1199,6 +1229,7 @@ void DemoMousePicking() {
 //-----------------------------------------------------------------------------
 
 void DemoCustomStyles() {
+    IMGUI_DEMO_MARKER("Custom/Custom Styles");
     ImPlot3D::PushColormap(ImPlot3DColormap_Deep);
     // normally you wouldn't change the entire style each frame
     ImPlot3DStyle backup = ImPlot3D::GetStyle();
@@ -1221,6 +1252,7 @@ void DemoCustomStyles() {
 }
 
 void DemoCustomRendering() {
+    IMGUI_DEMO_MARKER("Custom/Custom Rendering");
     if (ImPlot3D::BeginPlot("##CustomRend")) {
         ImPlot3D::SetupAxesLimits(-0.1, 1.1, -0.1, 1.1, -0.1, 1.1);
 
@@ -1248,6 +1280,7 @@ void DemoCustomRendering() {
 }
 
 void DemoCustomOverlay() {
+    IMGUI_DEMO_MARKER("Custom/Custom Overlay");
     ImGui::BulletText("Demonstrates custom 2D overlays using GetPlotRectPos/GetPlotRectSize.");
     ImGui::BulletText("Shows mouse tooltip, line to closest point, and orientation gizmo.");
 
@@ -1364,6 +1397,7 @@ void DemoCustomOverlay() {
 }
 
 void DemoCustomPerPointStyle() {
+    IMGUI_DEMO_MARKER("Custom/Custom Per-Point Style");
     ImGui::BulletText("Demonstrates per-point coloring using colormap sampling.");
     ImGui::BulletText("A different color is sampled for each point.");
     ImGui::BulletText("All points share the same label for a single legend entry.");
@@ -1478,6 +1512,7 @@ void DemoCustomPerPointStyle() {
 //-----------------------------------------------------------------------------
 
 void DemoConfig() {
+    IMGUI_DEMO_MARKER("Config");
     ImGui::ShowFontSelector("Font");
     ImGui::ShowStyleSelector("ImGui Style");
     ImPlot3D::ShowStyleSelector("ImPlot3D Style");
@@ -1518,6 +1553,7 @@ void DemoConfig() {
 //-----------------------------------------------------------------------------
 
 void DemoHelp() {
+    IMGUI_DEMO_MARKER("Help");
     ImGui::SeparatorText("ABOUT THIS DEMO:");
     ImGui::BulletText("The other tabs are demonstrating many aspects of the library.");
 
