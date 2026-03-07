@@ -2778,18 +2778,18 @@ struct ImPlot3DStyleVarInfo {
 static const ImPlot3DStyleVarInfo GPlot3DStyleVarInfo[] = {
     // Item style
     {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, LineWeight)}, // ImPlot3DStyleVar_LineWeight
-    {ImGuiDataType_S32, 1, (ImU32)offsetof(ImPlot3DStyle, Marker)},       // ImPlot3DStyleVar_Marker
+    {ImGuiDataType_S32,   1, (ImU32)offsetof(ImPlot3DStyle, Marker)},     // ImPlot3DStyleVar_Marker
     {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, MarkerSize)}, // ImPlot3DStyleVar_MarkerSize
     {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, FillAlpha)},  // ImPlot3DStyleVar_FillAlpha
 
     // Plot style
-    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotDefaultSize)}, // ImPlot3DStyleVar_Plot3DDefaultSize
-    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotMinSize)},     // ImPlot3DStyleVar_Plot3DMinSize
-    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotPadding)},     // ImPlot3DStyleVar_Plot3DPadding
+    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotDefaultSize)}, // ImPlot3DStyleVar_PlotDefaultSize
+    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotMinSize)},     // ImPlot3DStyleVar_PlotMinSize
+    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, PlotPadding)},     // ImPlot3DStyleVar_PlotPadding
+    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LabelPadding)},    // ImPlot3DStyleVar_LabelPadding
     {ImGuiDataType_Float, 1, (ImU32)offsetof(ImPlot3DStyle, ViewScaleFactor)}, // ImPlot3DStyleVar_ViewScaleFactor
 
-    // Label style
-    {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LabelPadding)},       // ImPlot3DStyleVar_LabelPaddine
+    // Legend style
     {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LegendPadding)},      // ImPlot3DStyleVar_LegendPadding
     {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LegendInnerPadding)}, // ImPlot3DStyleVar_LegendInnerPadding
     {ImGuiDataType_Float, 2, (ImU32)offsetof(ImPlot3DStyle, LegendSpacing)},      // ImPlot3DStyleVar_LegendSpacing
