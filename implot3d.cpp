@@ -48,6 +48,7 @@ Below is a change-log of API breaking changes only. If you are using one of the 
 When you are not sure about an old symbol or function name, try using the Search/Find function of your IDE to look for comments or references in all
 implot3d files. You can read releases logs https://github.com/brenocq/implot3d/releases for more details.
 
+- 2026/02/17 (0.4) - Added ImPlot3DCol_AxisBg, ImPlot3DCol_AxisBgHovered, ImPlot3DCol_AxisBgActive colors for axis hover regions.
 - 2026/02/03 (0.4) - ImPlotSpec was made the default and _only_ way of styling plot items. The SetNextXXXStyle functions have been removed.
                       - SetNextLineStyle has been removed, styling should be set via ImPlot3DSpec.
                           ```cpp
@@ -589,54 +590,134 @@ int GetMouseOverPlane(const bool* active_faces, const ImVec2* corners_pix, int* 
     return -1; // Not over any active plane
 }
 
-int GetMouseOverAxis(const bool* active_faces, const ImVec2* corners_pix, const int plane_2d, int* edge_out = nullptr) {
-    const float axis_proximity_threshold = 15.0f; // Distance in pixels to consider the mouse "close" to an axis
+// Check if a point is inside an edge's hover region (a rectangle extending outward from the edge)
+bool IsPointInEdgeHoverRegion(const ImVec2& point, const ImVec2& p0, const ImVec2& p1, const ImVec2& outward_dir, float width) {
+    ImVec2 dir = p1 - p0;
+    float len = ImSqrt(ImLengthSqr(dir));
+    if (len < 0.001f)
+        return false;
+    dir = dir / len;
+
+    // Transform point to edge's local coordinate system
+    ImVec2 local = point - p0;
+    float along = local.x * dir.x + local.y * dir.y;
+    float across = local.x * outward_dir.x + local.y * outward_dir.y;
+
+    // Check if within bounds (rectangle extends from edge outward)
+    return along >= 0 && along <= len && across >= 0 && across <= width;
+}
+
+// Compute the outward direction for an edge (perpendicular, pointing away from box center)
+ImVec2 ComputeEdgeOutwardDir(const ImVec2& p0, const ImVec2& p1, const ImVec2& box_center) {
+    ImVec2 dir = p1 - p0;
+    float len = ImSqrt(ImLengthSqr(dir));
+    if (len < 0.001f)
+        return ImVec2(0, 0);
+    dir = dir / len;
+
+    // Perpendicular direction
+    ImVec2 perp(-dir.y, dir.x);
+
+    // Make sure it points away from box center
+    ImVec2 edge_center = (p0 + p1) * 0.5f;
+    ImVec2 to_edge = edge_center - box_center;
+    if (ImDot(perp, to_edge) < 0)
+        perp = ImVec2(-perp.x, -perp.y);
+
+    return perp;
+}
+
+// Forward declaration
+float ComputeMaxTickLabelExtent(const ImPlot3DAxis& axis, const ImVec2& axis_screen_dir);
+
+int GetMouseOverAxis(const ImPlot3DPlot& plot, const ImVec2* corners_pix, const int plane_2d, const int axis_corners[3][2], int* edge_out = nullptr) {
+    const float tick_label_offset = 20.0f; // Base offset from axis to tick labels
+    const float axis_label_padding = 5.0f; // Padding between tick labels and axis label
 
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 mouse_pos = io.MousePos;
     if (edge_out)
         *edge_out = -1;
 
-    bool visible_edges[12];
-    for (int i = 0; i < 12; i++)
-        visible_edges[i] = false;
-    for (int a = 0; a < 3; a++) {
-        int face_idx = a + 3 * active_faces[a];
-        if (plane_2d != -1 && a != plane_2d)
-            continue;
-        for (size_t i = 0; i < 4; i++)
-            visible_edges[face_edges[face_idx][i]] = true;
-    }
+    // Compute box center in screen space (average of all corners)
+    ImVec2 box_center(0, 0);
+    for (int i = 0; i < 8; i++)
+        box_center = box_center + corners_pix[i];
+    box_center = box_center * (1.0f / 8.0f);
 
-    // Check each edge for proximity to the mouse
-    for (int edge = 0; edge < 12; edge++) {
-        if (!visible_edges[edge])
+    // Check each axis for mouse containment in hover rectangle
+    for (int axis_idx = 0; axis_idx < 3; axis_idx++) {
+        // In 2D mode, skip the perpendicular axis
+        if (plane_2d != -1 && axis_idx == plane_2d)
             continue;
 
-        ImVec2 p0 = corners_pix[edges[edge][0]];
-        ImVec2 p1 = corners_pix[edges[edge][1]];
+        int idx0 = axis_corners[axis_idx][0];
+        int idx1 = axis_corners[axis_idx][1];
 
-        // Check distance to the edge
-        ImVec2 closest_point = ImLineClosestPoint(p0, p1, mouse_pos);
-        float dist = ImLengthSqr(mouse_pos - closest_point);
-        if (dist <= axis_proximity_threshold) {
+        // Skip if axis corners are not defined
+        if (idx0 == -1 || idx1 == -1)
+            continue;
+
+        // Find the edge index for these two corners
+        int edge = -1;
+        for (int e = 0; e < 12; e++) {
+            if ((edges[e][0] == idx0 && edges[e][1] == idx1) || (edges[e][0] == idx1 && edges[e][1] == idx0)) {
+                edge = e;
+                break;
+            }
+        }
+
+        if (edge == -1)
+            continue;
+
+        const ImPlot3DAxis& axis = plot.Axes[axis_idx];
+
+        // Compute axis screen direction for tick label extent calculation
+        ImVec2 axis_start_pix = corners_pix[idx0];
+        ImVec2 axis_end_pix = corners_pix[idx1];
+        ImVec2 axis_screen_dir = axis_end_pix - axis_start_pix;
+        float axis_length = ImSqrt(ImLengthSqr(axis_screen_dir));
+        if (axis_length != 0.0f)
+            axis_screen_dir /= axis_length;
+        else
+            axis_screen_dir = ImVec2(1.0f, 0.0f);
+
+        // Compute hover rect width based on tick labels and axis label
+        float max_tick_extent = ComputeMaxTickLabelExtent(axis, axis_screen_dir);
+        float hover_width = tick_label_offset + max_tick_extent;
+
+        // Add axis label extent if present
+        if (axis.HasLabel()) {
+            float angle = atan2f(-axis_screen_dir.y, axis_screen_dir.x);
+            if (angle > IM_PI * 0.5f)
+                angle -= IM_PI;
+            if (angle < -IM_PI * 0.5f)
+                angle += IM_PI;
+
+            ImVec2 label_size = ImGui::CalcTextSize(axis.GetLabel());
+            float cos_a = cosf(angle);
+            float sin_a = sinf(angle);
+            float label_extent = ImAbs(label_size.x * sin_a) + ImAbs(label_size.y * cos_a);
+            hover_width += axis_label_padding + label_extent * 0.5f + label_size.y * 0.5f;
+        }
+
+        ImVec2 p0 = corners_pix[idx0];
+        ImVec2 p1 = corners_pix[idx1];
+        ImVec2 outward_dir = ComputeEdgeOutwardDir(p0, p1, box_center);
+
+        // Check if mouse is within the edge's hover region
+        if (IsPointInEdgeHoverRegion(mouse_pos, p0, p1, outward_dir, hover_width)) {
             if (edge_out)
                 *edge_out = edge;
-
-            // Determine which axis the edge belongs to
-            if (edge == 0 || edge == 2 || edge == 4 || edge == 6)
-                return 0; // X-axis
-            else if (edge == 1 || edge == 3 || edge == 5 || edge == 7)
-                return 1; // Y-axis
-            else
-                return 2; // Z-axis
+            return axis_idx;
         }
     }
 
     return -1; // Not over any axis
 }
 
-void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d) {
+void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d,
+                          const int axis_corners[3][2]) {
     const ImVec4 col_bg = GetStyleColorVec4(ImPlot3DCol_PlotBg);
     const ImVec4 col_bg_hov = col_bg + ImVec4(0.03f, 0.03f, 0.03f, 0.0f);
 
@@ -644,7 +725,7 @@ void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const
     if (!plot.Held) {
         // If the mouse is not held, highlight plane hovering when mouse over it
         hovered_plane = GetMouseOverPlane(active_faces, corners_pix);
-        if (GetMouseOverAxis(active_faces, corners_pix, plane_2d) != -1)
+        if (GetMouseOverAxis(plot, corners_pix, plane_2d, axis_corners) != -1)
             hovered_plane = -1;
     } else {
         // If the mouse is held, highlight the held plane
@@ -660,13 +741,105 @@ void RenderPlotBackground(ImDrawList* draw_list, const ImPlot3DPlot& plot, const
     }
 }
 
-void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d) {
+void RenderAxisRects(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImVec2* corners_pix, const bool*, const int plane_2d,
+                     const int axis_corners[3][2]) {
+    const float tick_label_offset = 20.0f; // Base offset from axis to tick labels
+    const float axis_label_padding = 5.0f; // Padding between tick labels and axis label
+
     int hovered_edge = -1;
     if (!plot.Held)
-        GetMouseOverAxis(active_faces, corners_pix, plane_2d, &hovered_edge);
+        GetMouseOverAxis(plot, corners_pix, plane_2d, axis_corners, &hovered_edge);
     else
         hovered_edge = plot.HeldEdgeIdx;
 
+    // Compute box center in screen space
+    ImVec2 box_center(0, 0);
+    for (int i = 0; i < 8; i++)
+        box_center = box_center + corners_pix[i];
+    box_center = box_center * (1.0f / 8.0f);
+
+    // Render axis hover rectangles
+    for (int axis_idx = 0; axis_idx < 3; axis_idx++) {
+        // In 2D mode, skip the perpendicular axis
+        if (plane_2d != -1 && axis_idx == plane_2d)
+            continue;
+
+        int idx0 = axis_corners[axis_idx][0];
+        int idx1 = axis_corners[axis_idx][1];
+
+        // Skip if axis corners are not defined
+        if (idx0 == -1 || idx1 == -1)
+            continue;
+
+        // Find the edge index for these two corners
+        int edge = -1;
+        for (int e = 0; e < 12; e++) {
+            if ((edges[e][0] == idx0 && edges[e][1] == idx1) || (edges[e][0] == idx1 && edges[e][1] == idx0)) {
+                edge = e;
+                break;
+            }
+        }
+
+        if (edge == -1)
+            continue;
+
+        const ImPlot3DAxis& axis = plot.Axes[axis_idx];
+
+        // Compute axis screen direction for tick label extent calculation
+        ImVec2 axis_start_pix = corners_pix[idx0];
+        ImVec2 axis_end_pix = corners_pix[idx1];
+        ImVec2 axis_screen_dir = axis_end_pix - axis_start_pix;
+        float axis_length = ImSqrt(ImLengthSqr(axis_screen_dir));
+        if (axis_length != 0.0f)
+            axis_screen_dir /= axis_length;
+        else
+            axis_screen_dir = ImVec2(1.0f, 0.0f);
+
+        // Compute hover rect width based on tick labels and axis label
+        float max_tick_extent = ComputeMaxTickLabelExtent(axis, axis_screen_dir);
+        float hover_width = tick_label_offset + max_tick_extent;
+
+        // Add axis label extent if present
+        if (axis.HasLabel()) {
+            float angle = atan2f(-axis_screen_dir.y, axis_screen_dir.x);
+            if (angle > IM_PI * 0.5f)
+                angle -= IM_PI;
+            if (angle < -IM_PI * 0.5f)
+                angle += IM_PI;
+
+            ImVec2 label_size = ImGui::CalcTextSize(axis.GetLabel());
+            float cos_a = cosf(angle);
+            float sin_a = sinf(angle);
+            float label_extent = ImAbs(label_size.x * sin_a) + ImAbs(label_size.y * cos_a);
+            hover_width += axis_label_padding + label_extent * 0.5f + label_size.y * 0.5f;
+        }
+
+        // Determine color based on state
+        ImU32 col;
+        if (edge == hovered_edge) {
+            col = axis.Held ? axis.ColorAct : axis.ColorHov;
+        } else {
+            col = axis.ColorBg;
+        }
+
+        // Draw hover rectangle if color is not transparent
+        if (col != IM_COL32_BLACK_TRANS) {
+            ImVec2 p0 = corners_pix[idx0];
+            ImVec2 p1 = corners_pix[idx1];
+            ImVec2 outward_dir = ComputeEdgeOutwardDir(p0, p1, box_center);
+
+            // Draw rectangle extending outward from edge
+            ImVec2 c0 = p0;
+            ImVec2 c1 = p0 + outward_dir * hover_width;
+            ImVec2 c2 = p1 + outward_dir * hover_width;
+            ImVec2 c3 = p1;
+            draw_list->AddQuadFilled(c0, c1, c2, c3, col);
+        }
+    }
+}
+
+void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot&, const ImVec2* corners_pix, const bool* active_faces, const int plane_2d) {
+    // Determine which edges to render (all visible edges)
     bool render_edge[12];
     for (int i = 0; i < 12; i++)
         render_edge[i] = false;
@@ -678,13 +851,13 @@ void RenderPlotBorder(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImV
             render_edge[face_edges[face_idx][i]] = true;
     }
 
+    // Render edge lines (all visible edges)
     ImU32 col_bd = GetStyleColorU32(ImPlot3DCol_PlotBorder);
     for (int i = 0; i < 12; i++) {
         if (render_edge[i]) {
             int idx0 = edges[i][0];
             int idx1 = edges[i][1];
-            float thickness = i == hovered_edge ? 3.0f : 1.0f;
-            draw_list->AddLine(corners_pix[idx0], corners_pix[idx1], col_bd, thickness);
+            draw_list->AddLine(corners_pix[idx0], corners_pix[idx1], col_bd, 1.0f);
         }
     }
 }
@@ -875,6 +1048,51 @@ void RenderTickMarks(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPl
     }
 }
 
+// Computes the maximum extent of tick labels perpendicular to the axis in screen space
+float ComputeMaxTickLabelExtent(const ImPlot3DAxis& axis, const ImVec2& axis_screen_dir) {
+    if (ImPlot3D::ImHasFlag(axis.Flags, ImPlot3DAxisFlags_NoTickLabels))
+        return 0.0f;
+
+    // Compute angle perpendicular to axis in screen space
+    float angle = atan2f(-axis_screen_dir.y, axis_screen_dir.x) + IM_PI * 0.5f;
+
+    // Normalize angle to be between -π and π
+    if (angle > IM_PI)
+        angle -= 2 * IM_PI;
+    if (angle < -IM_PI)
+        angle += 2 * IM_PI;
+
+    // Adjust angle to keep labels upright
+    if (angle > IM_PI * 0.5f)
+        angle -= IM_PI;
+    if (angle < -IM_PI * 0.5f)
+        angle += IM_PI;
+
+    float cos_a = cosf(angle);
+    float sin_a = sinf(angle);
+
+    float max_extent = 0.0f;
+    for (int t = 0; t < axis.Ticker.TickCount(); ++t) {
+        const ImPlot3DTick& tick = axis.Ticker.Ticks[t];
+        if (!tick.ShowLabel)
+            continue;
+
+        // The label is rendered centered at the tick position with rotation
+        // Compute the rotated bounding box extent perpendicular to the axis
+        float w = tick.LabelSize.x;
+        float h = tick.LabelSize.y;
+
+        // The extent perpendicular to the axis depends on the rotation
+        // For a rotated rectangle, the extent in the perpendicular direction is:
+        // |w * sin(angle)| + |h * cos(angle)| (half extent, since centered)
+        float extent = ImAbs(w * sin_a) + ImAbs(h * cos_a);
+        extent = extent * 0.5f + h * 0.5f; // Add half height for centering offset
+        max_extent = ImMax(max_extent, extent);
+    }
+
+    return max_extent;
+}
+
 void RenderTickLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint* corners, const ImVec2* corners_pix,
                       const int axis_corners[3][2]) {
     ImU32 col_tick_txt = GetStyleColorU32(ImPlot3DCol_AxisText);
@@ -970,8 +1188,12 @@ void RenderTickLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
     }
 }
 
-void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint* corners, const ImVec2* corners_pix,
+void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImPlot3DPoint*, const ImVec2* corners_pix,
                       const int axis_corners[3][2]) {
+    ImU32 col_ax_txt = GetStyleColorU32(ImPlot3DCol_AxisText);
+    const float tick_label_offset = 20.0f; // Base offset from axis to tick labels
+    const float axis_label_padding = 5.0f; // Padding between tick labels and axis label
+
     for (int a = 0; a < 3; a++) {
         const ImPlot3DAxis& axis = plot.Axes[a];
         if (!axis.HasLabel())
@@ -987,21 +1209,40 @@ void RenderAxisLabels(ImDrawList* draw_list, const ImPlot3DPlot& plot, const ImP
         if (idx0 == idx1)
             continue;
 
-        // Position at the end of the axis
-        ImPlot3DPoint label_pos = (PlotToNDC(corners[idx0]) + PlotToNDC(corners[idx1])) * 0.5f;
-        ImPlot3DPoint center_dir = label_pos.Normalized();
-        // Add offset
-        label_pos += center_dir * 0.3f;
+        // Convert axis start and end to screen space
+        ImVec2 axis_start_pix = corners_pix[idx0];
+        ImVec2 axis_end_pix = corners_pix[idx1];
 
-        // Convert to pixel coordinates
-        ImVec2 label_pos_pix = NDCToPixels(label_pos);
+        // Screen space axis direction
+        ImVec2 axis_screen_dir = axis_end_pix - axis_start_pix;
+        float axis_length = ImSqrt(ImLengthSqr(axis_screen_dir));
+        if (axis_length != 0.0f)
+            axis_screen_dir /= axis_length;
+        else
+            axis_screen_dir = ImVec2(1.0f, 0.0f);
 
-        // Adjust label position and angle
-        ImU32 col_ax_txt = GetStyleColorU32(ImPlot3DCol_AxisText);
+        // Perpendicular direction in screen space (pointing outward from plot center)
+        ImVec2 offset_dir_pix = ImVec2(-axis_screen_dir.y, axis_screen_dir.x);
+        ImVec2 box_center_pix = PlotToPixels(plot.RangeCenter());
+        ImVec2 axis_center_pix = (axis_start_pix + axis_end_pix) * 0.5f;
+        ImVec2 center_to_axis_pix = axis_center_pix - box_center_pix;
+        float center_dist = ImSqrt(ImLengthSqr(center_to_axis_pix));
+        if (center_dist > 0.0f)
+            center_to_axis_pix /= center_dist;
+        if (ImDot(offset_dir_pix, center_to_axis_pix) < 0.0f)
+            offset_dir_pix = -offset_dir_pix;
+
+        // Compute max tick label extent
+        float max_tick_extent = ComputeMaxTickLabelExtent(axis, axis_screen_dir);
+
+        // Compute total offset: base offset + tick label extent + padding
+        float total_offset = tick_label_offset + max_tick_extent + axis_label_padding;
+
+        // Position the axis label at the center of the axis, offset by the computed amount
+        ImVec2 label_pos_pix = axis_center_pix + offset_dir_pix * total_offset;
 
         // Compute text angle
-        ImVec2 screen_delta = corners_pix[idx1] - corners_pix[idx0];
-        float angle = atan2f(-screen_delta.y, screen_delta.x);
+        float angle = atan2f(-axis_screen_dir.y, axis_screen_dir.x);
         if (angle > IM_PI * 0.5f)
             angle -= IM_PI;
         if (angle < -IM_PI * 0.5f)
@@ -1210,7 +1451,8 @@ void RenderPlotBox(ImDrawList* draw_list, const ImPlot3DPlot& plot) {
     GetAxesParameters(plot, active_faces, corners_pix, corners, plane_2d, axis_corners);
 
     // Render components
-    RenderPlotBackground(draw_list, plot, corners_pix, active_faces, plane_2d);
+    RenderPlotBackground(draw_list, plot, corners_pix, active_faces, plane_2d, axis_corners);
+    RenderAxisRects(draw_list, plot, corners_pix, active_faces, plane_2d, axis_corners);
     RenderPlotBorder(draw_list, plot, corners_pix, active_faces, plane_2d);
     RenderGrid(draw_list, plot, corners, active_faces, plane_2d);
     RenderTickMarks(draw_list, plot, corners, corners_pix, axis_corners, plane_2d);
@@ -2218,20 +2460,16 @@ void HandleInput(ImPlot3DPlot& plot) {
     // HOVERING STATE -------------------------------------------------------------------
 
     // Check if any axis/plane is hovered
-    const ImPlot3DQuat& rotation = plot.Rotation;
-    ImPlot3DPoint range_min = plot.RangeMin();
-    ImPlot3DPoint range_max = plot.RangeMax();
     bool active_faces[3];
-    int plane_2d = -1;
-    ComputeActiveFaces(active_faces, rotation, plot.Axes, &plane_2d);
-    ImPlot3DPoint corners[8];
-    ComputeBoxCorners(corners, range_min, range_max);
     ImVec2 corners_pix[8];
-    ComputeBoxCornersPix(plot, corners_pix, corners);
+    ImPlot3DPoint corners[8];
+    int plane_2d;
+    int axis_corners[3][2];
+    GetAxesParameters(plot, active_faces, corners_pix, corners, plane_2d, axis_corners);
     int hovered_plane_idx = -1;
     int hovered_plane = GetMouseOverPlane(active_faces, corners_pix, &hovered_plane_idx);
     int hovered_edge_idx = -1;
-    int hovered_axis = GetMouseOverAxis(active_faces, corners_pix, plane_2d, &hovered_edge_idx);
+    int hovered_axis = GetMouseOverAxis(plot, corners_pix, plane_2d, axis_corners, &hovered_edge_idx);
     if (hovered_axis != -1) {
         hovered_plane_idx = -1;
         hovered_plane = -1;
@@ -2728,6 +2966,14 @@ void SetupLock() {
         }
     }
 
+    // Cache axis colors
+    for (int i = 0; i < 3; i++) {
+        ImPlot3DAxis& axis = plot.Axes[i];
+        axis.ColorBg = GetStyleColorU32(ImPlot3DCol_AxisBg);
+        axis.ColorHov = GetStyleColorU32(ImPlot3DCol_AxisBgHovered);
+        axis.ColorAct = GetStyleColorU32(ImPlot3DCol_AxisBgActive);
+    }
+
     // Render title
     if (plot.HasTitle()) {
         ImU32 col = GetStyleColorU32(ImPlot3DCol_TitleText);
@@ -2819,6 +3065,9 @@ void StyleColorsAuto(ImPlot3DStyle* dst) {
     colors[ImPlot3DCol_AxisText] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_AxisGrid] = IMPLOT3D_AUTO_COL;
     colors[ImPlot3DCol_AxisTick] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBg] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgHovered] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgActive] = IMPLOT3D_AUTO_COL;
 }
 
 void StyleColorsDark(ImPlot3DStyle* dst) {
@@ -2836,6 +3085,9 @@ void StyleColorsDark(ImPlot3DStyle* dst) {
     colors[ImPlot3DCol_AxisText] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     colors[ImPlot3DCol_AxisGrid] = ImVec4(1.00f, 1.00f, 1.00f, 0.25f);
     colors[ImPlot3DCol_AxisTick] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBg] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgHovered] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgActive] = IMPLOT3D_AUTO_COL;
 }
 
 void StyleColorsLight(ImPlot3DStyle* dst) {
@@ -2853,6 +3105,9 @@ void StyleColorsLight(ImPlot3DStyle* dst) {
     colors[ImPlot3DCol_AxisText] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
     colors[ImPlot3DCol_AxisGrid] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     colors[ImPlot3DCol_AxisTick] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBg] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgHovered] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgActive] = IMPLOT3D_AUTO_COL;
 }
 
 void StyleColorsClassic(ImPlot3DStyle* dst) {
@@ -2870,6 +3125,9 @@ void StyleColorsClassic(ImPlot3DStyle* dst) {
     colors[ImPlot3DCol_AxisText] = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
     colors[ImPlot3DCol_AxisGrid] = ImVec4(0.90f, 0.90f, 0.90f, 0.25f);
     colors[ImPlot3DCol_AxisTick] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBg] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgHovered] = IMPLOT3D_AUTO_COL;
+    colors[ImPlot3DCol_AxisBgActive] = IMPLOT3D_AUTO_COL;
 }
 
 bool ShowStyleSelector(const char* label) {
@@ -3264,13 +3522,17 @@ ImVec4 GetAutoColor(ImPlot3DCol idx) {
         case ImPlot3DCol_AxisText: return ImGui::GetStyleColorVec4(ImGuiCol_Text);
         case ImPlot3DCol_AxisGrid: return ImGui::GetStyleColorVec4(ImGuiCol_Text) * ImVec4(1, 1, 1, 0.25f);
         case ImPlot3DCol_AxisTick: return GetStyleColorVec4(ImPlot3DCol_AxisGrid);
+        case ImPlot3DCol_AxisBg: return ImVec4(0, 0, 0, 0);
+        case ImPlot3DCol_AxisBgHovered: return ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered);
+        case ImPlot3DCol_AxisBgActive: return ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
         default: return IMPLOT3D_AUTO_COL;
     }
 }
 
 const char* GetStyleColorName(ImPlot3DCol idx) {
     static const char* color_names[ImPlot3DCol_COUNT] = {
-        "TitleText", "InlayText", "FrameBg", "PlotBg", "PlotBorder", "LegendBg", "LegendBorder", "LegendText", "AxisText", "AxisGrid", "AxisTick",
+        "TitleText",  "InlayText", "FrameBg",  "PlotBg",   "PlotBorder", "LegendBg",      "LegendBorder",
+        "LegendText", "AxisText",  "AxisGrid", "AxisTick", "AxisBg",     "AxisBgHovered", "AxisBgActive",
     };
     return color_names[idx];
 }

@@ -488,6 +488,10 @@ struct ImPlot3DAxis {
     // User input
     bool Hovered;
     bool Held;
+    // Cached colors
+    ImU32 ColorBg;
+    ImU32 ColorHov;
+    ImU32 ColorAct;
 
     // Constructor
     ImPlot3DAxis() {
@@ -515,6 +519,8 @@ struct ImPlot3DAxis {
         // User input
         Hovered = false;
         Held = false;
+        // Cached colors
+        ColorBg = ColorHov = ColorAct = IM_COL32_BLACK_TRANS;
     }
 
     inline void Reset() {
