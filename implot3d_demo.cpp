@@ -2460,7 +2460,7 @@ ImPlot3DPoint SineWave(const int idx, const void* const wave_data) {
 
     const double x = idx * wd->X;
     const double y = wd->Z;
-    const double z = wd->Offset + wd->Amp * std::sin(2.0 * 3.14f * wd->Freq * x);
+    const double z = wd->Offset + wd->Amp * ImSin(2.0 * 3.14f * wd->Freq * x);
 
     return {x, y, z};
 }
@@ -2472,7 +2472,7 @@ ImPlot3DPoint SawWave(const int idx, const void* const wave_data) {
     const double y = wd->Z;
 
     const double phase = 3.14f * wd->Freq * x;
-    const double z = wd->Offset + wd->Amp * (-2.0 / 3.14f * std::atan2(std::cos(phase), std::sin(phase)));
+    const double z = wd->Offset + wd->Amp * (-2.0 / 3.14f * ImAtan2(ImCos(phase), ImSin(phase)));
 
     return {x, y, z};
 }
@@ -2490,8 +2490,8 @@ ImPlot3DPoint Spiral(const int idx, const void*) {
 
     const float radius = inner_radius + increment_per_rev * theta / (2.0f * 3.14f);
 
-    const float x = radius * std::cos(theta);
-    const float y = radius * std::sin(theta);
+    const float x = radius * ImCos(theta);
+    const float y = radius * ImSin(theta);
     const float z = t;
 
     return {x, y, z};
