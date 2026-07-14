@@ -805,6 +805,9 @@ void DemoLegendOptions() {
     ImGui::SliderFloat2("LegendInnerPadding", (float*)&ImPlot3D::GetStyle().LegendInnerPadding, 0.0f, 10.0f, "%.0f");
     ImGui::SliderFloat2("LegendSpacing", (float*)&ImPlot3D::GetStyle().LegendSpacing, 0.0f, 5.0f, "%.0f");
 
+    static int num_dummy_items = 25;
+    ImGui::SliderInt("Num Dummy Items (Demo Scrolling)", &num_dummy_items, 0, 100);
+
     if (ImPlot3D::BeginPlot("Legend Options Demo", ImVec2(-1, 0))) {
         ImPlot3D::SetupAxes("X-Axis", "Y-Axis", "Z-Axis");
         ImPlot3D::SetupAxesLimits(-1, 1, -1, 1, -1, 1);
@@ -837,6 +840,13 @@ void DemoLegendOptions() {
         ImPlot3D::PlotLine("Helix A", xs1, ys1, zs1, count);
         ImPlot3D::PlotLine("Helix B##IDText", xs2, ys2, zs2, count); // Text after ## used for ID only
         ImPlot3D::PlotLine("##NotListed", xs3, ys3, zs3, count);     // Plotted, but not added to legend
+
+        // Add dummy items to demonstrate legend scrolling (scroll the mouse wheel over the legend)
+        for (int i = 0; i < num_dummy_items; ++i) {
+            char label[16];
+            snprintf(label, sizeof(label), "Item %03d", i);
+            ImPlot3D::PlotDummy(label);
+        }
 
         ImPlot3D::EndPlot();
     }
