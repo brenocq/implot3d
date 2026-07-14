@@ -52,6 +52,31 @@ namespace MyImPlot3D {
 // Example for Custom Styles section
 void StyleSeaborn();
 
+// Example for Custom Data and Getters section.
+struct Vector3f {
+    Vector3f(const float x, const float y, const float z) : x(x), y(y), z(z) {}
+
+    float x;
+    float y;
+    float z;
+};
+
+// Example for Custom Data and Getters section.
+struct WaveData {
+    WaveData(const double x, const double z, const double amp, const double freq, const double offset)
+        : X(x), Z(z), Amp(amp), Freq(freq), Offset(offset) {}
+
+    double X;
+    double Z;
+    double Amp;
+    double Freq;
+    double Offset;
+};
+
+ImPlot3DPoint SineWave(int idx, const void* wave_data);
+ImPlot3DPoint SawWave(int idx, const void* wave_data);
+ImPlot3DPoint Spiral(int idx, const void* wave_data);
+
 } // namespace MyImPlot3D
 
 namespace ImPlot3D {
@@ -1753,6 +1778,47 @@ void DemoCustomPerPointStyle() {
     }
 }
 
+void DemoCustomDataAndGetters() {
+    IMGUI_DEMO_MARKER("Custom/Custom Data and Getters");
+    ImGui::BulletText("You can plot custom structs using the stride feature.");
+    ImGui::BulletText("Most plotters can also be passed a function pointer for getting data.");
+    ImGui::Indent();
+    ImGui::BulletText("You can optionally pass user data to be given to your getter function.");
+    ImGui::BulletText("Non-capturing C++ lambdas can be passed as function pointers as well!");
+    ImGui::Unindent();
+
+    if (ImPlot3D::BeginPlot("##Custom Data")) {
+        // custom structs using stride example:
+        const MyImPlot3D::Vector3f vec3_left_data[2] = {MyImPlot3D::Vector3f(0, 0, 0), MyImPlot3D::Vector3f(-1, -1, 1)};
+        const MyImPlot3D::Vector3f vec3_right_data[2] = {MyImPlot3D::Vector3f(0, 0, 0), MyImPlot3D::Vector3f(1, 1, 1)};
+
+        ImPlot3D::PlotLine("Vector3f", &vec3_left_data[0].x, &vec3_left_data[0].y, &vec3_left_data[0].z, 2,
+                           {ImPlot3DProp_Stride, sizeof(MyImPlot3D::Vector3f)});
+        ImPlot3D::PlotLine("Vector3f", &vec3_right_data[0].x, &vec3_right_data[0].y, &vec3_right_data[0].z, 2,
+                           {ImPlot3DProp_Stride, sizeof(MyImPlot3D::Vector3f)});
+
+        // custom getter example 1:
+        ImPlot3D::PlotLineG("Spiral", MyImPlot3D::Spiral, nullptr, 1000);
+
+        // custom getter example 2:
+        static MyImPlot3D::WaveData sine_data(0.001, 0.18, 0.08, 3.0, 0.25);
+        static MyImPlot3D::WaveData saw_data(0.001, 0.18, 0.08, 3.0, 0.75);
+        ImPlot3D::PlotLineG("Waves", MyImPlot3D::SineWave, &sine_data, 1000);
+        ImPlot3D::PlotLineG("Waves", MyImPlot3D::SawWave, &saw_data, 1000);
+
+        // you can also pass C++ lambdas:
+        //
+        // auto lambda = [](int idx, const void* data) -> ImPlot3DPoint {
+        //     ...
+        //     return {x, y, z};
+        // };
+        //
+        // ImPlot3D::PlotLineG("My Lambda", lambda, data, 1000);
+
+        ImPlot3D::EndPlot();
+    }
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] Config
 //-----------------------------------------------------------------------------
@@ -1914,6 +1980,7 @@ void ShowAllDemos() {
             DemoHeader("Custom Rendering", DemoCustomRendering);
             DemoHeader("Custom Overlay", DemoCustomOverlay);
             DemoHeader("Custom Per-Point Style", DemoCustomPerPointStyle);
+            DemoHeader("Custom Data and Getters", DemoCustomDataAndGetters);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Config")) {
@@ -2396,6 +2463,48 @@ void StyleSeaborn() {
     style.LabelPadding = ImVec2(5, 5);
     style.LegendPadding = ImVec2(5, 5);
     style.PlotMinSize = ImVec2(300, 225);
+}
+
+ImPlot3DPoint SineWave(const int idx, const void* const wave_data) {
+    const auto* const wd = static_cast<const MyImPlot3D::WaveData*>(wave_data);
+
+    const double x = idx * wd->X;
+    const double y = wd->Z;
+    const double z = wd->Offset + wd->Amp * ImSin(2.0 * 3.14f * wd->Freq * x);
+
+    return {x, y, z};
+}
+
+ImPlot3DPoint SawWave(const int idx, const void* const wave_data) {
+    const auto* const wd = static_cast<const MyImPlot3D::WaveData*>(wave_data);
+
+    const double x = idx * wd->X;
+    const double y = wd->Z;
+
+    const double phase = 3.14f * wd->Freq * x;
+    const double z = wd->Offset + wd->Amp * (-2.0 / 3.14f * ImAtan2(ImCos(phase), ImSin(phase)));
+
+    return {x, y, z};
+}
+
+ImPlot3DPoint Spiral(const int idx, const void*) {
+    constexpr float outer_radius = 0.9f;
+    constexpr float inner_radius = 0.0f;
+    constexpr float increment_per_rev = 0.05f;
+    constexpr int point_count = 1000;
+
+    constexpr float revolutions = (outer_radius - inner_radius) / increment_per_rev;
+    constexpr float max_theta = 2.0f * revolutions * 3.14f;
+    const float t = static_cast<float>(idx) / static_cast<float>(point_count - 1);
+    const float theta = max_theta * t;
+
+    const float radius = inner_radius + increment_per_rev * theta / (2.0f * 3.14f);
+
+    const float x = radius * ImCos(theta);
+    const float y = radius * ImSin(theta);
+    const float z = t;
+
+    return {x, y, z};
 }
 
 } // namespace MyImPlot3D
