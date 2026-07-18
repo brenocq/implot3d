@@ -19,11 +19,11 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     - name: Set PR status to review
       if: ${{ github.event.action == 'opened' || github.event.action == 'reopened' }}
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           console.log('PR opened event triggered');
@@ -124,7 +124,7 @@ jobs:
 
     - name: Set PR and linked issues to done
       if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true }}
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           console.log('PR closed and merged event triggered');
