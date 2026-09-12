@@ -1810,6 +1810,7 @@ bool BeginPlot(const char* title_id, const ImVec2& size, ImPlot3DFlags flags) {
     // Push frame rect clipping
     ImGui::PushClipRect(plot.FrameRect.Min, plot.FrameRect.Max, true);
     plot.DrawList._Flags = window->DrawList->Flags;
+    plot.DrawList._FringeScale = window->DrawList->_FringeScale;
     plot.DrawList._SharedData = ImGui::GetDrawListSharedData();
 
     return true;
