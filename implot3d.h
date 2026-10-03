@@ -479,6 +479,9 @@ struct ImPlot3DSpec {
 // Optionally use #user_data for context. Return the number of characters written (excluding null terminator)
 typedef int (*ImPlot3DFormatter)(double value, char* buff, int size, void* user_data);
 
+// Callback signature for data getter.
+typedef ImPlot3DPoint (*ImPlot3DGetter)(int idx, const void* user_data);
+
 // Callback signature for axis transform
 typedef double (*ImPlot3DTransform)(double value, void* user_data);
 
@@ -630,20 +633,50 @@ IMPLOT3D_API void SetupLegend(ImPlot3DLocation location, ImPlot3DLegendFlags fla
 // 2. If your data is in separate arrays or requires computation, you can copy/transform
 //    it into temporary float or double arrays before plotting.
 //
+// 3. Write a custom getter C function or C++ non-capturing lambda and pass it and optionally
+//    your data to an ImPlot3D function post-fixed with a G (e.g. PlotScatterG). This has a slight
+//    performance cost, but probably not enough to worry about unless your data is very large.
+//    Examples:
+//
+//    ImPlot3DPoint MyDataGetter(int idx, const void* data) {
+//        const MyData* my_data = (const MyData*)data;
+//        return ImPlot3DPoint(
+//            my_data->GetX(idx),
+//            my_data->GetY(idx),
+//            my_data->GetZ(idx)
+//        );
+//    }
+//    ...
+//    auto lambda = [](int idx, const void* data) -> ImPlot3DPoint {
+//        // ...
+//        return {x, y, z};
+//    };
+//    ...
+//    if (ImPlot3D::BeginPlot("MyPlot")) {
+//        MyData my_data;
+//        ImPlot3D::PlotScatterG("scatter", MyDataGetter, &my_data, my_data.Size());
+//        ImPlot3D::PlotLineG("line", lambda, &my_data, 1000);
+//        ImPlot3D::EndPlot();
+//    }
+//
 // NB: All types are converted to double before plotting. You may lose information
 // if you try plotting extremely large 64-bit integral types. Proceed with caution!
 
 // Plots a scatter plot in 3D. Points are rendered as markers at the specified coordinates
 IMPLOT3D_TMP void PlotScatter(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
+IMPLOT3D_API void PlotScatterG(const char* label_id, ImPlot3DGetter getter, const void* data, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plots a line in 3D. Consecutive points are connected with line segments
 IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
+IMPLOT3D_API void PlotLineG(const char* label_id, ImPlot3DGetter getter, const void* data, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plots triangles in 3D. Every 3 consecutive points define a triangle
 IMPLOT3D_TMP void PlotTriangle(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
+IMPLOT3D_API void PlotTriangleG(const char* label_id, ImPlot3DGetter getter, const void* data, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plots quads in 3D. Every 4 consecutive points define a quadrilateral
 IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
+IMPLOT3D_API void PlotQuadG(const char* label_id, ImPlot3DGetter getter, const void* data, int count, const ImPlot3DSpec& spec = ImPlot3DSpec());
 
 // Plot the surface defined by a grid of vertices. The grid is defined by the x and y arrays, and the z array contains the height of each vertex. A
 // total of x_count * y_count vertices are expected for each array. Leave #scale_min and #scale_max both at 0 for automatic color scaling, or set them
