@@ -80,6 +80,14 @@
     } while (0)
 
 IMPLOT3D_INLINE void GetLineRenderProps(const ImDrawList3D& draw_list_3d, float& half_weight, ImVec2& tex_uv0, ImVec2& tex_uv1) {
+#if IMGUI_VERSION_NUM >= 19299 || defined(IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT)
+    // ImGui 1.93+ bakes anti-aliased line textures; ImDrawList3D is not an ImDrawList, so the
+    // texture/UV and fringe are selected through the viewport's real ImDrawList instead.
+    const float screen_thickness = half_weight * 2.0f; // callers clamp weight to >= 1, so screen_thickness >= 1
+    float fringe;
+    draw_list_3d._ParentDrawList->_SelectLineTexture(screen_thickness, &tex_uv0, &tex_uv1, &fringe, draw_list_3d._Flags);
+    half_weight += 0.5f * fringe; // add half of the anti-aliasing fringe
+#else
     const bool aa = ImPlot3D::ImHasFlag(draw_list_3d._Flags, ImDrawListFlags_AntiAliasedLines) &&
                     ImPlot3D::ImHasFlag(draw_list_3d._Flags, ImDrawListFlags_AntiAliasedLinesUseTex);
     if (aa) {
@@ -90,6 +98,7 @@ IMPLOT3D_INLINE void GetLineRenderProps(const ImDrawList3D& draw_list_3d, float&
     } else {
         tex_uv0 = tex_uv1 = draw_list_3d._SharedData->TexUvWhitePixel;
     }
+#endif
 }
 
 //-----------------------------------------------------------------------------
