@@ -153,14 +153,14 @@ struct ImDrawList3D {
     ImDrawIdx* _IdxWritePtr;  // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
     double* _ZWritePtr;       // [Internal] point within ZBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
     ImDrawFlags _Flags;       // [Internal] draw flags (with IMGUI_VERSION_NUM < 19298 this will store ImDrawListFlags)
-    float _FringeScale;       // [Internal] anti-aliasing fringe scale (== 1/pixel_density), copied from the viewport's ImDrawList
     ImVector<ImTextureBufferItem> _TextureBuffer; // [Internal] buffer for SetTexture/ResetTexture
     ImDrawListSharedData* _SharedData;            // [Internal] shared draw list data
+    ImDrawList* _ParentDrawList; // [Internal] viewport's real ImDrawList, used to reach ImGui-internal helpers (e.g. _SelectLineTexture())
 
     ImDrawList3D() {
         _Flags = ImDrawFlags_None;
-        _FringeScale = 1.0f;
         _SharedData = nullptr;
+        _ParentDrawList = nullptr;
         ResetBuffers();
     }
 
