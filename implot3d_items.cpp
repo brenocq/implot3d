@@ -81,25 +81,12 @@
 
 IMPLOT3D_INLINE void GetLineRenderProps(const ImDrawList3D& draw_list_3d, float& half_weight, ImVec2& tex_uv0, ImVec2& tex_uv1) {
 #if IMGUI_VERSION_NUM >= 19299 || defined(IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT)
-    // ImGui 1.93+ bakes anti-aliased line textures with a new layout and picks them via ImDrawList::_SelectLineTexture().
-    // ImDrawList3D is not an ImDrawList, so we inline the same texture/fringe selection here, using the _FringeScale
-    // copied from the viewport's ImDrawList (needed for correct AA fringe on retina / non-unit pixel density).
+    // ImGui 1.93+ bakes anti-aliased line textures; ImDrawList3D is not an ImDrawList, so the
+    // texture/UV and fringe are selected through the viewport's real ImDrawList instead.
     const float screen_thickness = half_weight * 2.0f; // callers clamp weight to >= 1, so screen_thickness >= 1
-    if (ImPlot3D::ImHasFlag(draw_list_3d._Flags, ImDrawFlags_AALines)) {
-        int texture_idx;
-        if (screen_thickness <= IM_DRAWLIST_TEX_LINES_DETAILED_WIDTH)
-            texture_idx = (int)((screen_thickness - 1.0f) * IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT + 0.5f) + (IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1);
-        else if (screen_thickness < (float)IM_DRAWLIST_TEX_LINES_WIDTH_MAX - 1.5f)
-            texture_idx = (int)(screen_thickness + 0.5f);
-        else
-            texture_idx = IM_DRAWLIST_TEX_LINES_WIDTH_MAX - 1;
-        const ImVec4 tex_uvs = draw_list_3d._SharedData->TexUvLines[texture_idx]; // (u0, u1, v, 1/thickness)
-        tex_uv0 = ImVec2(tex_uvs.x, tex_uvs.z);
-        tex_uv1 = ImVec2(tex_uvs.y, tex_uvs.z);
-        half_weight += 0.5f * draw_list_3d._FringeScale * screen_thickness * tex_uvs.w; // add half of the anti-aliasing fringe
-    } else {
-        tex_uv0 = tex_uv1 = draw_list_3d._SharedData->TexUvWhitePixel;
-    }
+    float fringe;
+    draw_list_3d._ParentDrawList->_SelectLineTexture(screen_thickness, &tex_uv0, &tex_uv1, &fringe, draw_list_3d._Flags);
+    half_weight += 0.5f * fringe; // add half of the anti-aliasing fringe
 #else
     const bool aa = ImPlot3D::ImHasFlag(draw_list_3d._Flags, ImDrawListFlags_AntiAliasedLines) &&
                     ImPlot3D::ImHasFlag(draw_list_3d._Flags, ImDrawListFlags_AntiAliasedLinesUseTex);
