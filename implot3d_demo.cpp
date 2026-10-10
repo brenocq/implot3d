@@ -843,7 +843,7 @@ void DemoLegendOptions() {
 
         // Add dummy items to demonstrate legend scrolling (scroll the mouse wheel over the legend)
         for (int i = 0; i < num_dummy_items; ++i) {
-            char label[16];
+            char label[32];
             snprintf(label, sizeof(label), "Item %03d", i);
             ImPlot3D::PlotDummy(label);
         }
