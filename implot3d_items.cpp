@@ -1017,6 +1017,20 @@ template <typename TGX, typename TGY, typename TGZ> struct GetterMeshTriangles {
     int Count;
 };
 
+/// Interprets a user's function pointer as ImPlot3DPoints
+struct GetterFuncPtr {
+    GetterFuncPtr(const ImPlot3DGetter getter, const void* const data, const int count) : Getter(getter), Data(data), Count(count) {}
+
+    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator[](I idx) const { return Getter(idx, Data); }
+
+    template <typename I> IMPLOT3D_INLINE ImPlot3DPoint operator()(I idx) const { return Getter(idx, Data); }
+
+    ImPlot3DGetter Getter;
+    const void* const Data;
+    const int Count;
+    typedef ImPlot3DPoint value_type;
+};
+
 //-----------------------------------------------------------------------------
 // [SECTION] Color and Size Getters
 //-----------------------------------------------------------------------------
@@ -1273,6 +1287,13 @@ template <typename T> void PlotScatter(const char* label_id, const T* xs, const 
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
+IMPLOT3D_API void PlotScatterG(const char* const label_id, const ImPlot3DGetter getter, const void* data, const int count, const ImPlot3DSpec& spec) {
+    if (count < 1)
+        return;
+
+    return PlotScatterEx(label_id, GetterFuncPtr(getter, data, count), spec);
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] PlotLine
 //-----------------------------------------------------------------------------
@@ -1341,6 +1362,13 @@ IMPLOT3D_TMP void PlotLine(const char* label_id, const T* xs, const T* ys, const
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
+IMPLOT3D_API void PlotLineG(const char* const label_id, const ImPlot3DGetter getter, const void* data, const int count, const ImPlot3DSpec& spec) {
+    if (count < 2)
+        return;
+
+    return PlotLineEx(label_id, GetterFuncPtr(getter, data, count), spec);
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] PlotTriangle
 //-----------------------------------------------------------------------------
@@ -1391,6 +1419,14 @@ IMPLOT3D_TMP void PlotTriangle(const char* label_id, const T* xs, const T* ys, c
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
 
+IMPLOT3D_API void PlotTriangleG(const char* const label_id, const ImPlot3DGetter getter, const void* data, const int count,
+                                const ImPlot3DSpec& spec) {
+    if (count < 3)
+        return;
+
+    return PlotTriangleEx(label_id, GetterFuncPtr(getter, data, count), spec);
+}
+
 //-----------------------------------------------------------------------------
 // [SECTION] PlotQuad
 //-----------------------------------------------------------------------------
@@ -1439,6 +1475,13 @@ IMPLOT3D_TMP void PlotQuad(const char* label_id, const T* xs, const T* ys, const
     template IMPLOT3D_API void PlotQuad<T>(const char* label_id, const T* xs, const T* ys, const T* zs, int count, const ImPlot3DSpec& spec);
 CALL_INSTANTIATE_FOR_NUMERIC_TYPES()
 #undef INSTANTIATE_MACRO
+
+IMPLOT3D_API void PlotQuadG(const char* const label_id, const ImPlot3DGetter getter, const void* data, const int count, const ImPlot3DSpec& spec) {
+    if (count < 3)
+        return;
+
+    return PlotQuadEx(label_id, GetterFuncPtr(getter, data, count), spec);
+}
 
 //-----------------------------------------------------------------------------
 // [SECTION] PlotSurface
