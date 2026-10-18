@@ -85,11 +85,12 @@ IMPLOT3D_INLINE void GetLineRenderProps(const ImDrawList3D& draw_list_3d, float&
     // texture/UV and fringe are selected through the viewport's real ImDrawList instead.
     const float screen_thickness = half_weight * 2.0f; // callers clamp weight to >= 1, so screen_thickness >= 1
     float fringe;
-    draw_list_3d._ParentDrawList->_SelectLineTexture(screen_thickness, &tex_uv0, &tex_uv1, &fringe, draw_list_3d._Flags);
+    draw_list_3d._ParentDrawList->_SelectLineTexture(screen_thickness, &tex_uv0, &tex_uv1, &fringe, draw_list_3d._ParentDrawList->Flags);
     half_weight += 0.5f * fringe; // add half of the anti-aliasing fringe
 #else
-    const bool aa = ImPlot3D::ImHasFlag(draw_list_3d._Flags, ImDrawListFlags_AntiAliasedLines) &&
-                    ImPlot3D::ImHasFlag(draw_list_3d._Flags, ImDrawListFlags_AntiAliasedLinesUseTex);
+    const ImDrawListFlags flags = draw_list_3d._ParentDrawList->Flags;
+    const bool aa =
+        ImPlot3D::ImHasFlag(flags, ImDrawListFlags_AntiAliasedLines) && ImPlot3D::ImHasFlag(flags, ImDrawListFlags_AntiAliasedLinesUseTex);
     if (aa) {
         ImVec4 tex_uvs = draw_list_3d._SharedData->TexUvLines[(int)(half_weight * 2)];
         tex_uv0 = ImVec2(tex_uvs.x, tex_uvs.y);
