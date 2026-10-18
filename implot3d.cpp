@@ -1809,8 +1809,8 @@ bool BeginPlot(const char* title_id, const ImVec2& size, ImPlot3DFlags flags) {
 
     // Push frame rect clipping
     ImGui::PushClipRect(plot.FrameRect.Min, plot.FrameRect.Max, true);
-    plot.DrawList._Flags = window->DrawList->Flags;
     plot.DrawList._SharedData = ImGui::GetDrawListSharedData();
+    plot.DrawList._ParentDrawList = window->DrawList;
 
     return true;
 }
