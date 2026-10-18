@@ -280,27 +280,31 @@ void BustItemCache() {
 // [SECTION] Draw Utils
 //-----------------------------------------------------------------------------
 
-IMPLOT3D_INLINE void PrimLine(ImDrawList3D& draw_list_3d, const ImVec2& P1, const ImVec2& P2, float half_weight, ImU32 col, const ImVec2& tex_uv0,
-                              const ImVec2& tex_uv1, double z) {
+// Unit normal of the screen-space segment P1-P2, (0, 0) when the segment has no length
+IMPLOT3D_INLINE ImVec2 GetLineNormal(const ImVec2& P1, const ImVec2& P2) {
     float dx = P2.x - P1.x;
     float dy = P2.y - P1.y;
     IMPLOT3D_NORMALIZE2F(dx, dy);
-    dx *= half_weight;
-    dy *= half_weight;
-    draw_list_3d._VtxWritePtr[0].pos.x = P1.x + dy;
-    draw_list_3d._VtxWritePtr[0].pos.y = P1.y - dx;
+    return ImVec2(dy, -dx);
+}
+
+// Draws a line segment as a quad. The quad edges are at P1 +- offset1 and P2 +- offset2
+IMPLOT3D_INLINE void PrimLine(ImDrawList3D& draw_list_3d, const ImVec2& P1, const ImVec2& P2, const ImVec2& offset1, const ImVec2& offset2, ImU32 col,
+                              const ImVec2& tex_uv0, const ImVec2& tex_uv1, double z) {
+    draw_list_3d._VtxWritePtr[0].pos.x = P1.x + offset1.x;
+    draw_list_3d._VtxWritePtr[0].pos.y = P1.y + offset1.y;
     draw_list_3d._VtxWritePtr[0].uv = tex_uv0;
     draw_list_3d._VtxWritePtr[0].col = col;
-    draw_list_3d._VtxWritePtr[1].pos.x = P2.x + dy;
-    draw_list_3d._VtxWritePtr[1].pos.y = P2.y - dx;
+    draw_list_3d._VtxWritePtr[1].pos.x = P2.x + offset2.x;
+    draw_list_3d._VtxWritePtr[1].pos.y = P2.y + offset2.y;
     draw_list_3d._VtxWritePtr[1].uv = tex_uv0;
     draw_list_3d._VtxWritePtr[1].col = col;
-    draw_list_3d._VtxWritePtr[2].pos.x = P2.x - dy;
-    draw_list_3d._VtxWritePtr[2].pos.y = P2.y + dx;
+    draw_list_3d._VtxWritePtr[2].pos.x = P2.x - offset2.x;
+    draw_list_3d._VtxWritePtr[2].pos.y = P2.y - offset2.y;
     draw_list_3d._VtxWritePtr[2].uv = tex_uv1;
     draw_list_3d._VtxWritePtr[2].col = col;
-    draw_list_3d._VtxWritePtr[3].pos.x = P1.x - dy;
-    draw_list_3d._VtxWritePtr[3].pos.y = P1.y + dx;
+    draw_list_3d._VtxWritePtr[3].pos.x = P1.x - offset1.x;
+    draw_list_3d._VtxWritePtr[3].pos.y = P1.y - offset1.y;
     draw_list_3d._VtxWritePtr[3].uv = tex_uv1;
     draw_list_3d._VtxWritePtr[3].col = col;
     draw_list_3d._VtxWritePtr += 4;
@@ -315,6 +319,52 @@ IMPLOT3D_INLINE void PrimLine(ImDrawList3D& draw_list_3d, const ImVec2& P1, cons
     draw_list_3d._ZWritePtr[0] = z;
     draw_list_3d._ZWritePtr[1] = z;
     draw_list_3d._ZWritePtr += 2;
+}
+
+// Draws a line segment as a quad with square ends
+IMPLOT3D_INLINE void PrimLine(ImDrawList3D& draw_list_3d, const ImVec2& P1, const ImVec2& P2, float half_weight, ImU32 col, const ImVec2& tex_uv0,
+                              const ImVec2& tex_uv1, double z) {
+    const ImVec2 offset = GetLineNormal(P1, P2) * half_weight;
+    PrimLine(draw_list_3d, P1, P2, offset, offset, col, tex_uv0, tex_uv1, z);
+}
+
+// Line strips are drawn as one quad per segment so that each segment is depth sorted on its own. With square ends, two
+// segments meeting at an angle leave a thin uncovered wedge on the outer side of the bend; it is a fraction of a pixel
+// wide, but whenever a pixel center falls inside it that pixel is not drawn at all, which shows as 1px gaps along smooth
+// curves. To avoid that, consecutive segments share their end edge at the joint, offset along the miter direction.
+struct LineStripJoint {
+    bool Valid = false; // The previous segment ended at this joint and the next one must start from the same edge
+    ImVec2 Pos;         // Joint position in pixels
+    ImVec2 Offset;      // From the joint to the shared quad edge
+};
+
+// Offset from a joint to the edge shared by two segments with unit normals n1 and n2. Returns false for degenerate
+// segments (zero length or NaN) and for turns sharper than 120 degrees, where the miter would grow past twice the line width
+IMPLOT3D_INLINE bool GetLineJointOffset(const ImVec2& n1, const ImVec2& n2, float half_weight, ImVec2& offset) {
+    if ((n1.x == 0.0f && n1.y == 0.0f) || (n2.x == 0.0f && n2.y == 0.0f))
+        return false;
+    const float mx = (n1.x + n2.x) * 0.5f;
+    const float my = (n1.y + n2.y) * 0.5f;
+    const float d2 = mx * mx + my * my; // Squared cosine of half the turn angle
+    if (!(d2 >= 0.25f))
+        return false;
+    offset = ImVec2(mx / d2 * half_weight, my / d2 * half_weight);
+    return true;
+}
+
+// Draws the clipped segment P1-P2 of a line strip. P3 is the next point of the strip, or nullptr when the strip does
+// not continue from P2 (end of the strip, NaN, or P2 clipped). Updates the joint for the next segment
+IMPLOT3D_INLINE void PrimLineStrip(ImDrawList3D& draw_list_3d, LineStripJoint& joint, const ImPlot3DPoint& P1, const ImPlot3DPoint& P2,
+                                   const ImPlot3DPoint* P3, float half_weight, ImU32 col, const ImVec2& tex_uv0, const ImVec2& tex_uv1, double z) {
+    const ImVec2 P1_screen = joint.Valid ? joint.Pos : PlotToPixels(P1);
+    const ImVec2 P2_screen = PlotToPixels(P2);
+    const ImVec2 normal = GetLineNormal(P1_screen, P2_screen);
+    const ImVec2 offset1 = joint.Valid ? joint.Offset : normal * half_weight;
+    ImVec2 offset2 = normal * half_weight;
+    joint.Valid = P3 != nullptr && GetLineJointOffset(normal, GetLineNormal(P2_screen, PlotToPixels(*P3)), half_weight, offset2);
+    joint.Pos = P2_screen;
+    joint.Offset = offset2;
+    PrimLine(draw_list_3d, P1_screen, P2_screen, offset1, offset2, col, tex_uv0, tex_uv1, z);
 }
 
 //-----------------------------------------------------------------------------
@@ -439,11 +489,16 @@ template <class _Getter, class _GetterColor> struct RendererLineStrip : Renderer
         bool visible = cull_box.ClipLineSegment(P1_plot, P2_plot, P1_clipped, P2_clipped);
 
         if (visible) {
-            // Convert clipped points to pixel coordinates
-            ImVec2 P1_screen = PlotToPixels(P1_clipped);
-            ImVec2 P2_screen = PlotToPixels(P2_clipped);
+            // Join with the next segment when the strip continues through P2 unclipped
+            ImPlot3DPoint P3_plot;
+            const bool has_next = prim + 2 < Getter.Count && cull_box.Contains(P2_plot);
+            if (has_next)
+                P3_plot = Getter(prim + 2);
             // Render the line segment
-            PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, ColGetter(prim), UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
+            PrimLineStrip(draw_list_3d, Joint, P1_clipped, P2_clipped, has_next ? &P3_plot : nullptr, HalfWeight, ColGetter(prim), UV0, UV1,
+                          GetPointDepth((P1_plot + P2_plot) * 0.5));
+        } else {
+            Joint.Valid = false;
         }
 
         // Update for next segment
@@ -456,6 +511,7 @@ template <class _Getter, class _GetterColor> struct RendererLineStrip : Renderer
     const _GetterColor ColGetter;
     mutable float HalfWeight;
     mutable ImPlot3DPoint P1_plot;
+    mutable LineStripJoint Joint;
     mutable ImVec2 UV0;
     mutable ImVec2 UV1;
 };
@@ -482,13 +538,20 @@ template <class _Getter, class _GetterColor> struct RendererLineStripSkip : Rend
             visible = cull_box.ClipLineSegment(P1_plot, P2_plot, P1_clipped, P2_clipped);
 
             if (visible) {
-                // Convert clipped points to pixel coordinates
-                ImVec2 P1_screen = PlotToPixels(P1_clipped);
-                ImVec2 P2_screen = PlotToPixels(P2_clipped);
+                // Join with the next segment when the strip continues through P2 unclipped
+                ImPlot3DPoint P3_plot;
+                bool has_next = prim + 2 < Getter.Count && cull_box.Contains(P2_plot);
+                if (has_next) {
+                    P3_plot = Getter(prim + 2);
+                    has_next = !ImNan(P3_plot.x) && !ImNan(P3_plot.y) && !ImNan(P3_plot.z);
+                }
                 // Render the line segment
-                PrimLine(draw_list_3d, P1_screen, P2_screen, HalfWeight, ColGetter(prim), UV0, UV1, GetPointDepth((P1_plot + P2_plot) * 0.5));
+                PrimLineStrip(draw_list_3d, Joint, P1_clipped, P2_clipped, has_next ? &P3_plot : nullptr, HalfWeight, ColGetter(prim), UV0, UV1,
+                              GetPointDepth((P1_plot + P2_plot) * 0.5));
             }
         }
+        if (!visible)
+            Joint.Valid = false;
 
         // Update P1_plot if P2_plot is valid
         if (!ImNan(P2_plot.x) && !ImNan(P2_plot.y) && !ImNan(P2_plot.z))
@@ -501,6 +564,7 @@ template <class _Getter, class _GetterColor> struct RendererLineStripSkip : Rend
     const _GetterColor ColGetter;
     mutable float HalfWeight;
     mutable ImPlot3DPoint P1_plot;
+    mutable LineStripJoint Joint;
     mutable ImVec2 UV0;
     mutable ImVec2 UV1;
 };
