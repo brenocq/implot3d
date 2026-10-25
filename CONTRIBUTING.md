@@ -38,7 +38,7 @@ To ensure the codebase remains consistent, high-quality, and easy to maintain, p
 
 ### Code Style and Formatting
 
-  - **C++ Best Practices**: Adhere to idiomatic C++ and maintain high code quality. Do not use the C++ standard library. Only use C++ features available in C++11. 
+  - **C++ Best Practices**: Adhere to idiomatic C++ and maintain high code quality. Do not use the C++ standard library. Only use C++ features available in C++11.
   - **Maintain ImGui/ImPlot3D Style**: Ensure new code integrates seamlessly with the existing codebase's style and API patterns.
   - **Formatting**: Use **`clang-format`** to format your code before committing. This ensures a consistent style across the entire project.
 
