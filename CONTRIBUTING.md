@@ -53,8 +53,11 @@ Follow the **[Conventional Commits](https://www.conventionalcommits.org/)** spec
   - **refactor**: Code changes that neither fix a bug nor add a feature.
   - **docs**: Documentation only changes.
   - **style**: Changes that do not affect the meaning of the code (e.g., `clang-format`).
+  - **perf**: A change that improves performance.
   - **test**: Adding missing tests or correcting existing tests.
-  - **chore**: Changes to the build process or auxiliary tools.
+  - **build**: Changes to the build system (e.g., CMake).
+  - **ci**: Changes to the CI workflows.
+  - **chore**: Other maintenance, such as dependency bumps (`chore(deps):`).
 
 **Examples:**
 
@@ -66,6 +69,24 @@ style: apply clang-format to codebase
 refactor: restructure internal data handling for performance
 test: add unit tests for plot data validation
 chore: update ImGui dependency to latest version
+```
+
+### Pull Request Titles
+
+Pull requests are merged with a merge commit titled after the PR, so the PR title becomes the commit in `main`'s history (`feat: OpenGL backend (#180)`). Write it like a commit message:
+
+  - **Type**: Lowercase type from the list above, optionally with a scope (`chore(deps):`), and `!` for a breaking change (`fix!:`).
+  - **Description**: Starts lowercase, unless it begins with a name from the code (`PlotSurface`, `ImPlot3DFlags_Equal`) or a proper noun (OpenGL, macOS).
+  - **Keep it short**: Say what changes, without filler such as "Add support for" or "Implementation of", and without a trailing period.
+
+**Examples:**
+
+```
+feat: OpenGL backend                      (not "Feat: OpenGL Backend")
+feat: quiver (vector field) plot          (not "feat: quiver (vector field) plot added.")
+fix: inverted rotation when plot is upside down
+fix!: triangle sorting with large values (migrate to `double`)
+chore(deps): bump actions/checkout from 5 to 6
 ```
 
 ### Documentation and Demos
