@@ -387,8 +387,10 @@ void DemoSurfacePlots() {
 
         // Custom per-point colors
         ImGui::RadioButton("Custom Per-Point", &selected_fill, 2);
-        if (selected_fill == 2)
-            ImGui::SameLine(), ImGui::TextDisabled("R=x, G=y, B=z");
+        if (selected_fill == 2) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("R=x, G=y, B=z");
+        }
 
         ImGui::Unindent();
     }
