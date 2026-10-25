@@ -1447,7 +1447,12 @@ void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float p
     const int nMajor = ImMax(2, (int)IM_ROUND(pixels / 80.0f));
     const int max_ticks_labels = 7;
     const double nice_range = NiceNum(range.Size() * 0.99, false);
-    const double interval = NiceNum(nice_range / (nMajor - 1), true);
+    double interval = NiceNum(nice_range / (nMajor - 1), true);
+    // Keep interval >= one ULP so `major += interval` always advances (e.g. range from SetupAxisLimits(v, v))
+    const double magnitude = ImMax(ImAbs(range.Min), ImAbs(range.Max));
+    const double min_interval = nextafter(magnitude, HUGE_VAL) - magnitude;
+    if (interval < min_interval)
+        interval = min_interval;
     const double graphmin = floor(range.Min / interval) * interval;
     const double graphmax = ceil(range.Max / interval) * interval;
     bool first_major_set = false;
