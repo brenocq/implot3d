@@ -1,0 +1,200 @@
+
+    <svg width="670" height="100" xmlns="http://www.w3.org/2000/svg">
+        <!-- https://github.com/brenocq/implot3d/issues/199 -->
+
+        <!-- Definitions -->
+        <defs>
+            <clipPath id="circle-clip">
+                <circle cx="0" cy="0" r="17.5" />
+            </clipPath>
+        </defs>
+
+        <!-- Style -->
+        
+<style>
+    :root {
+         --border-color: #d1d9e0;
+         --fgColor-default: #1f2328;
+         --fgColor-accent: #0969da;
+         --fgColor-muted: #59636e;
+         --fgColor-success: #1a7f37;
+         --fgColor-danger: #d1242f;
+         --fgColor-done: #8250df;
+         --bgColor-neutral-muted: #818b981f;
+         --bgColor-success: #1f883d;
+         --text-large: 1rem;
+         --text-medium: 0.875rem;
+         --text-small: 0.75rem;
+         --text-weight-light: 300;
+         --text-weight-normal: 400;
+         --text-weight-medium: 500;
+         --text-weight-semibold: 600;
+     }
+
+    text {
+        font-family: Arial, sans-serif;
+        font-size: var(--text-medium);
+    }
+
+    text.title {
+        fill: var(--fgColor-default);
+        font-size: var(--text-large);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.small {
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.medium {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-normal);
+    }
+
+    text.muted {
+        fill: var(--fgColor-muted);
+    }
+
+    text.counter {
+        fill: var(--fgColor-muted);
+        font-size: 40px;
+        text-anchor: middle;
+    }
+
+    text.button {
+        font-size: 14px;
+        fill: var(--fgColor-default);
+    }
+
+    text.label {
+        font-size: var(--text-medium);
+        font-weight: var(--text-weight-semibold);
+    }
+
+    text.label-muted {
+        fill: var(--fgColor-muted);
+        font-size: var(--text-small);
+        font-weight: var(--text-weight-normal);
+    }
+
+    rect.labelBg {
+        fill-opacity: 1.0;
+    }
+
+    rect.labelBg-muted {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 0.5px;
+    }
+
+    rect.card {
+        fill: none;
+        stroke: var(--border-color);
+        stroke-width: 1.5px;
+        rx: 6px;
+        ry: 6px;
+    }
+
+    rect.progress-bg {
+        fill: var(--bgColor-neutral-muted);
+    }
+
+    rect.progress-fill {
+        fill: var(--bgColor-success);
+    }
+
+    .icon-open {
+        fill: var(--fgColor-success);
+    }
+
+    .icon-closed {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-completed {
+        fill: var(--fgColor-done);
+    }
+
+    .icon-danger {
+        fill: var(--fgColor-danger);
+    }
+
+    .icon-muted {
+        fill: var(--fgColor-muted);
+    }
+
+    .icon-default {
+        fill: var(--fgColor-default);
+    }
+
+    @media (prefers-color-scheme: light) {
+        text.label {
+            fill: #000000;
+        }
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --border-color: #3d444d;
+            --fgColor-default: #d1d7e0;
+            --fgColor-muted: #9198a1;
+            --fgColor-accent: #478be6;
+            --fgColor-success: #57ab5a;
+            --fgColor-danger: #e5534b;
+            --fgColor-done: #986ee2;
+            --bgColor-neutral-muted: #656c7633;
+            --bgColor-success: #347d39;
+            --button-background-color: #2a313c;
+        }
+
+        rect.labelBg {
+            fill-opacity: 0.2;
+        }
+    }
+</style>
+
+
+        <!-- Card Background -->
+        <rect class="card" x="0" y="0" width="670" height="100"/>
+
+        <!-- Issue Icon -->
+        <path class="icon-open" transform="translate(8, 8)" d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/>
+
+        <!-- Issue Title -->
+        <text class="title" x="28" y="18.0" text-anchor="start" dominant-baseline="middle">
+            Add the ability for one to change the mo... <tspan style="fill: var(--fgColor-muted);font-weight: var(--text-weight-normal);">#199</tspan>
+        </text>
+
+        
+        <!-- Label -->
+        <g transform="translate(627.5, 8)">
+            <rect class="labelBg-muted" x="-30.5" y="0" width="61" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">type:feat</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(555.5, 8)">
+            <rect class="labelBg-muted" x="-37.5" y="0" width="75" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">prio:medium</text>
+        </g>
+        
+        <!-- Label -->
+        <g transform="translate(479.0, 8)">
+            <rect class="labelBg-muted" x="-35.0" y="0" width="70" height="16" rx="8.0"/>
+            <text class="label-muted" x="0" y="9.0" text-anchor="middle" dominant-baseline="middle">status:idea</text>
+        </g>
+        
+        <!-- Contributor Comment -->
+        <text class="small" fill="var(--fgColor-muted)" x="8" y="91"><tspan style="text-decoration: underline;">hyblocker</tspan> opened on Oct 11</text>
+    
+        <!-- Avatars -->
+        
+            <g transform="translate(644.5, 54.0)">
+                <image x="-17.5" y="-17.5" width="35" height="35" href="data:image/png;base64,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" clip-path="url(#circle-clip)" />
+                <circle cx="0" cy="0" r="17.5" fill="none" stroke="var(--border-color)" stroke-width="1" />
+            </g>
+            
+        
+    </svg>
+    
