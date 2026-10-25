@@ -8,6 +8,10 @@ on:
     types: [created]
   push:
 
+concurrency:
+  group: update-readme
+  cancel-in-progress: true
+
 jobs:
   generate-svgs:
     name: Generate SVGs
