@@ -461,7 +461,7 @@ void RenderLegend() {
 
     // Test hover (using the clamped rect so off-screen overflow does not register)
     // clang-format off
-    const ImGuiButtonFlags legend_button_flags = ImGuiButtonFlags_AllowOverlap
+    const ImGuiButtonFlags legend_button_flags = (ImGuiButtonFlags)ImGuiButtonFlags_AllowOverlap
                                                | ImGuiButtonFlags_PressedOnClick
                                                | ImGuiButtonFlags_PressedOnDoubleClick
                                                | ImGuiButtonFlags_MouseButtonLeft
@@ -2380,7 +2380,7 @@ void HandleInput(ImPlot3DPlot& plot) {
     ImGuiIO& IO = ImGui::GetIO();
 
     // clang-format off
-    const ImGuiButtonFlags plot_button_flags = ImGuiButtonFlags_AllowOverlap
+    const ImGuiButtonFlags plot_button_flags = (ImGuiButtonFlags)ImGuiButtonFlags_AllowOverlap
                                              | ImGuiButtonFlags_PressedOnClick
                                              | ImGuiButtonFlags_PressedOnDoubleClick
                                              | ImGuiButtonFlags_MouseButtonLeft
