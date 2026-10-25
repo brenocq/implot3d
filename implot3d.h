@@ -370,7 +370,7 @@ enum ImPlot3DColormap_ {
 //    spec.LineColor = ImVec4(1,0,0,1);
 //    spec.LineWeight = 2.0f;
 //    spec.Marker = ImPlot3DMarker_Circle;
-//    spec.Flags = ImPlot3DItemFlags_NoLegend | ImPlot3DLineFlags_Segments;
+//    spec.Flags = (ImPlot3DItemFlags)ImPlot3DItemFlags_NoLegend | ImPlot3DLineFlags_Segments;
 //    ImPlot3D::PlotLine("MyLine", xs, ys, zs, 100, spec);
 //
 // 2. Inline using ImPlot3DProp,value pairs (order does NOT matter):
@@ -379,7 +379,7 @@ enum ImPlot3DColormap_ {
 //      ImPlot3DProp_LineColor, ImVec4(1,0,0,1),
 //      ImPlot3DProp_LineWeight, 2.0f,
 //      ImPlot3DProp_Marker, ImPlot3DMarker_Circle,
-//      ImPlot3DProp_Flags, ImPlot3DItemFlags_NoLegend | ImPlot3DLineFlags_Segments
+//      ImPlot3DProp_Flags, (ImPlot3DItemFlags)ImPlot3DItemFlags_NoLegend | ImPlot3DLineFlags_Segments
 //    });
 struct ImPlot3DSpec {
     ImVec4 LineColor = IMPLOT3D_AUTO_COL;        // Line color; IMPLOT3D_AUTO_COL will use next Colormap color
