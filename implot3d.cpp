@@ -1415,6 +1415,17 @@ int Formatter_Default(double value, char* buff, int size, void* data) {
 // [SECTION] Locator
 //------------------------------------------------------------------------------
 
+// The locators' pixel densities (e.g. one major tick per 80 pixels) are for a font scale of 1: the tick spacing
+// grows with the font scale, as the labels do. On Windows at 250%, a plot and its labels are 2.5 times wider in pixels.
+static float TickSpacingScale() {
+#if IMGUI_VERSION_NUM >= 19200
+    const ImGuiStyle& style = ImGui::GetStyle();
+    return style.FontScaleMain * style.FontScaleDpi;
+#else
+    return ImGui::GetIO().FontGlobalScale;
+#endif
+}
+
 double NiceNum(double x, bool round) {
     double f;
     double nf;
@@ -1443,8 +1454,9 @@ double NiceNum(double x, bool round) {
 void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float pixels, ImPlot3DFormatter formatter, void* formatter_data) {
     if (range.Min == range.Max)
         return;
-    const int nMinor = ImMin(ImMax(1, (int)IM_ROUND(pixels / 30.0f)), 5);
-    const int nMajor = ImMax(2, (int)IM_ROUND(pixels / 80.0f));
+    const float pixels_unscaled = pixels / TickSpacingScale();
+    const int nMinor = ImMin(ImMax(1, (int)IM_ROUND(pixels_unscaled / 30.0f)), 5);
+    const int nMajor = ImMax(2, (int)IM_ROUND(pixels_unscaled / 80.0f));
     const int max_ticks_labels = 7;
     const double nice_range = NiceNum(range.Size() * 0.99, false);
     double interval = NiceNum(nice_range / (nMajor - 1), true);
@@ -1488,7 +1500,7 @@ void Locator_Default(ImPlot3DTicker& ticker, const ImPlot3DRange& range, float p
 
 bool CalcLogarithmicExponents(const ImPlot3DRange& range, float pix, int& exp_min, int& exp_max, int& exp_step) {
     if (range.Min * range.Max > 0) {
-        const int nMajor = ImMax(2, (int)IM_ROUND(pix * 0.01f)); // TODO: magic numbers
+        const int nMajor = ImMax(2, (int)IM_ROUND(pix / TickSpacingScale() * 0.01f)); // TODO: magic numbers
         double log_min = ImLog10(ImAbs(range.Min));
         double log_max = ImLog10(ImAbs(range.Max));
         double log_a = ImMin(log_min, log_max);
